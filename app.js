@@ -40,7 +40,8 @@ class DataManager {
         this.validateMasterDataIntegrity();
         setTimeout(() => {
             this.refreshAllComponents();
-            this.startPeriodicSync();
+            // Start periodic sync after Google APIs have time to load
+            setTimeout(() => this.startPeriodicSync(), 5000);
         }, 100);
     }
 
@@ -1224,6 +1225,9 @@ function showTab(tabId) {
                 document.getElementById('printDate').textContent = new Date().toLocaleDateString();
             }, 100);
             break;
+        case 'logs':
+            setTimeout(refreshSyncLogs, 100);
+            break;
     }
 }
 
@@ -1800,6 +1804,70 @@ function importData() {
     input.click();
 }
 
+// Sync Logs Functions
+function refreshSyncLogs() {
+    const logs = JSON.parse(localStorage.getItem('lams_sync_logs') || '[]');
+    const logsList = document.getElementById('syncLogsList');
+    
+    if (!logsList) return;
+    
+    if (logs.length === 0) {
+        logsList.innerHTML = '<p class="empty-state">No sync logs available.</p>';
+        return;
+    }
+    
+    logsList.innerHTML = logs.map(log => {
+        const statusIcon = {
+            'success': '✅',
+            'error': '❌', 
+            'info': 'ℹ️'
+        }[log.status] || '📝';
+        
+        const typeLabel = {
+            'save': 'Save to Drive',
+            'load': 'Load from Drive',
+            'auto': 'Auto Sync'
+        }[log.type] || log.type;
+        
+        return `
+            <div class="log-entry log-${log.status}">
+                <div class="log-header">
+                    <span class="log-icon">${statusIcon}</span>
+                    <span class="log-type">${typeLabel}</span>
+                    <span class="log-time">${new Date(log.timestamp).toLocaleString()}</span>
+                </div>
+                <div class="log-message">${log.message}</div>
+                ${log.details ? `
+                    <div class="log-details">
+                        <small>${JSON.stringify(log.details, null, 2)}</small>
+                    </div>
+                ` : ''}
+                <div class="log-user">User: ${log.user}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function clearSyncLogs() {
+    if (confirm('Are you sure you want to clear all sync logs?')) {
+        localStorage.removeItem('lams_sync_logs');
+        refreshSyncLogs();
+        showMessage('Sync logs cleared', 'success');
+    }
+}
+
+function exportSyncLogs() {
+    const logs = JSON.parse(localStorage.getItem('lams_sync_logs') || '[]');
+    const blob = new Blob([JSON.stringify(logs, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sync-logs-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showMessage('Sync logs exported', 'success');
+}
+
 // Export functions for global access
 window.dataManager = dataManager;
 window.notificationManager = notificationManager;
@@ -1818,3 +1886,6 @@ window.deleteFaculty = deleteFaculty;
 window.deleteAssignment = deleteAssignment;
 window.editAcademicYear = editAcademicYear;
 window.toggleScheduleOrientation = toggleScheduleOrientation;
+window.refreshSyncLogs = refreshSyncLogs;
+window.clearSyncLogs = clearSyncLogs;
+window.exportSyncLogs = exportSyncLogs;

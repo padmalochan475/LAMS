@@ -71,6 +71,10 @@
                 <span class="nav-icon">🖨️</span>
                 Print Schedule
             </button>
+            <button class="nav-tab admin-only" onclick="showTab('logs')" style="display: none;">
+                <span class="nav-icon">📝</span>
+                Sync Logs
+            </button>
         </nav>
 
         <!-- Loading Screen -->
@@ -519,6 +523,27 @@
                 </div>
                 <div class="print-footer">
                     <p>For any queries, contact the Lab Coordinator</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sync Logs Tab -->
+        <div class="tab-content" id="logs-tab">
+            <div class="glass-card">
+                <h2>Google Drive Sync Logs</h2>
+                <div class="logs-controls">
+                    <button class="btn btn--secondary" onclick="refreshSyncLogs()">
+                        <span class="nav-icon">🔄</span> Refresh
+                    </button>
+                    <button class="btn btn--outline" onclick="clearSyncLogs()">
+                        <span class="nav-icon">🗑️</span> Clear Logs
+                    </button>
+                    <button class="btn btn--secondary" onclick="exportSyncLogs()">
+                        <span class="nav-icon">📥</span> Export Logs
+                    </button>
+                </div>
+                <div id="syncLogsList" class="sync-logs-list">
+                    <p class="empty-state">No sync logs available.</p>
                 </div>
             </div>
         </div>

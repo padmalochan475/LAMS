@@ -29,15 +29,26 @@ class AuthManager {
     }
 
     async initializeGoogleAPI() {
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
+            if (!window.gapi) {
+                reject(new Error('Google API not loaded'));
+                return;
+            }
+            
             gapi.load('client:auth2', async () => {
-                await gapi.client.init({
-                    apiKey: this.API_KEY,
-                    clientId: this.CLIENT_ID,
-                    discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-                    scope: 'https://www.googleapis.com/auth/drive.file'
-                });
-                resolve();
+                try {
+                    await gapi.client.init({
+                        apiKey: this.API_KEY,
+                        clientId: this.CLIENT_ID,
+                        discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+                        scope: CONFIG.OAUTH_SCOPE
+                    });
+                    console.log('Google API initialized successfully');
+                    resolve();
+                } catch (error) {
+                    console.error('Google API initialization failed:', error);
+                    reject(error);
+                }
             });
         });
     }
@@ -62,8 +73,8 @@ class AuthManager {
                 localStorage.setItem('userSession', JSON.stringify(this.currentUser));
                 console.log('Admin signed in, session saved');
                 this.updateUI();
-                // Auto-load data from Google Drive
-                setTimeout(() => this.loadFromDrive(), 1000);
+                // Auto-load data from Google Drive after APIs are ready
+                setTimeout(() => this.loadFromDrive(), 3000);
                 return;
             }
             
@@ -76,8 +87,8 @@ class AuthManager {
                 localStorage.setItem('userSession', JSON.stringify(this.currentUser));
                 console.log('Approved user signed in, session saved');
                 this.updateUI();
-                // Auto-load data from Google Drive
-                setTimeout(() => this.loadFromDrive(), 1000);
+                // Auto-load data from Google Drive after APIs are ready
+                setTimeout(() => this.loadFromDrive(), 3000);
                 return;
             }
             
@@ -118,6 +129,12 @@ class AuthManager {
         const userInfo = document.getElementById('user-info');
         const mainNav = document.getElementById('main-nav');
         const tabContents = document.querySelectorAll('.tab-content');
+        
+        console.log('Auth Status:', {
+            isSignedIn: this.isSignedIn,
+            currentUser: this.currentUser,
+            hasGapi: !!window.gapi
+        });
 
         if (this.isSignedIn && this.currentUser) {
             if (loginSection) loginSection.style.display = 'none';
@@ -226,115 +243,152 @@ class AuthManager {
     }
 
     async saveToGoogleDrive(data) {
-        if (!this.isSignedIn) {
-            return false;
-        }
-
         try {
+            console.log('🔄 Starting Google Drive sync...');
             this.updateSyncStatus('Syncing...');
             
-            // Ensure Google APIs are ready
-            if (!window.gapi || !gapi.auth2) {
-                console.error('Google APIs not ready');
+            // Check if user is signed in
+            if (!this.isSignedIn || !this.currentUser) {
+                console.log('❌ User not signed in');
                 return false;
             }
-
-            const authInstance = gapi.auth2.getAuthInstance();
-            if (!authInstance || !authInstance.isSignedIn.get()) {
-                console.error('User not authenticated');
-                return false;
-            }
-
-            // Get access token
-            const user = authInstance.currentUser.get();
-            const authResponse = user.getAuthResponse(true);
-            const accessToken = authResponse.access_token;
-
-            if (!accessToken) {
-                console.error('No access token available');
-                return false;
-            }
-
-            const fileName = 'lams-institute-data.json';
-            const fileContent = JSON.stringify({
-                ...data,
-                lastModified: new Date().toISOString(),
-                version: '1.0'
-            }, null, 2);
             
-            // Search for existing file
-            const searchResponse = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${fileName}'&spaces=drive`, {
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`,
-                    'Content-Type': 'application/json'
-                }
+            // Wait for Google API to be ready
+            if (!window.gapi) {
+                console.log('⏳ Waiting for Google API to load...');
+                await this.waitForGoogleAPI();
+            }
+            
+            if (!window.gapi) {
+                console.log('❌ Google API failed to load');
+                return false;
+            }
+            
+            // Load gapi client
+            await new Promise((resolve) => {
+                gapi.load('client:auth2', resolve);
             });
             
-            if (!searchResponse.ok) {
-                throw new Error(`Search failed: ${searchResponse.status}`);
+            // Initialize client
+            await gapi.client.init({
+                apiKey: this.API_KEY,
+                clientId: this.CLIENT_ID,
+                discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+                scope: 'https://www.googleapis.com/auth/drive.file'
+            });
+            
+            // Get auth instance
+            const authInstance = gapi.auth2.getAuthInstance();
+            if (!authInstance.isSignedIn.get()) {
+                console.log('🔐 Signing in to Google...');
+                await authInstance.signIn();
             }
             
-            const searchResult = await searchResponse.json();
+            const fileName = 'lams-data.json';
+            const fileContent = JSON.stringify(data, null, 2);
+            
+            // Search for existing file
+            console.log('🔍 Searching for existing file...');
+            const searchResponse = await gapi.client.drive.files.list({
+                q: `name='${fileName}'`,
+                spaces: 'drive'
+            });
+            
             let response;
-
-            if (searchResult.files && searchResult.files.length > 0) {
+            if (searchResponse.result.files.length > 0) {
                 // Update existing file
-                const fileId = searchResult.files[0].id;
-                response = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+                console.log('📝 Updating existing file...');
+                const fileId = searchResponse.result.files[0].id;
+                response = await gapi.client.request({
+                    path: `https://www.googleapis.com/upload/drive/v3/files/${fileId}`,
                     method: 'PATCH',
+                    params: {
+                        uploadType: 'media'
+                    },
                     headers: {
-                        'Authorization': `Bearer ${accessToken}`,
                         'Content-Type': 'application/json'
                     },
                     body: fileContent
                 });
             } else {
-                // Create new file with metadata
-                const boundary = '-------314159265358979323846';
-                const delimiter = "\r\n--" + boundary + "\r\n";
-                const close_delim = "\r\n--" + boundary + "--";
-                
-                const metadata = {
-                    'name': fileName,
-                    'parents': []
-                };
-                
-                const multipartRequestBody =
-                    delimiter +
-                    'Content-Type: application/json\r\n\r\n' +
-                    JSON.stringify(metadata) +
-                    delimiter +
-                    'Content-Type: application/json\r\n\r\n' +
-                    fileContent +
-                    close_delim;
-                
-                response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`,
-                        'Content-Type': `multipart/related; boundary="${boundary}"`
+                // Create new file
+                console.log('📄 Creating new file...');
+                response = await gapi.client.drive.files.create({
+                    resource: {
+                        name: fileName
                     },
-                    body: multipartRequestBody
+                    media: {
+                        mimeType: 'application/json',
+                        body: fileContent
+                    }
                 });
             }
-
-            if (response.ok) {
+            
+            if (response.status === 200) {
+                console.log('✅ Successfully synced to Google Drive!');
                 this.updateSyncStatus('Synced');
-                console.log('✅ Data synced to Google Drive');
-                
-                // Store sync timestamp for cross-device detection
-                localStorage.setItem('lams_last_sync', Date.now().toString());
-                
+                this.addSyncLog('save', 'success', 'Data successfully synced to Google Drive', {
+                    assignmentsCount: data.assignments?.length || 0,
+                    fileSize: JSON.stringify(data).length
+                });
                 return true;
             } else {
-                const errorText = await response.text();
-                throw new Error(`HTTP ${response.status}: ${errorText}`);
+                throw new Error(`HTTP ${response.status}`);
             }
+            
         } catch (error) {
-            console.error('❌ Drive save failed:', error);
+            console.error('❌ Google Drive sync failed:', error);
             this.updateSyncStatus('Sync failed');
+            this.addSyncLog('save', 'error', 'Failed to sync to Google Drive', {
+                error: error.message,
+                stack: error.stack
+            });
+            return false;
         }
-        return false;
+    }
+
+    addSyncLog(type, status, message, details = null) {
+        const logs = JSON.parse(localStorage.getItem('lams_sync_logs') || '[]');
+        const logEntry = {
+            timestamp: new Date().toISOString(),
+            type: type, // 'save', 'load', 'auto'
+            status: status, // 'success', 'error', 'info'
+            message: message,
+            details: details,
+            user: this.currentUser?.email || 'Unknown'
+        };
+        
+        logs.unshift(logEntry); // Add to beginning
+        
+        // Keep only last 100 logs
+        if (logs.length > 100) {
+            logs.splice(100);
+        }
+        
+        localStorage.setItem('lams_sync_logs', JSON.stringify(logs));
+        console.log(`📝 Sync Log: ${type} - ${status} - ${message}`);
+    }
+
+    async waitForGoogleAPI() {
+        return new Promise((resolve) => {
+            let attempts = 0;
+            const maxAttempts = 20; // Wait up to 10 seconds
+            
+            const checkAPI = () => {
+                attempts++;
+                if (window.gapi && gapi.load) {
+                    console.log('✅ Google API is ready');
+                    resolve(true);
+                } else if (attempts >= maxAttempts) {
+                    console.log('❌ Google API timeout');
+                    resolve(false);
+                } else {
+                    setTimeout(checkAPI, 500);
+                }
+            };
+            
+            checkAPI();
+        });
     }
 
     updateSyncStatus(status) {
@@ -354,101 +408,96 @@ class AuthManager {
     }
 
     async loadFromDrive() {
-        if (!this.isSignedIn) {
-            return null;
-        }
-
         try {
-            // Ensure Google APIs are ready
-            if (!window.gapi || !gapi.auth2) {
-                console.error('Google APIs not ready');
+            console.log('📥 Loading from Google Drive...');
+            
+            // Check if user is signed in
+            if (!this.isSignedIn || !this.currentUser) {
+                console.log('❌ User not signed in');
                 return null;
             }
-
-            const authInstance = gapi.auth2.getAuthInstance();
-            if (!authInstance || !authInstance.isSignedIn.get()) {
-                console.error('User not authenticated');
+            
+            // Wait for Google API to be ready
+            if (!window.gapi) {
+                console.log('⏳ Waiting for Google API to load...');
+                await this.waitForGoogleAPI();
+            }
+            
+            if (!window.gapi) {
+                console.log('❌ Google API failed to load');
                 return null;
             }
-
-            // Get access token
-            const user = authInstance.currentUser.get();
-            const authResponse = user.getAuthResponse(true);
-            const accessToken = authResponse.access_token;
-
-            if (!accessToken) {
-                console.error('No access token available');
-                return null;
-            }
-
-            // Search for the file
-            const fileName = 'lams-institute-data.json';
-            const searchResponse = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${fileName}'&spaces=drive&orderBy=modifiedTime desc&pageSize=1`, {
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`,
-                    'Content-Type': 'application/json'
-                }
+            
+            // Load gapi client
+            await new Promise((resolve) => {
+                gapi.load('client:auth2', resolve);
             });
             
-            if (!searchResponse.ok) {
-                throw new Error(`Search failed: ${searchResponse.status}`);
+            // Initialize client
+            await gapi.client.init({
+                apiKey: this.API_KEY,
+                clientId: this.CLIENT_ID,
+                discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+                scope: 'https://www.googleapis.com/auth/drive.file'
+            });
+            
+            // Get auth instance
+            const authInstance = gapi.auth2.getAuthInstance();
+            if (!authInstance.isSignedIn.get()) {
+                console.log('🔐 Signing in to Google...');
+                await authInstance.signIn();
             }
             
-            const searchResult = await searchResponse.json();
-
-            if (searchResult.files && searchResult.files.length > 0) {
-                const fileId = searchResult.files[0].id;
+            const fileName = 'lams-data.json';
+            
+            // Search for file
+            console.log('🔍 Searching for data file...');
+            const searchResponse = await gapi.client.drive.files.list({
+                q: `name='${fileName}'`,
+                spaces: 'drive',
+                orderBy: 'modifiedTime desc',
+                pageSize: 1
+            });
+            
+            if (searchResponse.result.files.length > 0) {
+                const fileId = searchResponse.result.files[0].id;
+                console.log('📝 Found file, downloading...');
                 
                 // Get file content
-                const fileResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`
-                    }
+                const fileResponse = await gapi.client.drive.files.get({
+                    fileId: fileId,
+                    alt: 'media'
                 });
                 
-                if (!fileResponse.ok) {
-                    throw new Error(`File download failed: ${fileResponse.status}`);
-                }
+                const driveData = JSON.parse(fileResponse.body);
                 
-                const fileContent = await fileResponse.text();
-                const driveData = JSON.parse(fileContent);
-                
-                // Check if this is newer than local data
-                const localTimestamp = localStorage.getItem('lams_last_sync');
-                const driveTimestamp = new Date(driveData.lastModified || 0).getTime();
-                const localTime = parseInt(localTimestamp || '0');
-                
-                if (driveTimestamp > localTime || !localTimestamp) {
-                    // Update local data with drive data
-                    if (window.dataManager && driveData) {
-                        // Merge data carefully
-                        const mergedData = {
-                            ...window.dataManager.data,
-                            ...driveData
-                        };
-                        
-                        // Remove metadata fields
-                        delete mergedData.lastModified;
-                        delete mergedData.version;
-                        
-                        window.dataManager.data = mergedData;
-                        localStorage.setItem('labManagementData', JSON.stringify(mergedData));
-                        localStorage.setItem('lams_last_sync', driveTimestamp.toString());
-                        
-                        // Refresh UI without triggering another save
-                        window.dataManager.refreshAllComponents();
-                        console.log('✅ Data loaded from Google Drive');
-                    }
+                if (window.dataManager) {
+                    // Update local data
+                    window.dataManager.data = { ...window.dataManager.data, ...driveData };
+                    localStorage.setItem('labManagementData', JSON.stringify(window.dataManager.data));
+                    window.dataManager.refreshAllComponents();
+                    console.log('✅ Data loaded from Google Drive successfully!');
+                    this.addSyncLog('load', 'success', 'Data successfully loaded from Google Drive', {
+                        assignmentsCount: driveData.assignments?.length || 0,
+                        fileSize: JSON.stringify(driveData).length
+                    });
                 }
                 
                 return driveData;
             } else {
-                console.log('ℹ️ No data found in Google Drive');
+                console.log('ℹ️ No data file found in Google Drive');
+                this.addSyncLog('load', 'info', 'No data file found in Google Drive');
+                return null;
             }
+            
         } catch (error) {
-            console.error('❌ Drive load failed:', error);
+            console.error('❌ Load from Google Drive failed:', error);
+            this.addSyncLog('load', 'error', 'Failed to load from Google Drive', {
+                error: error.message,
+                stack: error.stack
+            });
+            return null;
         }
-        return null;
     }
 
     checkExistingSession() {
@@ -463,8 +512,8 @@ class AuthManager {
                     this.isSignedIn = true;
                     console.log('Admin session restored');
                     this.updateUI();
-                    // Auto-load data from Google Drive
-                    setTimeout(() => this.loadFromDrive(), 1000);
+                    // Auto-load data from Google Drive after APIs are ready
+                    setTimeout(() => this.loadFromDrive(), 3000);
                     return;
                 }
                 
@@ -476,8 +525,8 @@ class AuthManager {
                     this.isSignedIn = true;
                     console.log('User session restored');
                     this.updateUI();
-                    // Auto-load data from Google Drive
-                    setTimeout(() => this.loadFromDrive(), 1000);
+                    // Auto-load data from Google Drive after APIs are ready
+                    setTimeout(() => this.loadFromDrive(), 3000);
                 } else {
                     console.log('User no longer approved, clearing session');
                     localStorage.removeItem('userSession');
@@ -592,32 +641,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-// Manual sync functions for testing
+// Manual sync functions
 async function manualSyncToDrive() {
-    if (window.authManager && window.dataManager) {
-        showMessage('Manually syncing to Google Drive...', 'info');
-        const success = await window.authManager.saveToGoogleDrive(window.dataManager.data);
-        if (success) {
-            showMessage('Manual sync to Drive completed!', 'success');
-        } else {
-            showMessage('Manual sync to Drive failed!', 'error');
-        }
+    console.log('🔄 Manual sync to Drive requested');
+    
+    if (!window.authManager || !window.dataManager) {
+        showMessage('System not ready. Please refresh the page.', 'error');
+        return;
+    }
+    
+    showMessage('Syncing to Google Drive...', 'info');
+    const success = await window.authManager.saveToGoogleDrive(window.dataManager.data);
+    
+    if (success) {
+        showMessage('✅ Synced to Google Drive!', 'success');
     } else {
-        showMessage('Please sign in first', 'error');
+        showMessage('❌ Sync failed. Check console for details.', 'error');
     }
 }
 
 async function manualLoadFromDrive() {
-    if (window.authManager) {
-        showMessage('Loading from Google Drive...', 'info');
-        const data = await window.authManager.loadFromDrive();
-        if (data) {
-            showMessage('Data loaded from Drive successfully!', 'success');
-        } else {
-            showMessage('No data found in Drive or load failed', 'error');
-        }
+    console.log('📥 Manual load from Drive requested');
+    
+    if (!window.authManager) {
+        showMessage('System not ready. Please refresh the page.', 'error');
+        return;
+    }
+    
+    showMessage('Loading from Google Drive...', 'info');
+    const data = await window.authManager.loadFromDrive();
+    
+    if (data) {
+        showMessage('✅ Loaded from Google Drive!', 'success');
     } else {
-        showMessage('Please sign in first', 'error');
+        showMessage('ℹ️ No data found in Drive or load failed.', 'info');
     }
 }
 
