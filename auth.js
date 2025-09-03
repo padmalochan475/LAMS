@@ -66,7 +66,7 @@ class AuthManager {
                 this.isSignedIn = true;
                 localStorage.setItem('userSession', JSON.stringify(this.currentUser));
                 this.updateUI();
-                showMessage(`Welcome Admin ${user.name}!`, 'success');
+                console.log(`Welcome Admin ${user.name}!`);
                 return;
             }
             
@@ -81,18 +81,18 @@ class AuthManager {
                 this.isSignedIn = true;
                 localStorage.setItem('userSession', JSON.stringify(this.currentUser));
                 this.updateUI();
-                showMessage(`Welcome ${user.name}!`, 'success');
+                console.log(`Welcome ${user.name}!`);
                 return;
             }
             
             // Add to pending users for admin approval
             console.log('Adding user to pending list');
             this.addToPendingUsers(user);
-            showMessage('Access request sent to admin. Please wait for approval.', 'warning');
+            alert('Access request sent to admin. Please wait for approval.');
             
         } catch (error) {
             console.error('Sign in failed:', error);
-            showMessage('Sign in failed. Please try again.', 'error');
+            alert('Sign in failed. Please try again.');
         }
     }
     
@@ -124,15 +124,13 @@ class AuthManager {
         localStorage.removeItem('userSession');
         
         // Sign out from Google
-        if (gapi.auth2) {
-            const authInstance = gapi.auth2.getAuthInstance();
-            if (authInstance) {
-                authInstance.signOut();
-            }
+        if (window.google && window.google.accounts) {
+            google.accounts.id.disableAutoSelect();
         }
         
         this.updateUI();
-        showMessage('Signed out successfully', 'info');
+        console.log('Signed out successfully');
+        location.reload();
     }
 
     updateUI() {
@@ -308,7 +306,7 @@ class AuthManager {
                 // Check session timeout
                 if (!securityManager.isSessionValid(this.currentUser.loginTime)) {
                     localStorage.removeItem('userSession');
-                    showMessage('Session expired. Please sign in again.', 'warning');
+                    alert('Session expired. Please sign in again.');
                     return;
                 }
                 
@@ -331,7 +329,7 @@ class AuthManager {
                     this.updateUI();
                 } else {
                     localStorage.removeItem('userSession');
-                    showMessage('Access revoked by admin. Please contact administrator.', 'warning');
+                    alert('Access revoked by admin. Please contact administrator.');
                 }
             } catch (error) {
                 localStorage.removeItem('userSession');
@@ -354,10 +352,17 @@ window.handleCredentialResponse = handleCredentialResponse;
 
 // Sign out function
 function signOut() {
-    if (authManager) {
-        authManager.signOut();
+    console.log('Sign out clicked');
+    if (window.authManager) {
+        window.authManager.signOut();
+    } else {
+        console.error('AuthManager not available');
+        location.reload();
     }
 }
+
+// Make signOut globally available
+window.signOut = signOut;
 
 // Sync with Google Drive
 async function syncWithDrive() {
@@ -384,7 +389,7 @@ function approveUser(email) {
         localStorage.setItem(CONFIG.APPROVED_USERS_KEY, JSON.stringify(securityManager.obfuscate(approvedUsers)));
         
         authManager.updatePendingUsersCount();
-        showMessage(`Approved ${user.name}`, 'success');
+        console.log(`Approved ${user.name}`);
     }
 }
 
@@ -399,7 +404,7 @@ function rejectUser(email) {
         localStorage.setItem(CONFIG.PENDING_USERS_KEY, JSON.stringify(securityManager.obfuscate(pendingUsers)));
         
         authManager.updatePendingUsersCount();
-        showMessage(`Rejected ${user.name}`, 'info');
+        console.log(`Rejected ${user.name}`);
     }
 }
 
@@ -412,7 +417,7 @@ function removeApprovedUser(email) {
         const user = approvedUsers[userIndex];
         approvedUsers.splice(userIndex, 1);
         localStorage.setItem(CONFIG.APPROVED_USERS_KEY, JSON.stringify(securityManager.obfuscate(approvedUsers)));
-        showMessage(`Removed ${user.name}`, 'info');
+        console.log(`Removed ${user.name}`);
     }
 }
 
