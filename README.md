@@ -1,6 +1,6 @@
-# Institute Lab Management System
+# Trident Academy of Technology - Lab Management System
 
-A comprehensive web-based lab assignment management system designed for educational institutes. Features Google Drive integration, responsive design, and optimized A4 printing.
+A comprehensive web-based lab assignment management system designed for Trident Academy of Technology. Features Google Drive integration, responsive design, and optimized A4 printing.
 
 ## 🚀 Features
 
@@ -15,17 +15,31 @@ A comprehensive web-based lab assignment management system designed for educatio
 
 ## 📋 Setup Instructions
 
-### 1. Google OAuth Setup
+### 1. Google OAuth Setup (Already Configured)
 
+**Current Configuration:**
+- **Client ID**: `485361990614-74vhnb9vqjulp17gno3janj8blugshpr.apps.googleusercontent.com`
+- **API Key**: `AIzaSyBxrTxVOKb9nIJJGy52GjSqhfbYixoqDVE`
+- **Admin Email**: `padmalochan.maharana@tat.ac.in`
+- **Authorized Domain**: `padmalochan475.github.io`
+- **Redirect URI**: `https://padmalochan475.github.io/LAMS/`
+
+**Manual Setup (if needed):**
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project or select existing one
 3. Enable Google Drive API and Google+ API
 4. Create OAuth 2.0 credentials
-5. Add your domain to authorized origins
-6. Copy Client ID and API Key to `config.js`
+5. Add `padmalochan475.github.io` to authorized origins
+6. Update credentials in `config.js`
 
-### 2. GitHub Pages Deployment
+### 2. GitHub Pages Deployment (Live)
 
+**Current Deployment:**
+- **Live URL**: https://padmalochan475.github.io/LAMS/
+- **Repository**: https://github.com/padmalochan475/LAMS
+- **Admin Access**: padmalochan.maharana@tat.ac.in
+
+**For New Deployment:**
 1. Fork this repository
 2. Update `config.js` with your Google credentials
 3. Customize institute information in `config.js`
@@ -38,9 +52,11 @@ Edit `config.js` to customize:
 
 ```javascript
 const CONFIG = {
-    GOOGLE_CLIENT_ID: 'your-client-id-here',
-    GOOGLE_API_KEY: 'your-api-key-here',
-    INSTITUTE_NAME: 'Your Institute Name',
+    GOOGLE_CLIENT_ID: '485361990614-74vhnb9vqjulp17gno3janj8blugshpr.apps.googleusercontent.com',
+    GOOGLE_API_KEY: 'AIzaSyBxrTxVOKb9nIJJGy52GjSqhfbYixoqDVE',
+    INSTITUTE_NAME: 'Trident Academy of Technology',
+    ADMIN_EMAIL: 'padmalochan.maharana@tat.ac.in',
+    OAUTH_REDIRECT_URI: 'https://padmalochan475.github.io/LAMS/',
     // ... other settings
 };
 ```
@@ -83,12 +99,16 @@ const CONFIG = {
 
 ## 🎯 Use Cases
 
+- **Primary**: Trident Academy of Technology Lab Management
 - **Academic Institutions**: Universities, colleges, schools
 - **Training Centers**: Technical and vocational institutes
 - **Corporate Training**: Company training facilities
 - **Research Labs**: Research institution lab management
 
 ## 📞 Support
+
+**Admin Contact**: padmalochan.maharana@tat.ac.in
+**Live System**: https://padmalochan475.github.io/LAMS/
 
 For issues and feature requests, please create an issue in the GitHub repository.
 
@@ -98,4 +118,5 @@ MIT License - feel free to use for educational and commercial purposes.
 
 ---
 
-**Made for Educational Institutes** 🎓
+**Made for Trident Academy of Technology** 🎓
+**Admin**: Padmalochan Maharana (padmalochan.maharana@tat.ac.in)

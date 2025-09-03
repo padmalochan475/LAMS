@@ -7,7 +7,7 @@ const CONFIG = {
     GOOGLE_API_KEY: 'AIzaSyBxrTxVOKb9nIJJGy52GjSqhfbYixoqDVE',
     
     // Institute Information
-    INSTITUTE_NAME: 'Institute Lab Management System',
+    INSTITUTE_NAME: 'Trident Academy of Technology',
     INSTITUTE_LOGO: 'assets/logo.png',
     
     // Admin Configuration
