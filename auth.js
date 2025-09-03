@@ -3,6 +3,14 @@ class AuthManager {
     constructor() {
         this.isSignedIn = false;
         this.currentUser = null;
+        
+        // Debug logging
+        console.log('CONFIG available:', typeof CONFIG !== 'undefined');
+        if (typeof CONFIG !== 'undefined') {
+            console.log('CLIENT_ID:', CONFIG.GOOGLE_CLIENT_ID ? 'Present' : 'Missing');
+            console.log('API_KEY:', CONFIG.GOOGLE_API_KEY ? 'Present' : 'Missing');
+        }
+        
         this.CLIENT_ID = CONFIG?.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID';
         this.API_KEY = CONFIG?.GOOGLE_API_KEY || 'YOUR_GOOGLE_API_KEY';
     }
@@ -384,6 +392,13 @@ function removeApprovedUser(email) {
 
 // Initialize auth when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
+    // Ensure CONFIG is loaded
+    if (typeof CONFIG === 'undefined') {
+        console.error('CONFIG not loaded! Check config.js');
+        document.body.innerHTML = '<div style="padding: 50px; text-align: center; font-family: Arial;"><h2>⚠️ Configuration Error</h2><p>Please refresh the page. If the problem persists, check your internet connection.</p></div>';
+        return;
+    }
+    
     authManager = new AuthManager();
     authManager.checkExistingSession();
     authManager.init();
