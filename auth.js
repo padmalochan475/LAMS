@@ -253,59 +253,36 @@ class AuthManager {
                 return false;
             }
             
-            // Wait for Google API to be ready
-            if (!window.gapi) {
-                console.log('⏳ Waiting for Google API to load...');
-                await this.waitForGoogleAPI();
-            }
-            
-            if (!window.gapi) {
-                console.log('❌ Google API failed to load');
+            // Get access token from Google Identity Services
+            const accessToken = await this.getAccessToken();
+            if (!accessToken) {
+                console.log('❌ Failed to get access token');
                 return false;
-            }
-            
-            // Load gapi client
-            await new Promise((resolve) => {
-                gapi.load('client:auth2', resolve);
-            });
-            
-            // Initialize client
-            await gapi.client.init({
-                apiKey: this.API_KEY,
-                clientId: this.CLIENT_ID,
-                discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-                scope: 'https://www.googleapis.com/auth/drive.file'
-            });
-            
-            // Get auth instance
-            const authInstance = gapi.auth2.getAuthInstance();
-            if (!authInstance.isSignedIn.get()) {
-                console.log('🔐 Signing in to Google...');
-                await authInstance.signIn();
             }
             
             const fileName = 'lams-data.json';
             const fileContent = JSON.stringify(data, null, 2);
             
-            // Search for existing file
+            // Search for existing file using fetch API
             console.log('🔍 Searching for existing file...');
-            const searchResponse = await gapi.client.drive.files.list({
-                q: `name='${fileName}'`,
-                spaces: 'drive'
+            const searchResponse = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${fileName}'`, {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                }
             });
             
+            const searchResult = await searchResponse.json();
+            
             let response;
-            if (searchResponse.result.files.length > 0) {
+            if (searchResult.files && searchResult.files.length > 0) {
                 // Update existing file
                 console.log('📝 Updating existing file...');
-                const fileId = searchResponse.result.files[0].id;
-                response = await gapi.client.request({
-                    path: `https://www.googleapis.com/upload/drive/v3/files/${fileId}`,
+                const fileId = searchResult.files[0].id;
+                response = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
                     method: 'PATCH',
-                    params: {
-                        uploadType: 'media'
-                    },
                     headers: {
+                        'Authorization': `Bearer ${accessToken}`,
                         'Content-Type': 'application/json'
                     },
                     body: fileContent
@@ -313,18 +290,21 @@ class AuthManager {
             } else {
                 // Create new file
                 console.log('📄 Creating new file...');
-                response = await gapi.client.drive.files.create({
-                    resource: {
-                        name: fileName
+                const metadata = { name: fileName };
+                const form = new FormData();
+                form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
+                form.append('file', new Blob([fileContent], {type: 'application/json'}));
+                
+                response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
                     },
-                    media: {
-                        mimeType: 'application/json',
-                        body: fileContent
-                    }
+                    body: form
                 });
             }
             
-            if (response.status === 200) {
+            if (response.ok) {
                 console.log('✅ Successfully synced to Google Drive!');
                 this.updateSyncStatus('Synced');
                 this.addSyncLog('save', 'success', 'Data successfully synced to Google Drive', {
@@ -333,7 +313,7 @@ class AuthManager {
                 });
                 return true;
             } else {
-                throw new Error(`HTTP ${response.status}`);
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
         } catch (error) {
@@ -345,6 +325,32 @@ class AuthManager {
             });
             return false;
         }
+    }
+
+    async getAccessToken() {
+        return new Promise((resolve) => {
+            if (window.google && window.google.accounts) {
+                // Request access token for Drive API
+                const tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: this.CLIENT_ID,
+                    scope: 'https://www.googleapis.com/auth/drive.file',
+                    callback: (response) => {
+                        if (response.access_token) {
+                            console.log('✅ Access token obtained');
+                            resolve(response.access_token);
+                        } else {
+                            console.log('❌ Failed to get access token');
+                            resolve(null);
+                        }
+                    }
+                });
+                
+                tokenClient.requestAccessToken();
+            } else {
+                console.log('❌ Google Identity Services not available');
+                resolve(null);
+            }
+        });
     }
 
     addSyncLog(type, status, message, details = null) {
@@ -417,59 +423,39 @@ class AuthManager {
                 return null;
             }
             
-            // Wait for Google API to be ready
-            if (!window.gapi) {
-                console.log('⏳ Waiting for Google API to load...');
-                await this.waitForGoogleAPI();
-            }
-            
-            if (!window.gapi) {
-                console.log('❌ Google API failed to load');
+            // Get access token
+            const accessToken = await this.getAccessToken();
+            if (!accessToken) {
+                console.log('❌ Failed to get access token');
                 return null;
-            }
-            
-            // Load gapi client
-            await new Promise((resolve) => {
-                gapi.load('client:auth2', resolve);
-            });
-            
-            // Initialize client
-            await gapi.client.init({
-                apiKey: this.API_KEY,
-                clientId: this.CLIENT_ID,
-                discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-                scope: 'https://www.googleapis.com/auth/drive.file'
-            });
-            
-            // Get auth instance
-            const authInstance = gapi.auth2.getAuthInstance();
-            if (!authInstance.isSignedIn.get()) {
-                console.log('🔐 Signing in to Google...');
-                await authInstance.signIn();
             }
             
             const fileName = 'lams-data.json';
             
-            // Search for file
+            // Search for file using fetch API
             console.log('🔍 Searching for data file...');
-            const searchResponse = await gapi.client.drive.files.list({
-                q: `name='${fileName}'`,
-                spaces: 'drive',
-                orderBy: 'modifiedTime desc',
-                pageSize: 1
+            const searchResponse = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${fileName}'&orderBy=modifiedTime desc&pageSize=1`, {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                }
             });
             
-            if (searchResponse.result.files.length > 0) {
-                const fileId = searchResponse.result.files[0].id;
+            const searchResult = await searchResponse.json();
+            
+            if (searchResult.files && searchResult.files.length > 0) {
+                const fileId = searchResult.files[0].id;
                 console.log('📝 Found file, downloading...');
                 
-                // Get file content
-                const fileResponse = await gapi.client.drive.files.get({
-                    fileId: fileId,
-                    alt: 'media'
+                // Get file content using fetch API
+                const fileResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
                 });
                 
-                const driveData = JSON.parse(fileResponse.body);
+                const fileContent = await fileResponse.text();
+                const driveData = JSON.parse(fileContent);
                 
                 if (window.dataManager) {
                     // Update local data
