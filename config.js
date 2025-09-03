@@ -2,16 +2,16 @@
 // WARNING: This file is publicly visible on GitHub Pages
 // Only put non-sensitive configuration here
 const CONFIG = {
-    // Google OAuth Configuration (Obfuscated for security)
-    GOOGLE_CLIENT_ID: atob('NDg1MzYxOTkwNjE0LTc0dmhuYjl2cWp1bHAxN2dubzNqYW5qOGJsdWdzaHByLmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29t'),
-    GOOGLE_API_KEY: atob('QUl6YVN5QnhyVHhWT0tiOW5JSkpHeTUyR2pTcWhmYllpeG9xRFZF'),
+    // Google OAuth Configuration (Client ID is meant to be public)
+    GOOGLE_CLIENT_ID: '485361990614-74vhnb9vqjulp17gno3janj8blugshpr.apps.googleusercontent.com',
+    GOOGLE_API_KEY: 'AIzaSyBxrTxVOKb9nIJJGy52GjSqhfbYixoqDVE',
     
     // Institute Information
     INSTITUTE_NAME: 'Institute Lab Management System',
     INSTITUTE_LOGO: 'assets/logo.png',
     
-    // Admin Configuration (Obfuscated)
-    ADMIN_EMAIL: atob('cGFkbWFsb2NoYW40NzVAZ21haWwuY29t'), // Obfuscated admin email
+    // Admin Configuration
+    ADMIN_EMAIL: 'padmalochan475@gmail.com',
     
     // Security Validation - Generated for padmalochan475.github.io
     AUTHORIZED_DOMAIN_HASH: 'a8f5f167f44f4964e6c998dee827110c', // Hash of padmalochan475.github.io
@@ -23,7 +23,7 @@ const CONFIG = {
     DEFAULT_ACADEMIC_YEAR: '2024-25',
     
     // OAuth Settings
-    OAUTH_REDIRECT_URI: window.location.origin,
+    OAUTH_REDIRECT_URI: 'https://padmalochan475.github.io/LAMS/',
     OAUTH_SCOPE: 'https://www.googleapis.com/auth/drive.file',
     
     // Print Settings
