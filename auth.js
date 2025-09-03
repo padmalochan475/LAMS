@@ -206,50 +206,36 @@ class AuthManager {
             return;
         }
         
-        console.log('Initializing Google Sign-In with Client ID:', this.CLIENT_ID.substring(0, 20) + '...');
-        
-        const signInDiv = document.getElementById('g_id_onload');
-        if (signInDiv) {
-            signInDiv.setAttribute('data-client_id', this.CLIENT_ID);
-            signInDiv.setAttribute('data-callback', 'handleCredentialResponse');
-        }
+        console.log('Initializing Google Sign-In with Client ID:', this.CLIENT_ID);
         
         // Render Google Sign-In button
         if (window.google && window.google.accounts) {
             try {
-                // Ensure callback is available
-                window.handleCredentialResponse = handleCredentialResponse;
-                
                 google.accounts.id.initialize({
                     client_id: this.CLIENT_ID,
-                    callback: handleCredentialResponse,
-                    auto_select: false,
-                    cancel_on_tap_outside: false
+                    callback: (response) => {
+                        console.log('Direct callback triggered:', response);
+                        this.signIn(response.credential);
+                    }
                 });
                 
                 const buttonContainer = document.querySelector('.g_id_signin');
                 if (buttonContainer) {
-                    // Clear existing content
                     buttonContainer.innerHTML = '';
-                    
                     google.accounts.id.renderButton(buttonContainer, {
                         theme: 'outline',
-                        size: 'large',
-                        type: 'standard',
-                        shape: 'rectangular',
-                        text: 'signin_with',
-                        logo_alignment: 'left'
+                        size: 'large'
                     });
-                    console.log('Google Sign-In button rendered successfully');
+                    console.log('Google Sign-In button rendered');
                 } else {
-                    console.error('Sign-in button container not found');
+                    console.error('Button container not found');
                 }
             } catch (error) {
-                console.error('Google Sign-In initialization error:', error);
+                console.error('Google Sign-In error:', error);
             }
         } else {
-            console.error('Google Sign-In library not loaded');
-            setTimeout(() => this.initializeSignInButton(), 1000);
+            console.log('Google library not ready, retrying...');
+            setTimeout(() => this.initializeSignInButton(), 500);
         }
     }
 
@@ -357,26 +343,13 @@ class AuthManager {
 // Global auth manager
 let authManager;
 
-// Google Sign-In callback - must be global
+// Simplified global callback
 function handleCredentialResponse(response) {
-    console.log('Google Sign-In callback triggered with response:', response);
-    
-    if (!response || !response.credential) {
-        console.error('No credential in response');
-        showMessage('Sign-in failed: No credential received', 'error');
-        return;
-    }
-    
+    console.log('Global callback:', response);
     if (window.authManager) {
-        console.log('Calling authManager.signIn...');
         window.authManager.signIn(response.credential);
-    } else {
-        console.error('AuthManager not available');
-        showMessage('Authentication system not ready. Please refresh the page.', 'error');
     }
 }
-
-// Make callback globally available
 window.handleCredentialResponse = handleCredentialResponse;
 
 // Sign out function
@@ -443,44 +416,28 @@ function removeApprovedUser(email) {
     }
 }
 
-// Initialize auth when DOM is loaded
+// Initialize when ready
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM loaded, checking CONFIG...');
-    // Ensure CONFIG is loaded
     if (typeof CONFIG === 'undefined') {
-        console.error('CONFIG not loaded! Check config.js');
-        document.body.innerHTML = '<div style="padding: 50px; text-align: center; font-family: Arial;"><h2>⚠️ Configuration Error</h2><p>Please refresh the page. If the problem persists, check your internet connection.</p></div>';
+        console.error('CONFIG not loaded');
         return;
     }
     
-    console.log('CONFIG found, initializing AuthManager...');
-    authManager = new AuthManager();
+    window.authManager = new AuthManager();
     authManager.checkExistingSession();
-    authManager.init();
     
-    // Wait for Google library to load
-    const checkGoogle = () => {
-        if (window.google && window.google.accounts) {
-            console.log('Google library loaded, initializing sign-in...');
+    // Wait for Google library
+    const initGoogle = () => {
+        if (window.google?.accounts) {
             authManager.initializeSignInButton();
         } else {
-            console.log('Waiting for Google library...');
-            setTimeout(checkGoogle, 500);
+            setTimeout(initGoogle, 500);
         }
     };
-    checkGoogle();
+    initGoogle();
 });
 
-// Backup initialization on window load
-window.addEventListener('load', function() {
-    console.log('Window loaded');
-    if (authManager && window.google) {
-        setTimeout(() => {
-            console.log('Backup initialization of sign-in button');
-            authManager.initializeSignInButton();
-        }, 1000);
-    }
-});
+
 
 // Export functions
 window.approveUser = approveUser;
