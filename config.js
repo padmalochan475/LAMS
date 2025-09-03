@@ -11,7 +11,7 @@ const CONFIG = {
     INSTITUTE_LOGO: 'assets/logo.png',
     
     // Admin Configuration
-    ADMIN_EMAIL: 'padmalochan475@gmail.com',
+    ADMIN_EMAIL: 'padmalochan.maharana@tat.ac.in',
     
     // Security Validation - Generated for padmalochan475.github.io
     AUTHORIZED_DOMAIN_HASH: 'a8f5f167f44f4964e6c998dee827110c', // Hash of padmalochan475.github.io
@@ -56,9 +56,9 @@ const CONFIG = {
     // Data Encryption (basic obfuscation)
     ENCRYPT_LOCAL_DATA: true,
     
-    // Anti-tampering protection - ENABLED
-    VALIDATION_REQUIRED: true,
-    BLOCK_UNAUTHORIZED_DEPLOYMENTS: true
+    // Anti-tampering protection - TEMPORARILY DISABLED
+    VALIDATION_REQUIRED: false,
+    BLOCK_UNAUTHORIZED_DEPLOYMENTS: false
 };
 
 // Export for use in other modules
