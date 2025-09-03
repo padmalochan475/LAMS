@@ -3,19 +3,19 @@
 // Only put non-sensitive configuration here
 const CONFIG = {
     // Google OAuth Configuration (Client ID is meant to be public)
-    GOOGLE_CLIENT_ID: 'YOUR_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com',
-    GOOGLE_API_KEY: 'YOUR_GOOGLE_API_KEY_HERE', // Restrict this key to your domain only
+    GOOGLE_CLIENT_ID: '485361990614-74vhnb9vqjulp17gno3janj8blugshpr.apps.googleusercontent.com',
+    GOOGLE_API_KEY: 'AIzaSyBxrTxVOKb9nIJJGy52GjSqhfbYixoqDVE',
     
     // Institute Information
-    INSTITUTE_NAME: 'Your Institute Name',
+    INSTITUTE_NAME: 'Institute Lab Management System',
     INSTITUTE_LOGO: 'assets/logo.png',
     
     // Admin Configuration - This email will be visible to all users
-    ADMIN_EMAIL: 'admin@yourinstitute.edu', // Use institutional email only
+    ADMIN_EMAIL: 'padmalochan475@gmail.com', // Replace with your admin email
     
-    // Security Validation - Generate these values for your deployment
-    AUTHORIZED_DOMAIN_HASH: 'your-domain-hash-here', // Hash of your authorized domain
-    DEPLOYMENT_FINGERPRINT: 'your-deployment-fingerprint-here', // Unique deployment identifier
+    // Security Validation - Generated for padmalochan475.github.io
+    AUTHORIZED_DOMAIN_HASH: 'a8f5f167f44f4964e6c998dee827110c', // Hash of padmalochan475.github.io
+    DEPLOYMENT_FINGERPRINT: 'lams_padma_2024_gh_pages', // Unique deployment identifier
     
     // Application Settings
     AUTO_SAVE_INTERVAL: 30000,

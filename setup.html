@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LAMS Setup Helper</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        .step { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .code { background: #333; color: #0f0; padding: 10px; border-radius: 3px; font-family: monospace; }
+        .success { color: green; font-weight: bold; }
+        .warning { color: orange; font-weight: bold; }
+        button { background: #007cba; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>🔧 LAMS Setup Helper</h1>
+    
+    <div class="step">
+        <h3>Step 1: Google OAuth Setup</h3>
+        <p>1. Go to <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></p>
+        <p>2. Create/select project → Enable Google Drive API</p>
+        <p>3. Create OAuth 2.0 credentials</p>
+        <p>4. Add authorized origin: <code>https://padmalochan475.github.io</code></p>
+        <p>5. Copy your credentials:</p>
+        <input type="text" id="clientId" placeholder="Your Google Client ID" style="width: 100%; margin: 5px 0;">
+        <input type="text" id="apiKey" placeholder="Your Google API Key" style="width: 100%; margin: 5px 0;">
+    </div>
+
+    <div class="step">
+        <h3>Step 2: Generate Updated Config</h3>
+        <button onclick="generateConfig()">Generate config.js</button>
+        <div id="configOutput" style="margin-top: 10px;"></div>
+    </div>
+
+    <div class="step">
+        <h3>Step 3: Security Validation</h3>
+        <p>Current domain: <span id="currentDomain"></span></p>
+        <p>Security hash: <span id="domainHash"></span></p>
+        <button onclick="validateSecurity()">Test Security</button>
+        <div id="securityResult"></div>
+    </div>
+
+    <script>
+        document.getElementById('currentDomain').textContent = window.location.hostname;
+        
+        // Simple hash function for domain validation
+        function simpleHash(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash; // Convert to 32-bit integer
+            }
+            return Math.abs(hash).toString(16);
+        }
+        
+        const domainHash = simpleHash('padmalochan475.github.io');
+        document.getElementById('domainHash').textContent = domainHash;
+        
+        function generateConfig() {
+            const clientId = document.getElementById('clientId').value;
+            const apiKey = document.getElementById('apiKey').value;
+            
+            if (!clientId || !apiKey) {
+                alert('Please enter both Client ID and API Key');
+                return;
+            }
+            
+            const config = `// Configuration for GitHub Pages deployment
+const CONFIG = {
+    // Google OAuth Configuration
+    GOOGLE_CLIENT_ID: '${clientId}',
+    GOOGLE_API_KEY: '${apiKey}',
+    
+    // Institute Information
+    INSTITUTE_NAME: 'Institute Lab Management System',
+    INSTITUTE_LOGO: 'assets/logo.png',
+    
+    // Admin Configuration
+    ADMIN_EMAIL: 'padmalochan475@gmail.com',
+    
+    // Security Validation
+    AUTHORIZED_DOMAIN_HASH: '${domainHash}',
+    DEPLOYMENT_FINGERPRINT: 'lams_padma_2024_gh_pages',
+    
+    // Application Settings
+    AUTO_SAVE_INTERVAL: 30000,
+    MAX_ASSIGNMENTS_PER_CELL: 10,
+    DEFAULT_ACADEMIC_YEAR: '2024-25',
+    
+    // OAuth Settings
+    OAUTH_REDIRECT_URI: window.location.origin,
+    OAUTH_SCOPE: 'https://www.googleapis.com/auth/drive.file',
+    
+    // Print Settings
+    PRINT_ORIENTATION: 'landscape',
+    PRINT_PAPER_SIZE: 'A4',
+    
+    // Feature Flags
+    FEATURES: {
+        GOOGLE_DRIVE_SYNC: true,
+        BULK_OPERATIONS: true,
+        ANALYTICS: true,
+        EXPORT_IMPORT: true
+    },
+    
+    // Security Settings
+    SECURITY: {
+        DOMAIN_RESTRICTION: true,
+        HTTPS_ONLY: true,
+        SESSION_TIMEOUT: 24 * 60 * 60 * 1000
+    },
+    
+    // Development mode
+    DEV_MODE: false,
+    
+    // User Management System
+    USER_APPROVAL_REQUIRED: true,
+    PENDING_USERS_KEY: 'lams_pending_users',
+    APPROVED_USERS_KEY: 'lams_approved_users',
+    
+    // Data Encryption
+    ENCRYPT_LOCAL_DATA: true,
+    
+    // Anti-tampering protection
+    VALIDATION_REQUIRED: true,
+    BLOCK_UNAUTHORIZED_DEPLOYMENTS: true
+};
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = CONFIG;
+} else {
+    window.CONFIG = CONFIG;
+}`;
+            
+            document.getElementById('configOutput').innerHTML = 
+                '<div class="success">✅ Config generated! Copy this to your config.js file:</div>' +
+                '<div class="code">' + config.replace(/\n/g, '<br>').replace(/ /g, '&nbsp;') + '</div>';
+        }
+        
+        function validateSecurity() {
+            const currentDomain = window.location.hostname;
+            const expectedHash = simpleHash('padmalochan475.github.io');
+            const actualHash = simpleHash(currentDomain);
+            
+            let result = '<div style="margin-top: 10px;">';
+            result += '<p>Current domain: ' + currentDomain + '</p>';
+            result += '<p>Current hash: ' + actualHash + '</p>';
+            result += '<p>Expected hash: ' + expectedHash + '</p>';
+            
+            if (currentDomain === 'padmalochan475.github.io') {
+                result += '<div class="success">✅ Security validation passed! Domain is authorized.</div>';
+            } else {
+                result += '<div class="warning">⚠️ Domain mismatch. This would be blocked in production.</div>';
+            }
+            result += '</div>';
+            
+            document.getElementById('securityResult').innerHTML = result;
+        }
+    </script>
+</body>
+</html>
