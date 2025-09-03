@@ -316,7 +316,11 @@ class DataManager {
     }
 
     getAssignmentDisplay(assignment) {
-        return `${assignment.department}-${assignment.semester}${assignment.group}-${assignment.subGroup}-${assignment.subject}[${assignment.theoryFaculty},${assignment.labFaculty}]-${assignment.labRoom}`;
+        return `${assignment.department}-${assignment.group}-${assignment.subGroup}-${assignment.subject}-[${assignment.theoryFaculty},${assignment.labFaculty}]-${assignment.labRoom} [${assignment.semester} SEM]`;
+    }
+
+    getAssignmentPrintDisplay(assignment) {
+        return `${assignment.department}-${assignment.group}-${assignment.subGroup}-${assignment.subject}-[${assignment.theoryFaculty},${assignment.labFaculty}]-${assignment.labRoom}`;
     }
 
     searchAssignments(query) {
@@ -1062,18 +1066,11 @@ function renderPrintSchedule() {
                 html += '<div class="no-lab">-</div>';
             } else {
                 dayAssignments.forEach((assignment, index) => {
-                    const shortDisplay = `${assignment.department}-${assignment.semester}${assignment.group}${assignment.subGroup}`;
-                    const roomInfo = assignment.labRoom;
-                    const facultyInfo = `${assignment.theoryFaculty}/${assignment.labFaculty}`;
+                    const printDisplay = dataManager.getAssignmentPrintDisplay(assignment);
                     
                     html += `
                         <div class="lab-entry lab-entry-${index % 3}">
-                            <div class="lab-class">${shortDisplay}</div>
-                            <div class="lab-subject">${assignment.subject}</div>
-                            <div class="lab-details">
-                                <span class="lab-room">${roomInfo}</span>
-                                <span class="lab-faculty">${facultyInfo}</span>
-                            </div>
+                            <div class="lab-display">${printDisplay}</div>
                         </div>
                     `;
                 });
@@ -1214,12 +1211,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         const loadingScreen = document.getElementById('loadingScreen');
         if (loadingScreen) loadingScreen.style.display = 'none';
         
-        // Show security notice for first-time users
-        const securityNotice = document.getElementById('securityNotice');
-        if (securityNotice && !localStorage.getItem('securityNoticeShown')) {
-            securityNotice.style.display = 'block';
-            localStorage.setItem('securityNoticeShown', 'true');
-        }
+
         
         // Initialize managers
         notificationManager = new NotificationManager();

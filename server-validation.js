@@ -122,7 +122,7 @@ class ServerValidator {
                 ">
                     <h2 style="color: #d32f2f; margin-bottom: 20px;">⚠️ Unauthorized Access</h2>
                     <p style="color: #666; margin-bottom: 20px;">
-                        This application is restricted to authorized deployments only.
+                        Access to this system is currently unavailable.
                     </p>
                     <p style="color: #666; font-size: 14px;">
                         Contact your system administrator for access.
