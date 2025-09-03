@@ -43,8 +43,10 @@ class AuthManager {
     }
 
     async signIn(credential) {
+        console.log('Processing sign-in credential...');
         try {
             const payload = JSON.parse(atob(credential.split('.')[1]));
+            console.log('User payload:', { email: payload.email, name: payload.name });
             
             const user = {
                 id: payload.sub,
@@ -54,13 +56,16 @@ class AuthManager {
                 loginTime: new Date().toISOString()
             };
             
+            console.log('Checking admin status for:', user.email);
+            console.log('Admin email configured as:', CONFIG.ADMIN_EMAIL);
+            
             // Check if admin
             if (user.email === CONFIG.ADMIN_EMAIL) {
+                console.log('Admin login detected');
                 this.currentUser = { ...user, isAdmin: true };
                 this.isSignedIn = true;
                 localStorage.setItem('userSession', JSON.stringify(this.currentUser));
                 this.updateUI();
-                await this.loadFromDrive();
                 showMessage(`Welcome Admin ${user.name}!`, 'success');
                 return;
             }
@@ -68,18 +73,20 @@ class AuthManager {
             // Check if user is approved
             const approvedUsers = JSON.parse(localStorage.getItem(CONFIG.APPROVED_USERS_KEY) || '[]');
             const isApproved = approvedUsers.some(u => u.email === user.email);
+            console.log('User approved status:', isApproved);
             
             if (isApproved) {
+                console.log('Approved user login');
                 this.currentUser = { ...user, isAdmin: false };
                 this.isSignedIn = true;
                 localStorage.setItem('userSession', JSON.stringify(this.currentUser));
                 this.updateUI();
-                await this.loadFromDrive();
                 showMessage(`Welcome ${user.name}!`, 'success');
                 return;
             }
             
             // Add to pending users for admin approval
+            console.log('Adding user to pending list');
             this.addToPendingUsers(user);
             showMessage('Access request sent to admin. Please wait for approval.', 'warning');
             
@@ -210,12 +217,12 @@ class AuthManager {
         // Render Google Sign-In button
         if (window.google && window.google.accounts) {
             try {
-                // Make sure callback is globally available
+                // Ensure callback is available
                 window.handleCredentialResponse = handleCredentialResponse;
                 
                 google.accounts.id.initialize({
                     client_id: this.CLIENT_ID,
-                    callback: 'handleCredentialResponse',
+                    callback: handleCredentialResponse,
                     auto_select: false,
                     cancel_on_tap_outside: false
                 });
@@ -352,11 +359,20 @@ let authManager;
 
 // Google Sign-In callback - must be global
 function handleCredentialResponse(response) {
-    console.log('Google Sign-In callback triggered');
+    console.log('Google Sign-In callback triggered with response:', response);
+    
+    if (!response || !response.credential) {
+        console.error('No credential in response');
+        showMessage('Sign-in failed: No credential received', 'error');
+        return;
+    }
+    
     if (window.authManager) {
+        console.log('Calling authManager.signIn...');
         window.authManager.signIn(response.credential);
     } else {
         console.error('AuthManager not available');
+        showMessage('Authentication system not ready. Please refresh the page.', 'error');
     }
 }
 
