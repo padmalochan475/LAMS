@@ -56,9 +56,9 @@ const CONFIG = {
     // Data Encryption (basic obfuscation)
     ENCRYPT_LOCAL_DATA: true,
     
-    // Anti-tampering protection - Enabled for production
-    VALIDATION_REQUIRED: true,
-    BLOCK_UNAUTHORIZED_DEPLOYMENTS: true
+    // Anti-tampering protection - DISABLED
+    VALIDATION_REQUIRED: false,
+    BLOCK_UNAUTHORIZED_DEPLOYMENTS: false
 };
 
 // Export for use in other modules

@@ -1169,20 +1169,14 @@ function toggleTheme() {
 // Initialize Application for production
 document.addEventListener('DOMContentLoaded', async function() {
     try {
-        // Validate deployment first
-        if (CONFIG.VALIDATION_REQUIRED) {
-            const isValid = await serverValidator.validateDeployment();
-            if (!isValid) {
-                return; // Access blocked
-            }
-        }
-        
         // Hide loading screen
-        document.getElementById('loadingScreen').style.display = 'none';
+        const loadingScreen = document.getElementById('loadingScreen');
+        if (loadingScreen) loadingScreen.style.display = 'none';
         
         // Show security notice for first-time users
-        if (!localStorage.getItem('securityNoticeShown')) {
-            document.getElementById('securityNotice').style.display = 'block';
+        const securityNotice = document.getElementById('securityNotice');
+        if (securityNotice && !localStorage.getItem('securityNoticeShown')) {
+            securityNotice.style.display = 'block';
             localStorage.setItem('securityNoticeShown', 'true');
         }
         
