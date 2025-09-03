@@ -1,4 +1,19 @@
-// Lab Assignment Management System - Complete Implementation
+// Institute Lab Management System - Production Version
+
+// Simple notification system for production
+class NotificationManager {
+    show(message, type = 'info', duration = 3000) {
+        const notification = document.createElement('div');
+        notification.className = `message message--${type}`;
+        notification.textContent = message;
+        
+        const container = document.querySelector('.container');
+        if (container) {
+            container.insertBefore(notification, container.firstChild);
+            setTimeout(() => notification.remove(), duration);
+        }
+    }
+}
 
 class DataManager {
     constructor() {
@@ -194,17 +209,25 @@ class DataManager {
 
         if (roomConflict || facultyConflict || classConflict) {
             let conflictMessage = 'Conflict detected: ';
-            if (roomConflict) conflictMessage += 'Room already in use. ';
-            if (facultyConflict) conflictMessage += 'Faculty already assigned. ';
-            if (classConflict) conflictMessage += 'Class already has a lab.';
+            const conflicts = [];
+            if (roomConflict) conflicts.push('Room already in use');
+            if (facultyConflict) conflicts.push('Faculty already assigned');
+            if (classConflict) conflicts.push('Class already has a lab');
             
-            showConflictNotification(conflictMessage);
+            conflictMessage += conflicts.join(', ');
+            showMessage(conflictMessage, 'error');
             return false;
         }
 
         this.data.assignments.push(assignment);
         this.save();
         showMessage('Assignment created successfully!', 'success');
+        
+        // Auto-sync with Google Drive if authenticated
+        if (authManager && authManager.isSignedIn) {
+            setTimeout(() => syncWithDrive(), 1000);
+        }
+        
         return true;
     }
 
@@ -280,8 +303,9 @@ class DataManager {
     }
 }
 
-// Global data manager instance
+// Global instances
 let dataManager;
+let notificationManager;
 
 // UI Management Functions
 function showMessage(text, type = 'info') {
@@ -325,6 +349,72 @@ function showConflictNotification(message) {
             notification.remove();
         }
     }, 5000);
+}
+
+// Enhanced conflict notification with detailed information
+function showEnhancedConflictNotification(message, conflicts) {
+    const existing = document.querySelector('.enhanced-conflict-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.className = 'enhanced-conflict-modal';
+    
+    let conflictDetails = '';
+    if (conflicts.roomConflict) {
+        conflictDetails += `
+            <div class="conflict-detail">
+                <strong>Room Conflict:</strong> ${dataManager.getAssignmentDisplay(conflicts.roomConflict)}
+            </div>
+        `;
+    }
+    if (conflicts.facultyConflict) {
+        conflictDetails += `
+            <div class="conflict-detail">
+                <strong>Faculty Conflict:</strong> ${dataManager.getAssignmentDisplay(conflicts.facultyConflict)}
+            </div>
+        `;
+    }
+    if (conflicts.classConflict) {
+        conflictDetails += `
+            <div class="conflict-detail">
+                <strong>Class Conflict:</strong> ${dataManager.getAssignmentDisplay(conflicts.classConflict)}
+            </div>
+        `;
+    }
+    
+    modal.innerHTML = `
+        <div class="enhanced-conflict-content">
+            <div class="conflict-header">
+                <div class="conflict-icon-large">⚠️</div>
+                <h3>Assignment Conflict Detected</h3>
+                <button class="conflict-close" onclick="this.closest('.enhanced-conflict-modal').remove()">&times;</button>
+            </div>
+            <div class="conflict-body">
+                <p class="conflict-summary">${message}</p>
+                <div class="conflict-details">
+                    <h4>Conflicting Assignments:</h4>
+                    ${conflictDetails}
+                </div>
+            </div>
+            <div class="conflict-actions">
+                <button class="btn btn--secondary" onclick="this.closest('.enhanced-conflict-modal').remove()">Cancel</button>
+                <button class="btn btn--primary" onclick="switchTab('schedule'); this.closest('.enhanced-conflict-modal').remove();">View Schedule</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Animate in
+    setTimeout(() => modal.classList.add('show'), 10);
+    
+    // Auto dismiss after 10 seconds
+    setTimeout(() => {
+        if (modal.parentNode) {
+            modal.classList.add('hide');
+            setTimeout(() => modal.remove(), 300);
+        }
+    }, 10000);
 }
 
 function editAcademicYear() {
@@ -439,12 +529,16 @@ function renderDashboard() {
                 <div class="assignment-item">
                     <h4>${dataManager.getAssignmentDisplay(assignment)}</h4>
                     <div class="assignment-details">
-                        ${assignment.day} | ${assignment.timeSlot}
+                        <span class="assignment-time">${assignment.day} | ${assignment.timeSlot}</span>
+                        <span class="assignment-badge">${assignment.department}</span>
                     </div>
                 </div>
             `).join('');
         }
     }
+    
+    // Update admin stats if admin
+    updateAdminStats();
 }
 
 function renderAssignmentsList() {
@@ -881,96 +975,85 @@ function renderPrintSchedule() {
     if (semesterFilter) filteredAssignments = filteredAssignments.filter(a => a.semester === semesterFilter);
     if (groupFilter) filteredAssignments = filteredAssignments.filter(a => a.group === groupFilter);
 
+    // Calculate maximum assignments per cell for optimal sizing
     let maxAssignmentsPerCell = 1;
-    if (dataManager.data.scheduleOrientation === "timesHorizontal") {
+    dataManager.data.timeSlots.forEach(timeSlot => {
         dataManager.data.days.forEach(day => {
-            dataManager.data.timeSlots.forEach(timeSlot => {
-                const count = filteredAssignments.filter(a => 
-                    a.day === day && a.timeSlot === timeSlot
-                ).length;
-                if (count > maxAssignmentsPerCell) maxAssignmentsPerCell = count;
-            });
+            const count = filteredAssignments.filter(a => 
+                a.day === day && a.timeSlot === timeSlot
+            ).length;
+            if (count > maxAssignmentsPerCell) maxAssignmentsPerCell = count;
         });
+    });
+
+    // Dynamic font sizing based on content density
+    let fontSize, cellHeight;
+    if (maxAssignmentsPerCell <= 2) {
+        fontSize = '11px';
+        cellHeight = '80px';
+    } else if (maxAssignmentsPerCell <= 5) {
+        fontSize = '9px';
+        cellHeight = '100px';
+    } else if (maxAssignmentsPerCell <= 8) {
+        fontSize = '8px';
+        cellHeight = '120px';
     } else {
-        dataManager.data.timeSlots.forEach(timeSlot => {
-            dataManager.data.days.forEach(day => {
-                const count = filteredAssignments.filter(a => 
-                    a.day === day && a.timeSlot === timeSlot
-                ).length;
-                if (count > maxAssignmentsPerCell) maxAssignmentsPerCell = count;
-            });
-        });
+        fontSize = '7px';
+        cellHeight = '140px';
     }
 
-    const baseFontSize = 10;
-    const minFontSize = 8;
-    const fontSize = Math.max(minFontSize, baseFontSize - (maxAssignmentsPerCell * 0.5));
+    // Always use time slots as rows for better A4 layout
+    let html = `
+        <table class="print-table optimized-print" style="font-size: ${fontSize}">
+            <thead>
+                <tr class="print-header-row">
+                    <th class="time-column">Time Slot</th>
+                    ${dataManager.data.days.map(day => `<th class="day-column">${day}</th>`).join('')}
+                </tr>
+            </thead>
+            <tbody>
+    `;
 
-    if (dataManager.data.scheduleOrientation === "timesHorizontal") {
-        let html = `
-            <table class="print-table" style="font-size: ${fontSize}px">
-                <thead>
-                    <tr>
-                        <th>Day</th>
-                        ${dataManager.data.timeSlots.map(slot => `<th>${slot}</th>`).join('')}
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-
+    dataManager.data.timeSlots.forEach(timeSlot => {
+        html += `<tr class="time-row" style="height: ${cellHeight}">`;
+        html += `<td class="time-cell"><strong>${timeSlot}</strong></td>`;
+        
         dataManager.data.days.forEach(day => {
-            html += `<tr><td><strong>${day}</strong></td>`;
+            const dayAssignments = filteredAssignments.filter(a => 
+                a.day === day && a.timeSlot === timeSlot
+            );
             
-            dataManager.data.timeSlots.forEach(timeSlot => {
-                const slotAssignments = filteredAssignments.filter(a => 
-                    a.day === day && a.timeSlot === timeSlot
-                );
-                
-                html += '<td>';
-                slotAssignments.forEach(assignment => {
-                    html += `<div class="print-entry">${dataManager.getAssignmentDisplay(assignment)}</div>`;
+            html += `<td class="schedule-cell">`;
+            
+            if (dayAssignments.length === 0) {
+                html += '<div class="no-lab">-</div>';
+            } else {
+                dayAssignments.forEach((assignment, index) => {
+                    const shortDisplay = `${assignment.department}-${assignment.semester}${assignment.group}${assignment.subGroup}`;
+                    const roomInfo = assignment.labRoom;
+                    const facultyInfo = `${assignment.theoryFaculty}/${assignment.labFaculty}`;
+                    
+                    html += `
+                        <div class="lab-entry lab-entry-${index % 3}">
+                            <div class="lab-class">${shortDisplay}</div>
+                            <div class="lab-subject">${assignment.subject}</div>
+                            <div class="lab-details">
+                                <span class="lab-room">${roomInfo}</span>
+                                <span class="lab-faculty">${facultyInfo}</span>
+                            </div>
+                        </div>
+                    `;
                 });
-                html += '</td>';
-            });
+            }
             
-            html += '</tr>';
+            html += '</td>';
         });
+        
+        html += '</tr>';
+    });
 
-        html += '</tbody></table>';
-        grid.innerHTML = html;
-    } else {
-        let html = `
-            <table class="print-table" style="font-size: ${fontSize}px">
-                <thead>
-                    <tr>
-                        <th>Time Slot</th>
-                        ${dataManager.data.days.map(day => `<th>${day}</th>`).join('')}
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-
-        dataManager.data.timeSlots.forEach(timeSlot => {
-            html += `<tr><td><strong>${timeSlot}</strong></td>`;
-            
-            dataManager.data.days.forEach(day => {
-                const dayAssignments = filteredAssignments.filter(a => 
-                    a.day === day && a.timeSlot === timeSlot
-                );
-                
-                html += '<td>';
-                dayAssignments.forEach(assignment => {
-                    html += `<div class="print-entry">${dataManager.getAssignmentDisplay(assignment)}</div>`;
-                });
-                html += '</td>';
-            });
-            
-            html += '</tr>';
-        });
-
-        html += '</tbody></table>';
-        grid.innerHTML = html;
-    }
+    html += '</tbody></table>';
+    grid.innerHTML = html;
 }
 
 // Event Handlers
@@ -1031,19 +1114,41 @@ function deleteAssignment(index) {
     }
 }
 
-// Tab Management
-function switchTab(tabId) {
-    document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+// Simple tab management for production
+function showTab(tabId) {
+    // Remove active states
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
     
-    const selectedTab = document.querySelector(`[data-tab="${tabId}"]`);
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    
+    // Add active states
+    const selectedTab = event ? event.target.closest('.nav-tab') : document.querySelector('.nav-tab');
     const selectedContent = document.getElementById(`${tabId}-tab`);
     
     if (selectedTab) selectedTab.classList.add('active');
     if (selectedContent) selectedContent.classList.add('active');
     
-    if (tabId === 'analytics') {
-        setTimeout(renderAnalytics, 100);
+    // Special handling for different tabs
+    switch (tabId) {
+        case 'analytics':
+            setTimeout(renderAnalytics, 100);
+            break;
+        case 'dashboard':
+            setTimeout(renderDashboard, 100);
+            break;
+        case 'schedule':
+            setTimeout(renderSchedule, 100);
+            break;
+        case 'print':
+            setTimeout(() => {
+                renderPrintSchedule();
+                document.getElementById('printDate').textContent = new Date().toLocaleDateString();
+            }, 100);
+            break;
     }
 }
 
@@ -1061,9 +1166,33 @@ function toggleTheme() {
     }
 }
 
-// Initialize Application
-document.addEventListener('DOMContentLoaded', function() {
-    dataManager = new DataManager();
+// Initialize Application for production
+document.addEventListener('DOMContentLoaded', async function() {
+    try {
+        // Validate deployment first
+        if (CONFIG.VALIDATION_REQUIRED) {
+            const isValid = await serverValidator.validateDeployment();
+            if (!isValid) {
+                return; // Access blocked
+            }
+        }
+        
+        // Hide loading screen
+        document.getElementById('loadingScreen').style.display = 'none';
+        
+        // Show security notice for first-time users
+        if (!localStorage.getItem('securityNoticeShown')) {
+            document.getElementById('securityNotice').style.display = 'block';
+            localStorage.setItem('securityNoticeShown', 'true');
+        }
+        
+        // Initialize managers
+        notificationManager = new NotificationManager();
+        dataManager = new DataManager();
+    } catch (error) {
+        console.error('Application initialization failed:', error);
+        return;
+    }
     
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme) {
@@ -1120,8 +1249,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const assignmentSearch = document.getElementById('assignmentSearch');
     if (assignmentSearch) {
-        assignmentSearch.addEventListener('input', renderAssignmentsList);
+        assignmentSearch.addEventListener('input', () => {
+            renderAssignmentsList();
+            updateSearchStats();
+        });
     }
+    
+    // Add window beforeunload handler
+    window.addEventListener('beforeunload', (e) => {
+        if (dataManager) {
+            dataManager.save();
+        }
+    });
 
     const scheduleFilters = ['scheduleFilter', 'scheduleSemesterFilter', 'scheduleGroupFilter'];
     scheduleFilters.forEach(filterId => {
@@ -1177,5 +1316,455 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    console.log('Lab Assignment Management System initialized successfully!');
+    console.log('🏫 Institute Lab Management System Loaded!');
 });
+
+// Generate deployment fingerprint (run this once during setup)
+function generateDeploymentFingerprint() {
+    if (!serverValidator) return;
+    
+    const fingerprint = serverValidator.generateFingerprint();
+    const domainHash = serverValidator.hashDomain(window.location.hostname);
+    
+    console.log('=== DEPLOYMENT SETUP ===');
+    console.log('Add these to your config.js:');
+    console.log(`AUTHORIZED_DOMAIN_HASH: '${domainHash}',`);
+    console.log(`DEPLOYMENT_FINGERPRINT: '${fingerprint}',`);
+    console.log('========================');
+    
+    return { domainHash, fingerprint };
+}
+
+// Export setup function
+window.generateDeploymentFingerprint = generateDeploymentFingerprint;
+
+
+
+// Additional Utility Functions
+function exportData() {
+    if (!dataManager) return;
+    
+    const data = {
+        ...dataManager.data,
+        exportDate: new Date().toISOString(),
+        version: '2.0.0'
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `lams-data-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    notificationManager?.show('Data exported successfully!', 'success');
+    debugManager?.log('Data exported', 'info');
+}
+
+function importData() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    
+    input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+                
+                if (confirm('This will replace all current data. Are you sure?')) {
+                    // Validate data structure
+                    const requiredFields = ['departments', 'semesters', 'groups', 'subGroups', 'assignments'];
+                    const isValid = requiredFields.every(field => Array.isArray(data[field]));
+                    
+                    if (isValid) {
+                        dataManager.data = { ...dataManager.data, ...data };
+                        dataManager.save();
+                        notificationManager?.show('Data imported successfully!', 'success');
+                        debugManager?.log('Data imported', 'success', data);
+                    } else {
+                        throw new Error('Invalid data format');
+                    }
+                }
+            } catch (error) {
+                notificationManager?.show('Failed to import data: ' + error.message, 'error');
+                debugManager?.log('Import failed', 'error', error);
+            }
+        };
+        reader.readAsText(file);
+    };
+    
+    input.click();
+}
+
+
+
+function previewAssignment() {
+    const assignment = {
+        day: document.getElementById('assignmentDay').value,
+        timeSlot: document.getElementById('assignmentTimeSlot').value,
+        department: document.getElementById('assignmentDepartment').value,
+        semester: document.getElementById('assignmentSemester').value,
+        group: document.getElementById('assignmentGroup').value,
+        subGroup: document.getElementById('assignmentSubGroup').value,
+        subject: document.getElementById('assignmentSubject').value,
+        labRoom: document.getElementById('assignmentLabRoom').value,
+        theoryFaculty: document.getElementById('assignmentTheoryFaculty').value,
+        labFaculty: document.getElementById('assignmentLabFaculty').value
+    };
+    
+    const preview = document.createElement('div');
+    preview.className = 'assignment-preview-modal';
+    preview.innerHTML = `
+        <div class="preview-content">
+            <div class="preview-header">
+                <h3>Assignment Preview</h3>
+                <button onclick="this.closest('.assignment-preview-modal').remove()">&times;</button>
+            </div>
+            <div class="preview-body">
+                <div class="preview-display">
+                    <h4>${dataManager?.getAssignmentDisplay(assignment) || 'Preview Assignment'}</h4>
+                    <div class="preview-details">
+                        <div class="preview-row">
+                            <span class="preview-label">Schedule:</span>
+                            <span class="preview-value">${assignment.day} | ${assignment.timeSlot}</span>
+                        </div>
+                        <div class="preview-row">
+                            <span class="preview-label">Class:</span>
+                            <span class="preview-value">${assignment.department} - ${assignment.semester} - ${assignment.group}-${assignment.subGroup}</span>
+                        </div>
+                        <div class="preview-row">
+                            <span class="preview-label">Subject:</span>
+                            <span class="preview-value">${assignment.subject}</span>
+                        </div>
+                        <div class="preview-row">
+                            <span class="preview-label">Lab Room:</span>
+                            <span class="preview-value">${assignment.labRoom}</span>
+                        </div>
+                        <div class="preview-row">
+                            <span class="preview-label">Faculty:</span>
+                            <span class="preview-value">Theory: ${assignment.theoryFaculty}, Lab: ${assignment.labFaculty}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="preview-actions">
+                <button class="btn btn--secondary" onclick="this.closest('.assignment-preview-modal').remove()">Close</button>
+                <button class="btn btn--primary" onclick="document.getElementById('assignmentForm').dispatchEvent(new Event('submit')); this.closest('.assignment-preview-modal').remove();">Create Assignment</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(preview);
+    setTimeout(() => preview.classList.add('show'), 10);
+}
+
+// Enhanced search functionality
+function updateSearchStats() {
+    const searchInput = document.getElementById('assignmentSearch');
+    const statsContainer = document.getElementById('searchStats');
+    
+    if (!searchInput || !statsContainer || !dataManager) return;
+    
+    const query = searchInput.value.trim();
+    if (query) {
+        const results = dataManager.searchAssignments(query);
+        statsContainer.innerHTML = `
+            <small class="search-result-count">
+                ${results.length} result${results.length !== 1 ? 's' : ''} found
+            </small>
+        `;
+        statsContainer.style.display = 'block';
+    } else {
+        statsContainer.style.display = 'none';
+    }
+}
+
+// Institute-specific analytics for management
+function renderInstituteAnalytics() {
+    if (!dataManager) return;
+    
+    // Lab utilization analysis
+    const utilizationData = {};
+    dataManager.data.labRooms.forEach(room => {
+        utilizationData[room] = dataManager.data.assignments.filter(a => a.labRoom === room).length;
+    });
+    
+    // Faculty workload analysis
+    const facultyWorkload = {};
+    dataManager.data.assignments.forEach(assignment => {
+        facultyWorkload[assignment.theoryFaculty] = (facultyWorkload[assignment.theoryFaculty] || 0) + 1;
+        facultyWorkload[assignment.labFaculty] = (facultyWorkload[assignment.labFaculty] || 0) + 1;
+    });
+    
+    // Department distribution
+    const deptDistribution = {};
+    dataManager.data.assignments.forEach(assignment => {
+        deptDistribution[assignment.department] = (deptDistribution[assignment.department] || 0) + 1;
+    });
+    
+    // Time slot efficiency
+    const timeSlotUsage = {};
+    dataManager.data.timeSlots.forEach(slot => {
+        timeSlotUsage[slot] = dataManager.data.assignments.filter(a => a.timeSlot === slot).length;
+    });
+    
+    return {
+        labUtilization: utilizationData,
+        facultyWorkload: facultyWorkload,
+        departmentDistribution: deptDistribution,
+        timeSlotEfficiency: timeSlotUsage,
+        totalLabs: dataManager.data.assignments.length,
+        averageLabsPerDay: (dataManager.data.assignments.length / dataManager.data.days.length).toFixed(1)
+    };
+}
+
+// Bulk operations for institute management
+function bulkAssignFaculty(assignments, theoryFaculty, labFaculty) {
+    if (!dataManager || !assignments.length) return false;
+    
+    assignments.forEach(assignment => {
+        const index = dataManager.data.assignments.findIndex(a => 
+            a.day === assignment.day && 
+            a.timeSlot === assignment.timeSlot && 
+            a.department === assignment.department &&
+            a.semester === assignment.semester &&
+            a.group === assignment.group &&
+            a.subGroup === assignment.subGroup
+        );
+        
+        if (index !== -1) {
+            if (theoryFaculty) dataManager.data.assignments[index].theoryFaculty = theoryFaculty;
+            if (labFaculty) dataManager.data.assignments[index].labFaculty = labFaculty;
+        }
+    });
+    
+    dataManager.save();
+    dataManager.refreshAllComponents();
+    return true;
+}
+
+// Generate semester-wise reports
+function generateSemesterReport(semester) {
+    if (!dataManager) return null;
+    
+    const semesterAssignments = dataManager.data.assignments.filter(a => a.semester === semester);
+    const departments = [...new Set(semesterAssignments.map(a => a.department))];
+    const subjects = [...new Set(semesterAssignments.map(a => a.subject))];
+    const faculty = [...new Set([...semesterAssignments.map(a => a.theoryFaculty), ...semesterAssignments.map(a => a.labFaculty)])];
+    
+    return {
+        semester,
+        totalLabs: semesterAssignments.length,
+        departments: departments.length,
+        subjects: subjects.length,
+        faculty: faculty.length,
+        assignments: semesterAssignments
+    };
+}
+
+// Admin functions
+function showUserManagement() {
+    if (!authManager?.currentUser?.isAdmin) {
+        showMessage('Admin access required', 'error');
+        return;
+    }
+    
+    const pendingData = localStorage.getItem(CONFIG.PENDING_USERS_KEY);
+    const approvedData = localStorage.getItem(CONFIG.APPROVED_USERS_KEY);
+    
+    const pendingUsers = pendingData ? securityManager.deobfuscate(JSON.parse(pendingData)) : [];
+    const approvedUsers = approvedData ? securityManager.deobfuscate(JSON.parse(approvedData)) : [];
+    
+    const modal = document.createElement('div');
+    modal.className = 'user-management-modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>User Management</h3>
+                <button onclick="this.closest('.user-management-modal').remove()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="user-section">
+                    <h4>Pending Approval (${pendingUsers.length})</h4>
+                    <div class="user-list pending-list">
+                        ${pendingUsers.length === 0 ? '<p class="empty-state">No pending requests</p>' : 
+                          pendingUsers.map(user => `
+                            <div class="user-item pending-user">
+                                <div class="user-info">
+                                    <img src="${user.picture}" class="user-avatar-small" alt="${user.name}">
+                                    <div>
+                                        <div class="user-name">${user.name}</div>
+                                        <div class="user-email">${user.email}</div>
+                                        <div class="user-time">Requested: ${new Date(user.loginTime).toLocaleString()}</div>
+                                    </div>
+                                </div>
+                                <div class="user-actions">
+                                    <button class="btn btn--sm btn--success" onclick="approveUser('${user.email}'); this.closest('.user-management-modal').remove(); showUserManagement();">Approve</button>
+                                    <button class="btn btn--sm btn--danger" onclick="rejectUser('${user.email}'); this.closest('.user-management-modal').remove(); showUserManagement();">Reject</button>
+                                </div>
+                            </div>
+                          `).join('')}
+                    </div>
+                </div>
+                
+                <div class="user-section">
+                    <h4>Approved Users (${approvedUsers.length})</h4>
+                    <div class="user-list approved-list">
+                        ${approvedUsers.length === 0 ? '<p class="empty-state">No approved users</p>' : 
+                          approvedUsers.map(user => `
+                            <div class="user-item approved-user">
+                                <div class="user-info">
+                                    <img src="${user.picture}" class="user-avatar-small" alt="${user.name}">
+                                    <div>
+                                        <div class="user-name">${user.name}</div>
+                                        <div class="user-email">${user.email}</div>
+                                        <div class="user-time">Approved: ${new Date(user.approvedAt).toLocaleString()}</div>
+                                    </div>
+                                </div>
+                                <div class="user-actions">
+                                    <button class="btn btn--sm btn--danger" onclick="if(confirm('Remove ${user.name}?')) { removeApprovedUser('${user.email}'); this.closest('.user-management-modal').remove(); showUserManagement(); }">Remove</button>
+                                </div>
+                            </div>
+                          `).join('')}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+// Update dashboard stats for admin
+function updateAdminStats() {
+    if (!authManager?.currentUser?.isAdmin) return;
+    
+    const pendingData = localStorage.getItem(CONFIG.PENDING_USERS_KEY);
+    const approvedData = localStorage.getItem(CONFIG.APPROVED_USERS_KEY);
+    
+    const pendingUsers = pendingData ? securityManager.deobfuscate(JSON.parse(pendingData)) : [];
+    const approvedUsers = approvedData ? securityManager.deobfuscate(JSON.parse(approvedData)) : [];
+    
+    const approvedCount = document.getElementById('approvedUsersCount');
+    const pendingCount = document.getElementById('pendingRequestsCount');
+    
+    if (approvedCount) approvedCount.textContent = approvedUsers.length;
+    if (pendingCount) pendingCount.textContent = pendingUsers.length;
+}
+
+function clearAllData() {
+    if (!authManager?.currentUser?.isAdmin) {
+        showMessage('Admin access required', 'error');
+        return;
+    }
+    
+    if (confirm('This will delete ALL lab data. Are you sure?')) {
+        if (confirm('This action cannot be undone. Continue?')) {
+            localStorage.clear();
+            if (dataManager) {
+                dataManager.data = {
+                    days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+                    timeSlots: [],
+                    departments: ["CSE", "ECE", "EEE", "MECH", "CIVIL"],
+                    semesters: ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"],
+                    groups: ["A", "B", "C", "D"],
+                    subGroups: ["1", "2", "3"],
+                    subjects: [],
+                    labRooms: [],
+                    theoryFaculty: [],
+                    labFaculty: [],
+                    assignments: [],
+                    academicYear: "2024-25",
+                    scheduleOrientation: "daysHorizontal"
+                };
+                dataManager.save();
+                dataManager.refreshAllComponents();
+            }
+            showMessage('All data cleared successfully', 'success');
+        }
+    }
+}
+
+function downloadLogs() {
+    if (!authManager?.currentUser?.isAdmin) {
+        showMessage('Admin access required', 'error');
+        return;
+    }
+    
+    const logs = {
+        timestamp: new Date().toISOString(),
+        user: authManager.currentUser,
+        dataStats: {
+            assignments: dataManager?.data.assignments.length || 0,
+            faculty: (dataManager?.data.theoryFaculty.length || 0) + (dataManager?.data.labFaculty.length || 0),
+            subjects: dataManager?.data.subjects.length || 0,
+            rooms: dataManager?.data.labRooms.length || 0
+        },
+        config: CONFIG
+    };
+    
+    const blob = new Blob([JSON.stringify(logs, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `lams-logs-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// Enhanced import with admin check
+function importData() {
+    if (!authManager?.currentUser?.isAdmin) {
+        showMessage('Admin access required for data import', 'error');
+        return;
+    }
+    
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    
+    input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+                
+                if (confirm('This will replace all current data. Are you sure?')) {
+                    const requiredFields = ['departments', 'semesters', 'groups', 'subGroups', 'assignments'];
+                    const isValid = requiredFields.every(field => Array.isArray(data[field]));
+                    
+                    if (isValid) {
+                        dataManager.data = { ...dataManager.data, ...data };
+                        dataManager.save();
+                        showMessage('Data imported successfully!', 'success');
+                    } else {
+                        throw new Error('Invalid data format');
+                    }
+                }
+            } catch (error) {
+                showMessage('Failed to import data: ' + error.message, 'error');
+            }
+        };
+        reader.readAsText(file);
+    };
+    
+    input.click();
+}
+
+// Export functions for global access
+window.notificationManager = notificationManager;
+window.exportData = exportData;
+window.importData = importData;
+window.previewAssignment = previewAssignment;
+window.updateSearchStats = updateSearchStats;
+window.showTab = showTab;
+window.showUserManagement = showUserManagement;
+window.clearAllData = clearAllData;
+window.updateAdminStats = updateAdminStats;

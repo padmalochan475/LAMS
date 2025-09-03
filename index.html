@@ -3,9 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lab Assignment Management System</title>
+    <title>Institute Lab Management System</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+    <script src="config.js"></script>
+    <script src="security.js"></script>
+    <script src="server-validation.js"></script>
+    <script src="auth.js"></script>
 </head>
 <body>
     <!-- Floating orbs for background animation -->
@@ -19,44 +25,90 @@
     <!-- Main container -->
     <div class="container">
         <header class="header">
-            <h1 class="header-title">Lab Assignment Management System</h1>
-            <button class="theme-toggle btn--secondary" id="themeToggle">
-                <span class="theme-icon">🌙</span>
-            </button>
+            <h1 class="header-title">Institute Lab Management System</h1>
+            <div class="header-actions">
+                <div id="user-info" class="user-info" style="display: none;">
+                    <img id="user-avatar" class="user-avatar" src="" alt="User">
+                    <span id="user-name"></span>
+                    <button class="btn btn--secondary" onclick="signOut()">Sign Out</button>
+                </div>
+                <div id="login-section">
+                    <div id="g_id_onload"
+                         data-callback="handleCredentialResponse"
+                         data-auto_prompt="false">
+                    </div>
+                    <div class="g_id_signin" data-type="standard"></div>
+                </div>
+                <button class="theme-toggle btn--secondary" id="themeToggle">
+                    <span class="theme-icon">🌙</span>
+                </button>
+            </div>
         </header>
 
         <!-- Navigation tabs -->
-        <nav class="nav-tabs">
-            <button class="nav-tab active" data-tab="dashboard">
+        <nav class="nav-tabs" id="main-nav" style="display: none;">
+            <button class="nav-tab active" onclick="showTab('dashboard')">
                 <span class="nav-icon">📊</span>
                 Dashboard
             </button>
-            <button class="nav-tab" data-tab="assignment">
+            <button class="nav-tab" onclick="showTab('assignment')">
                 <span class="nav-icon">➕</span>
                 Assignment
             </button>
-            <button class="nav-tab" data-tab="schedule">
+            <button class="nav-tab" onclick="showTab('schedule')">
                 <span class="nav-icon">📅</span>
                 Schedule
             </button>
-            <button class="nav-tab" data-tab="master-data">
+            <button class="nav-tab" onclick="showTab('master-data')">
                 <span class="nav-icon">⚙️</span>
                 Master Data
             </button>
-            <button class="nav-tab" data-tab="analytics">
+            <button class="nav-tab" onclick="showTab('analytics')">
                 <span class="nav-icon">📈</span>
                 Analytics
             </button>
-            <button class="nav-tab" data-tab="print">
+            <button class="nav-tab" onclick="showTab('print')">
                 <span class="nav-icon">🖨️</span>
-                Print
+                Print Schedule
             </button>
         </nav>
+
+        <!-- Loading Screen -->
+        <div id="loadingScreen" class="loading-screen">
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <p>Validating deployment...</p>
+            </div>
+        </div>
+
+        <!-- Security Notice -->
+        <div class="security-notice" id="securityNotice" style="display: none;">
+            <div class="notice-content">
+                <span class="notice-icon">⚠️</span>
+                <span class="notice-text">This application is for internal institute use only. All data is stored securely in Google Drive.</span>
+                <button class="notice-close" onclick="this.parentElement.parentElement.style.display='none'">&times;</button>
+            </div>
+        </div>
 
         <!-- Dashboard Tab -->
         <div class="tab-content active" id="dashboard-tab">
             <div class="dashboard-header">
                 <h2>Academic Year: <span id="currentAcademicYear" class="academic-year-display" onclick="editAcademicYear()">2024-25</span></h2>
+                <div class="dashboard-actions">
+                    <button class="btn btn--secondary" onclick="syncWithDrive()" title="Sync with Google Drive">
+                        <span class="nav-icon">☁️</span> Sync Drive
+                    </button>
+                    <button class="btn btn--secondary" onclick="exportData()" title="Export Data">
+                        <span class="nav-icon">📥</span> Export
+                    </button>
+                    <button class="btn btn--secondary admin-btn" onclick="importData()" title="Import Data (Admin Only)">
+                        <span class="nav-icon">📤</span> Import
+                    </button>
+                    <button class="btn btn--secondary admin-btn" onclick="showUserManagement()" title="Manage Users (Admin Only)">
+                        <span class="nav-icon">👥</span> Users
+                        <span id="pendingUsersCount" class="pending-badge" style="display: none;">0</span>
+                    </button>
+                </div>
             </div>
             <div class="dashboard-grid">
                 <div class="stat-card glass-card">
@@ -81,6 +133,27 @@
                 <h3>Recent Activities</h3>
                 <div id="recentAssignmentsList">
                     <p class="empty-state">No assignments created yet. Add master data first, then create assignments.</p>
+                </div>
+            </div>
+            
+            <!-- Usage Statistics will be dynamically inserted here -->
+            
+            <!-- Admin Panel -->
+            <div class="admin-panel glass-card admin-only" style="display: none;">
+                <h3>Admin Panel</h3>
+                <div class="admin-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">Approved Users</span>
+                        <span class="stat-value" id="approvedUsersCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Pending Requests</span>
+                        <span class="stat-value" id="pendingRequestsCount">0</span>
+                    </div>
+                </div>
+                <div class="admin-actions">
+                    <button class="btn btn--primary" onclick="showUserManagement()">Manage Users</button>
+                    <button class="btn btn--outline" onclick="clearAllData()">Clear All Data</button>
                 </div>
             </div>
         </div>
@@ -185,6 +258,7 @@
                     <div class="form-actions">
                         <button type="submit" class="btn btn--primary">Create Assignment</button>
                         <button type="button" class="btn btn--secondary" id="clearForm">Clear Form</button>
+                        <button type="button" class="btn btn--outline" onclick="previewAssignment()">Preview</button>
                     </div>
                 </form>
             </div>
@@ -193,6 +267,7 @@
                 <h3>Existing Assignments</h3>
                 <div class="search-controls">
                     <input type="text" class="form-control" id="assignmentSearch" placeholder="Search assignments...">
+                    <div class="search-stats" id="searchStats"></div>
                 </div>
                 <div id="assignmentsList">
                     <p class="empty-state">No assignments created yet.</p>
@@ -431,12 +506,20 @@
             
             <div id="printSchedule" class="print-schedule">
                 <div class="print-header">
-                    <h1>Lab Assignment Schedule</h1>
-                    <p>Academic Year <span id="printAcademicYear">2024-25</span></p>
-                    <p id="printDepartmentTitle">All Departments</p>
+                    <div class="institute-header">
+                        <h1>INSTITUTE LAB SCHEDULE</h1>
+                        <div class="institute-details">
+                            <p>Academic Year: <span id="printAcademicYear">2024-25</span></p>
+                            <p id="printDepartmentTitle">All Departments</p>
+                            <p class="print-date">Generated on: <span id="printDate"></span></p>
+                        </div>
+                    </div>
                 </div>
                 <div id="printGrid" class="print-grid">
                     <p class="empty-state">No assignments to print.</p>
+                </div>
+                <div class="print-footer">
+                    <p>For any queries, contact the Lab Coordinator</p>
                 </div>
             </div>
         </div>
