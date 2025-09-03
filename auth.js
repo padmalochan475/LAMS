@@ -328,9 +328,13 @@ class AuthManager {
     }
 
     async getAccessToken() {
-        return new Promise((resolve) => {
-            if (window.google && window.google.accounts) {
-                // Request access token for Drive API
+        try {
+            if (!window.google?.accounts?.oauth2) {
+                console.log('❌ Google Identity Services not available');
+                return null;
+            }
+
+            return new Promise((resolve) => {
                 const tokenClient = google.accounts.oauth2.initTokenClient({
                     client_id: this.CLIENT_ID,
                     scope: 'https://www.googleapis.com/auth/drive.file',
@@ -339,18 +343,22 @@ class AuthManager {
                             console.log('✅ Access token obtained');
                             resolve(response.access_token);
                         } else {
-                            console.log('❌ Failed to get access token');
+                            console.log('❌ No access token in response');
                             resolve(null);
                         }
+                    },
+                    error_callback: (error) => {
+                        console.log('❌ Token request failed:', error);
+                        resolve(null);
                     }
                 });
                 
-                tokenClient.requestAccessToken();
-            } else {
-                console.log('❌ Google Identity Services not available');
-                resolve(null);
-            }
-        });
+                tokenClient.requestAccessToken({ prompt: '' });
+            });
+        } catch (error) {
+            console.log('❌ Token request error:', error);
+            return null;
+        }
     }
 
     addSyncLog(type, status, message, details = null) {
