@@ -89,6 +89,22 @@ class DataManager {
             typeof faculty === 'object' ? faculty.short : faculty
         );
     }
+    
+    getFacultyDisplayNames(type) {
+        const facultyType = type === 'theory' ? 'theoryFaculty' : 'labFaculty';
+        return this.data[facultyType].map(faculty => {
+            if (typeof faculty === 'object') {
+                return {
+                    value: faculty.short,
+                    display: `${faculty.short} - ${faculty.full}`
+                };
+            }
+            return {
+                value: faculty,
+                display: faculty
+            };
+        });
+    }
 
     addMasterDataItem(type, value) {
         if (!value || value.trim() === '') {
@@ -223,10 +239,8 @@ class DataManager {
         this.save();
         showMessage('Assignment created successfully!', 'success');
         
-        // Auto-sync with Google Drive if authenticated
-        if (authManager && authManager.isSignedIn) {
-            setTimeout(() => syncWithDrive(), 1000);
-        }
+        // Auto-sync with Google Drive
+        this.syncWithDrive();
         
         return true;
     }
@@ -236,6 +250,10 @@ class DataManager {
             this.data.assignments.splice(index, 1);
             this.save();
             showMessage('Assignment deleted successfully!', 'success');
+            
+            // Auto-sync with Google Drive
+            this.syncWithDrive();
+            
             return true;
         }
         return false;
@@ -286,9 +304,19 @@ class DataManager {
             console.error('Error refreshing components:', e);
         }
     }
+    
+    async syncWithDrive() {
+        if (window.authManager && window.authManager.isSignedIn) {
+            try {
+                await window.authManager.saveToGoogleDrive(this.data);
+            } catch (error) {
+                console.error('Drive sync failed:', error);
+            }
+        }
+    }
 
     getAssignmentDisplay(assignment) {
-        return `${assignment.department}-${assignment.group}-${assignment.subGroup}-${assignment.subject}-(${assignment.theoryFaculty},${assignment.labFaculty})-${assignment.labRoom}`;
+        return `${assignment.department}-${assignment.semester}${assignment.group}-${assignment.subGroup}-${assignment.subject}[${assignment.theoryFaculty},${assignment.labFaculty}]-${assignment.labRoom}`;
     }
 
     searchAssignments(query) {
@@ -444,8 +472,8 @@ function refreshDropdowns() {
         { id: 'assignmentSubGroup', data: dataManager.data.subGroups },
         { id: 'assignmentSubject', data: dataManager.data.subjects },
         { id: 'assignmentLabRoom', data: dataManager.data.labRooms },
-        { id: 'assignmentTheoryFaculty', data: dataManager.getFacultyShortNames('theory') },
-        { id: 'assignmentLabFaculty', data: dataManager.getFacultyShortNames('lab') },
+        { id: 'assignmentTheoryFaculty', data: dataManager.getFacultyDisplayNames('theory') },
+        { id: 'assignmentLabFaculty', data: dataManager.getFacultyDisplayNames('lab') },
         { id: 'scheduleFilter', data: dataManager.data.departments },
         { id: 'scheduleSemesterFilter', data: dataManager.data.semesters },
         { id: 'scheduleGroupFilter', data: dataManager.data.groups },
@@ -472,8 +500,13 @@ function refreshDropdowns() {
             
             config.data.forEach(item => {
                 const option = document.createElement('option');
-                option.value = item;
-                option.textContent = item;
+                if (typeof item === 'object' && item.value && item.display) {
+                    option.value = item.value;
+                    option.textContent = item.display;
+                } else {
+                    option.value = item;
+                    option.textContent = item;
+                }
                 select.appendChild(option);
             });
             
@@ -1571,16 +1604,13 @@ function generateSemesterReport(semester) {
 
 // Admin functions
 function showUserManagement() {
-    if (!authManager?.currentUser?.isAdmin) {
+    if (!window.authManager?.currentUser?.isAdmin) {
         showMessage('Admin access required', 'error');
         return;
     }
     
-    const pendingData = localStorage.getItem(CONFIG.PENDING_USERS_KEY);
-    const approvedData = localStorage.getItem(CONFIG.APPROVED_USERS_KEY);
-    
-    const pendingUsers = pendingData ? securityManager.deobfuscate(JSON.parse(pendingData)) : [];
-    const approvedUsers = approvedData ? securityManager.deobfuscate(JSON.parse(approvedData)) : [];
+    const pendingUsers = JSON.parse(localStorage.getItem(CONFIG.PENDING_USERS_KEY) || '[]');
+    const approvedUsers = JSON.parse(localStorage.getItem(CONFIG.APPROVED_USERS_KEY) || '[]');
     
     const modal = document.createElement('div');
     modal.className = 'user-management-modal';
@@ -1643,13 +1673,10 @@ function showUserManagement() {
 
 // Update dashboard stats for admin
 function updateAdminStats() {
-    if (!authManager?.currentUser?.isAdmin) return;
+    if (!window.authManager?.currentUser?.isAdmin) return;
     
-    const pendingData = localStorage.getItem(CONFIG.PENDING_USERS_KEY);
-    const approvedData = localStorage.getItem(CONFIG.APPROVED_USERS_KEY);
-    
-    const pendingUsers = pendingData ? securityManager.deobfuscate(JSON.parse(pendingData)) : [];
-    const approvedUsers = approvedData ? securityManager.deobfuscate(JSON.parse(approvedData)) : [];
+    const pendingUsers = JSON.parse(localStorage.getItem(CONFIG.PENDING_USERS_KEY) || '[]');
+    const approvedUsers = JSON.parse(localStorage.getItem(CONFIG.APPROVED_USERS_KEY) || '[]');
     
     const approvedCount = document.getElementById('approvedUsersCount');
     const pendingCount = document.getElementById('pendingRequestsCount');
@@ -1659,7 +1686,7 @@ function updateAdminStats() {
 }
 
 function clearAllData() {
-    if (!authManager?.currentUser?.isAdmin) {
+    if (!window.authManager?.currentUser?.isAdmin) {
         showMessage('Admin access required', 'error');
         return;
     }
@@ -1692,19 +1719,19 @@ function clearAllData() {
 }
 
 function downloadLogs() {
-    if (!authManager?.currentUser?.isAdmin) {
+    if (!window.authManager?.currentUser?.isAdmin) {
         showMessage('Admin access required', 'error');
         return;
     }
     
     const logs = {
         timestamp: new Date().toISOString(),
-        user: authManager.currentUser,
+        user: window.authManager.currentUser,
         dataStats: {
-            assignments: dataManager?.data.assignments.length || 0,
-            faculty: (dataManager?.data.theoryFaculty.length || 0) + (dataManager?.data.labFaculty.length || 0),
-            subjects: dataManager?.data.subjects.length || 0,
-            rooms: dataManager?.data.labRooms.length || 0
+            assignments: window.dataManager?.data.assignments.length || 0,
+            faculty: (window.dataManager?.data.theoryFaculty.length || 0) + (window.dataManager?.data.labFaculty.length || 0),
+            subjects: window.dataManager?.data.subjects.length || 0,
+            rooms: window.dataManager?.data.labRooms.length || 0
         },
         config: CONFIG
     };
@@ -1720,7 +1747,7 @@ function downloadLogs() {
 
 // Enhanced import with admin check
 function importData() {
-    if (!authManager?.currentUser?.isAdmin) {
+    if (!window.authManager?.currentUser?.isAdmin) {
         showMessage('Admin access required for data import', 'error');
         return;
     }
@@ -1761,6 +1788,7 @@ function importData() {
 }
 
 // Export functions for global access
+window.dataManager = dataManager;
 window.notificationManager = notificationManager;
 window.exportData = exportData;
 window.importData = importData;
@@ -1770,3 +1798,10 @@ window.showTab = showTab;
 window.showUserManagement = showUserManagement;
 window.clearAllData = clearAllData;
 window.updateAdminStats = updateAdminStats;
+window.addMasterDataItem = addMasterDataItem;
+window.addFaculty = addFaculty;
+window.deleteMasterDataItem = deleteMasterDataItem;
+window.deleteFaculty = deleteFaculty;
+window.deleteAssignment = deleteAssignment;
+window.editAcademicYear = editAcademicYear;
+window.toggleScheduleOrientation = toggleScheduleOrientation;

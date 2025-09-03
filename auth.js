@@ -42,12 +42,10 @@ class AuthManager {
         });
     }
 
-    async signIn(credential) {
-        console.log('Processing sign-in credential...');
+    signIn(credential) {
+        console.log('Processing sign-in...');
         try {
             const payload = JSON.parse(atob(credential.split('.')[1]));
-            console.log('User payload:', { email: payload.email, name: payload.name });
-            
             const user = {
                 id: payload.sub,
                 name: payload.name,
@@ -56,66 +54,43 @@ class AuthManager {
                 loginTime: new Date().toISOString()
             };
             
-            console.log('Checking admin status for:', user.email);
-            console.log('Admin email configured as:', CONFIG.ADMIN_EMAIL);
+            console.log('User:', user.email, 'Admin:', CONFIG.ADMIN_EMAIL);
             
-            // Check if admin
             if (user.email === CONFIG.ADMIN_EMAIL) {
-                console.log('Admin login detected');
                 this.currentUser = { ...user, isAdmin: true };
                 this.isSignedIn = true;
                 localStorage.setItem('userSession', JSON.stringify(this.currentUser));
+                console.log('Admin signed in, session saved');
                 this.updateUI();
-                console.log(`Welcome Admin ${user.name}!`);
                 return;
             }
             
-            // Check if user is approved
             const approvedUsers = JSON.parse(localStorage.getItem(CONFIG.APPROVED_USERS_KEY) || '[]');
             const isApproved = approvedUsers.some(u => u.email === user.email);
-            console.log('User approved status:', isApproved);
             
             if (isApproved) {
-                console.log('Approved user login');
                 this.currentUser = { ...user, isAdmin: false };
                 this.isSignedIn = true;
                 localStorage.setItem('userSession', JSON.stringify(this.currentUser));
+                console.log('Approved user signed in, session saved');
                 this.updateUI();
-                console.log(`Welcome ${user.name}!`);
                 return;
             }
             
-            // Add to pending users for admin approval
-            console.log('Adding user to pending list');
             this.addToPendingUsers(user);
-            alert('Access request sent to admin. Please wait for approval.');
+            console.log('Access request sent to admin.');
             
         } catch (error) {
-            console.error('Sign in failed:', error);
-            alert('Sign in failed. Please try again.');
+            console.error('Sign in error:', error);
         }
     }
     
     addToPendingUsers(user) {
         const pendingUsers = JSON.parse(localStorage.getItem(CONFIG.PENDING_USERS_KEY) || '[]');
+        if (pendingUsers.some(u => u.email === user.email)) return;
         
-        // Check if already pending
-        if (pendingUsers.some(u => u.email === user.email)) {
-            return;
-        }
-        
-        // Sanitize user data
-        const sanitizedUser = {
-            id: securityManager.sanitizeInput(user.id),
-            name: securityManager.sanitizeInput(user.name),
-            email: securityManager.sanitizeInput(user.email),
-            picture: user.picture,
-            loginTime: user.loginTime
-        };
-        
-        pendingUsers.push(sanitizedUser);
-        const data = securityManager.obfuscate(pendingUsers);
-        localStorage.setItem(CONFIG.PENDING_USERS_KEY, JSON.stringify(data));
+        pendingUsers.push(user);
+        localStorage.setItem(CONFIG.PENDING_USERS_KEY, JSON.stringify(pendingUsers));
     }
 
     signOut() {
@@ -139,36 +114,45 @@ class AuthManager {
         const mainNav = document.getElementById('main-nav');
         const tabContents = document.querySelectorAll('.tab-content');
 
-        if (this.isSignedIn) {
-            loginSection.style.display = 'none';
-            userInfo.style.display = 'flex';
-            mainNav.style.display = 'flex';
+        if (this.isSignedIn && this.currentUser) {
+            if (loginSection) loginSection.style.display = 'none';
+            if (userInfo) userInfo.style.display = 'flex';
+            if (mainNav) mainNav.style.display = 'flex';
             
             const userName = document.getElementById('user-name');
-            userName.textContent = this.currentUser.name;
-            if (this.currentUser.isAdmin) {
-                userName.textContent += ' (Admin)';
-                userName.style.color = 'var(--color-primary)';
+            const userAvatar = document.getElementById('user-avatar');
+            
+            if (userName) {
+                userName.textContent = this.currentUser.name;
+                if (this.currentUser.isAdmin) {
+                    userName.textContent += ' (Admin)';
+                    userName.style.color = 'var(--color-primary)';
+                }
             }
             
-            document.getElementById('user-avatar').src = this.currentUser.picture;
+            if (userAvatar && this.currentUser.picture) {
+                userAvatar.src = this.currentUser.picture;
+            }
             
             // Show/hide admin features
             this.toggleAdminFeatures(this.currentUser.isAdmin);
             
-            // Show dashboard by default
-            showTab('dashboard');
+            // Show dashboard by default if no tab is active
+            const activeTab = document.querySelector('.tab-content.active');
+            if (!activeTab && window.showTab) {
+                window.showTab('dashboard');
+            }
         } else {
-            loginSection.style.display = 'block';
-            userInfo.style.display = 'none';
-            mainNav.style.display = 'none';
+            if (loginSection) loginSection.style.display = 'block';
+            if (userInfo) userInfo.style.display = 'none';
+            if (mainNav) mainNav.style.display = 'none';
             
             // Hide all tab contents
             tabContents.forEach(tab => tab.classList.remove('active'));
+            
+            // Initialize Google Sign-In button only when logged out
+            setTimeout(() => this.initializeSignInButton(), 100);
         }
-        
-        // Initialize Google Sign-In button
-        this.initializeSignInButton();
     }
     
     toggleAdminFeatures(isAdmin) {
@@ -189,8 +173,7 @@ class AuthManager {
     }
     
     updatePendingUsersCount() {
-        const pendingData = localStorage.getItem(CONFIG.PENDING_USERS_KEY);
-        const pendingUsers = pendingData ? securityManager.deobfuscate(JSON.parse(pendingData)) : [];
+        const pendingUsers = JSON.parse(localStorage.getItem(CONFIG.PENDING_USERS_KEY) || '[]');
         const countElement = document.getElementById('pendingUsersCount');
         if (countElement) {
             countElement.textContent = pendingUsers.length;
@@ -241,7 +224,16 @@ class AuthManager {
         if (!this.isSignedIn) return false;
 
         try {
-            const fileName = `lab-schedule-${new Date().toISOString().split('T')[0]}.json`;
+            await gapi.load('client', async () => {
+                await gapi.client.init({
+                    apiKey: this.API_KEY,
+                    clientId: this.CLIENT_ID,
+                    discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+                    scope: 'https://www.googleapis.com/auth/drive.file'
+                });
+            });
+
+            const fileName = `lams-data-${new Date().toISOString().split('T')[0]}.json`;
             
             const response = await gapi.client.drive.files.create({
                 resource: {
@@ -255,12 +247,11 @@ class AuthManager {
             });
 
             if (response.status === 200) {
-                showMessage('Data synced to Google Drive successfully!', 'success');
+                console.log('Data synced to Google Drive');
                 return true;
             }
         } catch (error) {
             console.error('Drive save failed:', error);
-            showMessage('Failed to sync with Google Drive', 'error');
         }
         return false;
     }
@@ -270,7 +261,7 @@ class AuthManager {
 
         try {
             const response = await gapi.client.drive.files.list({
-                q: "parents in 'appDataFolder' and name contains 'lab-schedule'",
+                q: "parents in 'appDataFolder' and name contains 'lams-data'",
                 orderBy: 'modifiedTime desc',
                 pageSize: 1
             });
@@ -283,11 +274,11 @@ class AuthManager {
                 });
 
                 const data = JSON.parse(fileResponse.body);
-                if (dataManager) {
-                    dataManager.data = { ...dataManager.data, ...data };
-                    dataManager.save();
-                    dataManager.refreshAllComponents();
-                    showMessage('Data loaded from Google Drive', 'success');
+                if (window.dataManager) {
+                    window.dataManager.data = { ...window.dataManager.data, ...data };
+                    window.dataManager.save();
+                    window.dataManager.refreshAllComponents();
+                    console.log('Data loaded from Google Drive');
                 }
                 return data;
             }
@@ -302,38 +293,37 @@ class AuthManager {
         if (savedSession) {
             try {
                 this.currentUser = JSON.parse(savedSession);
+                console.log('Found existing session for:', this.currentUser.email);
                 
-                // Check session timeout
-                if (!securityManager.isSessionValid(this.currentUser.loginTime)) {
-                    localStorage.removeItem('userSession');
-                    alert('Session expired. Please sign in again.');
-                    return;
-                }
-                
-                // Admin always has access
                 if (this.currentUser.email === CONFIG.ADMIN_EMAIL) {
                     this.currentUser.isAdmin = true;
                     this.isSignedIn = true;
+                    console.log('Admin session restored');
                     this.updateUI();
                     return;
                 }
                 
-                // Check if regular user is still approved
-                const approvedData = localStorage.getItem(CONFIG.APPROVED_USERS_KEY);
-                const approvedUsers = approvedData ? securityManager.deobfuscate(JSON.parse(approvedData)) : [];
+                const approvedUsers = JSON.parse(localStorage.getItem(CONFIG.APPROVED_USERS_KEY) || '[]');
                 const isStillApproved = approvedUsers.some(u => u.email === this.currentUser.email);
                 
                 if (isStillApproved) {
                     this.currentUser.isAdmin = false;
                     this.isSignedIn = true;
+                    console.log('User session restored');
                     this.updateUI();
                 } else {
+                    console.log('User no longer approved, clearing session');
                     localStorage.removeItem('userSession');
-                    alert('Access revoked by admin. Please contact administrator.');
+                    this.updateUI();
                 }
             } catch (error) {
+                console.error('Session restore error:', error);
                 localStorage.removeItem('userSession');
+                this.updateUI();
             }
+        } else {
+            console.log('No existing session found');
+            this.updateUI();
         }
     }
 }
@@ -361,23 +351,21 @@ function signOut() {
     }
 }
 
-// Make signOut globally available
+// Make functions globally available
 window.signOut = signOut;
+window.syncWithDrive = syncWithDrive;
 
 // Sync with Google Drive
 async function syncWithDrive() {
-    if (authManager && dataManager) {
-        await authManager.saveToGoogleDrive(dataManager.data);
+    if (window.authManager && window.dataManager) {
+        await window.authManager.saveToGoogleDrive(window.dataManager.data);
     }
 }
 
 // User Management Functions
 function approveUser(email) {
-    const pendingData = localStorage.getItem(CONFIG.PENDING_USERS_KEY);
-    const approvedData = localStorage.getItem(CONFIG.APPROVED_USERS_KEY);
-    
-    const pendingUsers = pendingData ? securityManager.deobfuscate(JSON.parse(pendingData)) : [];
-    const approvedUsers = approvedData ? securityManager.deobfuscate(JSON.parse(approvedData)) : [];
+    const pendingUsers = JSON.parse(localStorage.getItem(CONFIG.PENDING_USERS_KEY) || '[]');
+    const approvedUsers = JSON.parse(localStorage.getItem(CONFIG.APPROVED_USERS_KEY) || '[]');
     
     const userIndex = pendingUsers.findIndex(u => u.email === email);
     if (userIndex > -1) {
@@ -385,39 +373,31 @@ function approveUser(email) {
         approvedUsers.push({ ...user, approvedAt: new Date().toISOString() });
         pendingUsers.splice(userIndex, 1);
         
-        localStorage.setItem(CONFIG.PENDING_USERS_KEY, JSON.stringify(securityManager.obfuscate(pendingUsers)));
-        localStorage.setItem(CONFIG.APPROVED_USERS_KEY, JSON.stringify(securityManager.obfuscate(approvedUsers)));
+        localStorage.setItem(CONFIG.PENDING_USERS_KEY, JSON.stringify(pendingUsers));
+        localStorage.setItem(CONFIG.APPROVED_USERS_KEY, JSON.stringify(approvedUsers));
         
-        authManager.updatePendingUsersCount();
-        console.log(`Approved ${user.name}`);
+        if (window.authManager) window.authManager.updatePendingUsersCount();
     }
 }
 
 function rejectUser(email) {
-    const pendingData = localStorage.getItem(CONFIG.PENDING_USERS_KEY);
-    const pendingUsers = pendingData ? securityManager.deobfuscate(JSON.parse(pendingData)) : [];
+    const pendingUsers = JSON.parse(localStorage.getItem(CONFIG.PENDING_USERS_KEY) || '[]');
     const userIndex = pendingUsers.findIndex(u => u.email === email);
     
     if (userIndex > -1) {
-        const user = pendingUsers[userIndex];
         pendingUsers.splice(userIndex, 1);
-        localStorage.setItem(CONFIG.PENDING_USERS_KEY, JSON.stringify(securityManager.obfuscate(pendingUsers)));
-        
-        authManager.updatePendingUsersCount();
-        console.log(`Rejected ${user.name}`);
+        localStorage.setItem(CONFIG.PENDING_USERS_KEY, JSON.stringify(pendingUsers));
+        if (window.authManager) window.authManager.updatePendingUsersCount();
     }
 }
 
 function removeApprovedUser(email) {
-    const approvedData = localStorage.getItem(CONFIG.APPROVED_USERS_KEY);
-    const approvedUsers = approvedData ? securityManager.deobfuscate(JSON.parse(approvedData)) : [];
+    const approvedUsers = JSON.parse(localStorage.getItem(CONFIG.APPROVED_USERS_KEY) || '[]');
     const userIndex = approvedUsers.findIndex(u => u.email === email);
     
     if (userIndex > -1) {
-        const user = approvedUsers[userIndex];
         approvedUsers.splice(userIndex, 1);
-        localStorage.setItem(CONFIG.APPROVED_USERS_KEY, JSON.stringify(securityManager.obfuscate(approvedUsers)));
-        console.log(`Removed ${user.name}`);
+        localStorage.setItem(CONFIG.APPROVED_USERS_KEY, JSON.stringify(approvedUsers));
     }
 }
 
@@ -429,12 +409,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     window.authManager = new AuthManager();
-    authManager.checkExistingSession();
+    
+    // Check existing session first
+    window.authManager.checkExistingSession();
     
     // Wait for Google library
     const initGoogle = () => {
         if (window.google?.accounts) {
-            authManager.initializeSignInButton();
+            window.authManager.initializeSignInButton();
         } else {
             setTimeout(initGoogle, 500);
         }
