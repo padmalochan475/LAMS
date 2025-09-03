@@ -29,14 +29,21 @@ class ServerValidator {
     }
 
     isValidDomain() {
-        const allowedDomains = [
-            CONFIG.AUTHORIZED_DOMAIN_HASH, // Hashed domain
-            'localhost',
-            '127.0.0.1'
-        ];
+        const currentDomain = window.location.hostname;
         
-        const currentDomainHash = this.hashDomain(window.location.hostname);
-        return allowedDomains.includes(currentDomainHash);
+        // Allow your specific GitHub Pages domain
+        if (currentDomain === 'padmalochan475.github.io') {
+            return true;
+        }
+        
+        // Allow localhost for development
+        if (currentDomain === 'localhost' || currentDomain === '127.0.0.1') {
+            return true;
+        }
+        
+        // Check against hashed domain as fallback
+        const currentDomainHash = this.hashDomain(currentDomain);
+        return currentDomainHash === CONFIG.AUTHORIZED_DOMAIN_HASH;
     }
 
     async validateRepository() {

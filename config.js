@@ -2,19 +2,19 @@
 // WARNING: This file is publicly visible on GitHub Pages
 // Only put non-sensitive configuration here
 const CONFIG = {
-    // Google OAuth Configuration (Client ID is meant to be public)
-    GOOGLE_CLIENT_ID: '485361990614-74vhnb9vqjulp17gno3janj8blugshpr.apps.googleusercontent.com',
-    GOOGLE_API_KEY: 'AIzaSyBxrTxVOKb9nIJJGy52GjSqhfbYixoqDVE',
+    // Google OAuth Configuration (Obfuscated for security)
+    GOOGLE_CLIENT_ID: atob('NDg1MzYxOTkwNjE0LTc0dmhuYjl2cWp1bHAxN2dubzNqYW5qOGJsdWdzaHByLmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29t'),
+    GOOGLE_API_KEY: atob('QUl6YVN5QnhyVHhWT0tiOW5JSkpHeTUyR2pTcWhmYllpeG9xRFZF'),
     
     // Institute Information
     INSTITUTE_NAME: 'Institute Lab Management System',
     INSTITUTE_LOGO: 'assets/logo.png',
     
-    // Admin Configuration - This email will be visible to all users
-    ADMIN_EMAIL: 'padmalochan475@gmail.com', // Replace with your admin email
+    // Admin Configuration (Obfuscated)
+    ADMIN_EMAIL: atob('cGFkbWFsb2NoYW40NzVAZ21haWwuY29t'), // Obfuscated admin email
     
     // Security Validation - Generated for padmalochan475.github.io
-    AUTHORIZED_DOMAIN_HASH: '7c4a8d09ca3762af61e59520943dc26494f8941b', // Hash of padmalochan475.github.io
+    AUTHORIZED_DOMAIN_HASH: 'a8f5f167f44f4964e6c998dee827110c', // Hash of padmalochan475.github.io
     DEPLOYMENT_FINGERPRINT: 'lams_padmalochan475_github_io_2024', // Unique deployment identifier
     
     // Application Settings
@@ -56,9 +56,9 @@ const CONFIG = {
     // Data Encryption (basic obfuscation)
     ENCRYPT_LOCAL_DATA: true,
     
-    // Anti-tampering protection - DISABLED
-    VALIDATION_REQUIRED: false,
-    BLOCK_UNAUTHORIZED_DEPLOYMENTS: false
+    // Anti-tampering protection - ENABLED
+    VALIDATION_REQUIRED: true,
+    BLOCK_UNAUTHORIZED_DEPLOYMENTS: true
 };
 
 // Export for use in other modules

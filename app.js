@@ -1169,6 +1169,14 @@ function toggleTheme() {
 // Initialize Application for production
 document.addEventListener('DOMContentLoaded', async function() {
     try {
+        // Validate deployment first
+        if (CONFIG.VALIDATION_REQUIRED && window.serverValidator) {
+            const isValid = await serverValidator.validateDeployment();
+            if (!isValid) {
+                return; // Access blocked
+            }
+        }
+        
         // Hide loading screen
         const loadingScreen = document.getElementById('loadingScreen');
         if (loadingScreen) loadingScreen.style.display = 'none';
