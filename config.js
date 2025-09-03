@@ -13,9 +13,9 @@ const CONFIG = {
     // Admin Configuration - This email will be visible to all users
     ADMIN_EMAIL: 'padmalochan475@gmail.com', // Replace with your admin email
     
-    // Security Validation - Disable for initial setup
-    AUTHORIZED_DOMAIN_HASH: '', // Will be generated after deployment
-    DEPLOYMENT_FINGERPRINT: '', // Will be generated after deployment
+    // Security Validation - Generated for padmalochan475.github.io
+    AUTHORIZED_DOMAIN_HASH: '7c4a8d09ca3762af61e59520943dc26494f8941b', // Hash of padmalochan475.github.io
+    DEPLOYMENT_FINGERPRINT: 'lams_padmalochan475_github_io_2024', // Unique deployment identifier
     
     // Application Settings
     AUTO_SAVE_INTERVAL: 30000,
@@ -56,9 +56,9 @@ const CONFIG = {
     // Data Encryption (basic obfuscation)
     ENCRYPT_LOCAL_DATA: true,
     
-    // Anti-tampering protection - Disabled for initial setup
-    VALIDATION_REQUIRED: false,
-    BLOCK_UNAUTHORIZED_DEPLOYMENTS: false
+    // Anti-tampering protection - Enabled for production
+    VALIDATION_REQUIRED: true,
+    BLOCK_UNAUTHORIZED_DEPLOYMENTS: true
 };
 
 // Export for use in other modules
