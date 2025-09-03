@@ -64,8 +64,20 @@ class DataManager {
             localStorage.setItem('labManagementData', JSON.stringify(this.data));
             this.validateMasterDataIntegrity();
             this.refreshAllComponents();
+            // Auto-sync to Google Drive
+            this.autoSyncToDrive();
         } catch (e) {
             console.error('Error saving data:', e);
+        }
+    }
+
+    async autoSyncToDrive() {
+        if (window.authManager && window.authManager.isSignedIn) {
+            try {
+                await window.authManager.saveToGoogleDrive(this.data);
+            } catch (error) {
+                console.error('Auto-sync failed:', error);
+            }
         }
     }
 
@@ -238,10 +250,6 @@ class DataManager {
         this.data.assignments.push(assignment);
         this.save();
         showMessage('Assignment created successfully!', 'success');
-        
-        // Auto-sync with Google Drive
-        this.syncWithDrive();
-        
         return true;
     }
 
@@ -250,10 +258,6 @@ class DataManager {
             this.data.assignments.splice(index, 1);
             this.save();
             showMessage('Assignment deleted successfully!', 'success');
-            
-            // Auto-sync with Google Drive
-            this.syncWithDrive();
-            
             return true;
         }
         return false;
@@ -304,16 +308,7 @@ class DataManager {
             console.error('Error refreshing components:', e);
         }
     }
-    
-    async syncWithDrive() {
-        if (window.authManager && window.authManager.isSignedIn) {
-            try {
-                await window.authManager.saveToGoogleDrive(this.data);
-            } catch (error) {
-                console.error('Drive sync failed:', error);
-            }
-        }
-    }
+
 
     getAssignmentDisplay(assignment) {
         return `${assignment.department}-${assignment.group}-${assignment.subGroup}-${assignment.subject}-[${assignment.theoryFaculty},${assignment.labFaculty}]-${assignment.labRoom} [${assignment.semester} SEM]`;

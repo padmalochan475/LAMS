@@ -62,6 +62,8 @@ class AuthManager {
                 localStorage.setItem('userSession', JSON.stringify(this.currentUser));
                 console.log('Admin signed in, session saved');
                 this.updateUI();
+                // Auto-load data from Google Drive
+                setTimeout(() => this.loadFromDrive(), 1000);
                 return;
             }
             
@@ -74,10 +76,13 @@ class AuthManager {
                 localStorage.setItem('userSession', JSON.stringify(this.currentUser));
                 console.log('Approved user signed in, session saved');
                 this.updateUI();
+                // Auto-load data from Google Drive
+                setTimeout(() => this.loadFromDrive(), 1000);
                 return;
             }
             
             this.addToPendingUsers(user);
+            showMessage('Access request sent to admin. You will be notified once approved.', 'info');
             console.log('Access request sent to admin.');
             
         } catch (error) {
@@ -221,47 +226,126 @@ class AuthManager {
     }
 
     async saveToGoogleDrive(data) {
-        if (!this.isSignedIn) return false;
+        if (!this.isSignedIn) {
+            return false;
+        }
 
         try {
-            await gapi.load('client', async () => {
-                await gapi.client.init({
-                    apiKey: this.API_KEY,
-                    clientId: this.CLIENT_ID,
-                    discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-                    scope: 'https://www.googleapis.com/auth/drive.file'
-                });
+            this.updateSyncStatus('Syncing...');
+            
+            // Initialize gapi client
+            await new Promise((resolve) => {
+                gapi.load('client:auth2', resolve);
+            });
+            
+            await gapi.client.init({
+                apiKey: this.API_KEY,
+                clientId: this.CLIENT_ID,
+                discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+                scope: 'https://www.googleapis.com/auth/drive.file'
             });
 
-            const fileName = `lams-data-${new Date().toISOString().split('T')[0]}.json`;
+            // Get auth instance and sign in if needed
+            const authInstance = gapi.auth2.getAuthInstance();
+            if (!authInstance.isSignedIn.get()) {
+                await authInstance.signIn();
+            }
+
+            const fileName = 'lams-data.json';
+            const fileContent = JSON.stringify(data, null, 2);
             
-            const response = await gapi.client.drive.files.create({
-                resource: {
-                    name: fileName,
-                    parents: ['appDataFolder']
-                },
-                media: {
-                    mimeType: 'application/json',
-                    body: JSON.stringify(data, null, 2)
-                }
+            // Check if file exists
+            const searchResponse = await gapi.client.drive.files.list({
+                q: `name='${fileName}'`,
+                spaces: 'drive'
             });
+
+            let response;
+            if (searchResponse.result.files.length > 0) {
+                // Update existing file
+                const fileId = searchResponse.result.files[0].id;
+                response = await gapi.client.request({
+                    path: `https://www.googleapis.com/upload/drive/v3/files/${fileId}`,
+                    method: 'PATCH',
+                    params: {
+                        uploadType: 'media'
+                    },
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: fileContent
+                });
+            } else {
+                // Create new file
+                response = await gapi.client.request({
+                    path: 'https://www.googleapis.com/upload/drive/v3/files',
+                    method: 'POST',
+                    params: {
+                        uploadType: 'multipart'
+                    },
+                    headers: {
+                        'Content-Type': 'multipart/related; boundary="foo_bar_baz"'
+                    },
+                    body: `--foo_bar_baz\r\nContent-Type: application/json\r\n\r\n${JSON.stringify({name: fileName})}\r\n--foo_bar_baz\r\nContent-Type: application/json\r\n\r\n${fileContent}\r\n--foo_bar_baz--`
+                });
+            }
 
             if (response.status === 200) {
+                this.updateSyncStatus('Synced');
                 console.log('Data synced to Google Drive');
                 return true;
             }
         } catch (error) {
             console.error('Drive save failed:', error);
+            this.updateSyncStatus('Sync failed');
         }
         return false;
     }
 
+    updateSyncStatus(status) {
+        const syncStatusElement = document.getElementById('syncStatus');
+        const syncStatusText = document.getElementById('syncStatusText');
+        if (syncStatusElement && syncStatusText) {
+            syncStatusElement.style.display = 'flex';
+            syncStatusText.textContent = status;
+            
+            // Hide after 3 seconds if synced
+            if (status === 'Synced') {
+                setTimeout(() => {
+                    syncStatusElement.style.display = 'none';
+                }, 3000);
+            }
+        }
+    }
+
     async loadFromDrive() {
-        if (!this.isSignedIn) return null;
+        if (!this.isSignedIn) {
+            return null;
+        }
 
         try {
+            
+            // Initialize gapi client
+            await new Promise((resolve) => {
+                gapi.load('client:auth2', resolve);
+            });
+            
+            await gapi.client.init({
+                apiKey: this.API_KEY,
+                clientId: this.CLIENT_ID,
+                discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+                scope: 'https://www.googleapis.com/auth/drive.file'
+            });
+
+            // Get auth instance and sign in if needed
+            const authInstance = gapi.auth2.getAuthInstance();
+            if (!authInstance.isSignedIn.get()) {
+                await authInstance.signIn();
+            }
+
             const response = await gapi.client.drive.files.list({
-                q: "parents in 'appDataFolder' and name contains 'lams-data'",
+                q: "name='lams-data.json'",
+                spaces: 'drive',
                 orderBy: 'modifiedTime desc',
                 pageSize: 1
             });
@@ -276,11 +360,13 @@ class AuthManager {
                 const data = JSON.parse(fileResponse.body);
                 if (window.dataManager) {
                     window.dataManager.data = { ...window.dataManager.data, ...data };
-                    window.dataManager.save();
+                    localStorage.setItem('labManagementData', JSON.stringify(window.dataManager.data));
                     window.dataManager.refreshAllComponents();
                     console.log('Data loaded from Google Drive');
                 }
                 return data;
+            } else {
+                console.log('No data found in Google Drive');
             }
         } catch (error) {
             console.error('Drive load failed:', error);
@@ -300,6 +386,8 @@ class AuthManager {
                     this.isSignedIn = true;
                     console.log('Admin session restored');
                     this.updateUI();
+                    // Auto-load data from Google Drive
+                    setTimeout(() => this.loadFromDrive(), 1000);
                     return;
                 }
                 
@@ -311,6 +399,8 @@ class AuthManager {
                     this.isSignedIn = true;
                     console.log('User session restored');
                     this.updateUI();
+                    // Auto-load data from Google Drive
+                    setTimeout(() => this.loadFromDrive(), 1000);
                 } else {
                     console.log('User no longer approved, clearing session');
                     localStorage.removeItem('userSession');
@@ -353,12 +443,11 @@ function signOut() {
 
 // Make functions globally available
 window.signOut = signOut;
-window.syncWithDrive = syncWithDrive;
 
-// Sync with Google Drive
-async function syncWithDrive() {
-    if (window.authManager && window.dataManager) {
-        await window.authManager.saveToGoogleDrive(window.dataManager.data);
+// Load from Google Drive (for initial load only)
+async function loadFromDrive() {
+    if (window.authManager) {
+        await window.authManager.loadFromDrive();
     }
 }
 
@@ -430,3 +519,4 @@ document.addEventListener('DOMContentLoaded', () => {
 window.approveUser = approveUser;
 window.rejectUser = rejectUser;
 window.removeApprovedUser = removeApprovedUser;
+window.loadFromDrive = loadFromDrive;
