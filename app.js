@@ -40,6 +40,7 @@ class DataManager {
         this.validateMasterDataIntegrity();
         setTimeout(() => {
             this.refreshAllComponents();
+            this.startPeriodicSync();
         }, 100);
     }
 
@@ -79,6 +80,55 @@ class DataManager {
                 console.error('Auto-sync failed:', error);
             }
         }
+    }
+
+    startPeriodicSync() {
+        // Real-time sync every 5 seconds
+        setInterval(async () => {
+            if (window.authManager && window.authManager.isSignedIn) {
+                try {
+                    await window.authManager.loadFromDrive();
+                } catch (error) {
+                    console.error('Real-time sync failed:', error);
+                }
+            }
+        }, CONFIG.REALTIME_SYNC_INTERVAL);
+        
+        // Immediate sync when window gets focus (switching between devices)
+        window.addEventListener('focus', async () => {
+            if (window.authManager && window.authManager.isSignedIn) {
+                try {
+                    await window.authManager.loadFromDrive();
+                } catch (error) {
+                    console.error('Focus sync failed:', error);
+                }
+            }
+        });
+        
+        // Immediate sync when page becomes visible
+        document.addEventListener('visibilitychange', async () => {
+            if (!document.hidden && window.authManager && window.authManager.isSignedIn) {
+                try {
+                    await window.authManager.loadFromDrive();
+                } catch (error) {
+                    console.error('Visibility sync failed:', error);
+                }
+            }
+        });
+        
+        // Cross-tab sync - listen for changes from other tabs
+        window.addEventListener('storage', async (e) => {
+            if (e.key === 'lams_sync_timestamp' && window.authManager && window.authManager.isSignedIn) {
+                try {
+                    // Small delay to ensure the other tab has finished syncing
+                    setTimeout(async () => {
+                        await window.authManager.loadFromDrive();
+                    }, 1000);
+                } catch (error) {
+                    console.error('Cross-tab sync failed:', error);
+                }
+            }
+        });
     }
 
     validateMasterDataIntegrity() {

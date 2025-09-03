@@ -17,12 +17,13 @@ const CONFIG = {
     
     // Application Settings
     AUTO_SAVE_INTERVAL: 30000,
+    REALTIME_SYNC_INTERVAL: 5000,
     MAX_ASSIGNMENTS_PER_CELL: 10,
     DEFAULT_ACADEMIC_YEAR: '2024-25',
     
     // OAuth Settings
     OAUTH_REDIRECT_URI: 'https://padmalochan475.github.io/LAMS/',
-    OAUTH_SCOPE: 'https://www.googleapis.com/auth/drive.file',
+    OAUTH_SCOPE: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.metadata.readonly',
     
     // Print Settings
     PRINT_ORIENTATION: 'landscape',
