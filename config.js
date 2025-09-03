@@ -13,9 +13,7 @@ const CONFIG = {
     // Admin Configuration
     ADMIN_EMAIL: 'padmalochan.maharana@tat.ac.in',
     
-    // Security Validation - Generated for padmalochan475.github.io
-    AUTHORIZED_DOMAIN_HASH: 'a8f5f167f44f4964e6c998dee827110c', // Hash of padmalochan475.github.io
-    DEPLOYMENT_FINGERPRINT: 'lams_padmalochan475_github_io_2024', // Unique deployment identifier
+
     
     // Application Settings
     AUTO_SAVE_INTERVAL: 30000,
@@ -53,12 +51,7 @@ const CONFIG = {
     PENDING_USERS_KEY: 'lams_pending_users',
     APPROVED_USERS_KEY: 'lams_approved_users',
     
-    // Data Encryption (basic obfuscation)
-    ENCRYPT_LOCAL_DATA: true,
-    
-    // Anti-tampering protection - TEMPORARILY DISABLED
-    VALIDATION_REQUIRED: false,
-    BLOCK_UNAUTHORIZED_DEPLOYMENTS: false
+
 };
 
 // Export for use in other modules

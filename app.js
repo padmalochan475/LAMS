@@ -1199,14 +1199,7 @@ function toggleTheme() {
 // Initialize Application for production
 document.addEventListener('DOMContentLoaded', async function() {
     try {
-        // Validate deployment first
-        if (CONFIG.VALIDATION_REQUIRED && window.serverValidator) {
-            const isValid = await serverValidator.validateDeployment();
-            if (!isValid) {
-                return; // Access blocked
-            }
-        }
-        
+
         // Hide loading screen
         const loadingScreen = document.getElementById('loadingScreen');
         if (loadingScreen) loadingScreen.style.display = 'none';
@@ -1346,24 +1339,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     console.log('🏫 Institute Lab Management System Loaded!');
 });
 
-// Generate deployment fingerprint (run this once during setup)
-function generateDeploymentFingerprint() {
-    if (!serverValidator) return;
-    
-    const fingerprint = serverValidator.generateFingerprint();
-    const domainHash = serverValidator.hashDomain(window.location.hostname);
-    
-    console.log('=== DEPLOYMENT SETUP ===');
-    console.log('Add these to your config.js:');
-    console.log(`AUTHORIZED_DOMAIN_HASH: '${domainHash}',`);
-    console.log(`DEPLOYMENT_FINGERPRINT: '${fingerprint}',`);
-    console.log('========================');
-    
-    return { domainHash, fingerprint };
-}
 
-// Export setup function
-window.generateDeploymentFingerprint = generateDeploymentFingerprint;
 
 
 
