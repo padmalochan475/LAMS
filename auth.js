@@ -233,47 +233,50 @@ class AuthManager {
         try {
             this.updateSyncStatus('Syncing...');
             
-            // Ensure gapi is loaded
-            if (!window.gapi) {
-                console.error('Google API not loaded');
+            // Ensure Google APIs are ready
+            if (!window.gapi || !gapi.auth2) {
+                console.error('Google APIs not ready');
                 return false;
             }
-            
-            // Initialize if not already done
-            if (!gapi.client.drive) {
-                await new Promise((resolve) => {
-                    gapi.load('client:auth2', resolve);
-                });
-                
-                await gapi.client.init({
-                    apiKey: this.API_KEY,
-                    clientId: this.CLIENT_ID,
-                    discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-                    scope: CONFIG.OAUTH_SCOPE
-                });
-            }
 
-            // Get current auth token
             const authInstance = gapi.auth2.getAuthInstance();
-            if (!authInstance.isSignedIn.get()) {
-                await authInstance.signIn();
+            if (!authInstance || !authInstance.isSignedIn.get()) {
+                console.error('User not authenticated');
+                return false;
             }
-            
-            const accessToken = authInstance.currentUser.get().getAuthResponse().access_token;
 
-            const fileName = 'lams-data.json';
-            const fileContent = JSON.stringify(data, null, 2);
+            // Get access token
+            const user = authInstance.currentUser.get();
+            const authResponse = user.getAuthResponse(true);
+            const accessToken = authResponse.access_token;
+
+            if (!accessToken) {
+                console.error('No access token available');
+                return false;
+            }
+
+            const fileName = 'lams-institute-data.json';
+            const fileContent = JSON.stringify({
+                ...data,
+                lastModified: new Date().toISOString(),
+                version: '1.0'
+            }, null, 2);
             
-            // Use fetch API for better reliability
-            const searchUrl = `https://www.googleapis.com/drive/v3/files?q=name='${fileName}'`;
-            const searchResponse = await fetch(searchUrl, {
+            // Search for existing file
+            const searchResponse = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${fileName}'&spaces=drive`, {
                 headers: {
-                    'Authorization': `Bearer ${accessToken}`
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
                 }
             });
+            
+            if (!searchResponse.ok) {
+                throw new Error(`Search failed: ${searchResponse.status}`);
+            }
+            
             const searchResult = await searchResponse.json();
-
             let response;
+
             if (searchResult.files && searchResult.files.length > 0) {
                 // Update existing file
                 const fileId = searchResult.files[0].id;
@@ -286,37 +289,49 @@ class AuthManager {
                     body: fileContent
                 });
             } else {
-                // Create new file
+                // Create new file with metadata
+                const boundary = '-------314159265358979323846';
+                const delimiter = "\r\n--" + boundary + "\r\n";
+                const close_delim = "\r\n--" + boundary + "--";
+                
                 const metadata = {
-                    name: fileName
+                    'name': fileName,
+                    'parents': []
                 };
                 
-                const form = new FormData();
-                form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
-                form.append('file', new Blob([fileContent], {type: 'application/json'}));
+                const multipartRequestBody =
+                    delimiter +
+                    'Content-Type: application/json\r\n\r\n' +
+                    JSON.stringify(metadata) +
+                    delimiter +
+                    'Content-Type: application/json\r\n\r\n' +
+                    fileContent +
+                    close_delim;
                 
                 response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${accessToken}`
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': `multipart/related; boundary="${boundary}"`
                     },
-                    body: form
+                    body: multipartRequestBody
                 });
             }
 
             if (response.ok) {
                 this.updateSyncStatus('Synced');
-                console.log('Data synced to Google Drive successfully');
+                console.log('✅ Data synced to Google Drive');
                 
-                // Broadcast sync event to other tabs/windows
-                localStorage.setItem('lams_sync_timestamp', Date.now().toString());
+                // Store sync timestamp for cross-device detection
+                localStorage.setItem('lams_last_sync', Date.now().toString());
                 
                 return true;
             } else {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
             }
         } catch (error) {
-            console.error('Drive save failed:', error);
+            console.error('❌ Drive save failed:', error);
             this.updateSyncStatus('Sync failed');
         }
         return false;
@@ -344,41 +359,41 @@ class AuthManager {
         }
 
         try {
-            // Ensure gapi is loaded
-            if (!window.gapi) {
-                console.error('Google API not loaded');
+            // Ensure Google APIs are ready
+            if (!window.gapi || !gapi.auth2) {
+                console.error('Google APIs not ready');
                 return null;
             }
-            
-            // Initialize if not already done
-            if (!gapi.client.drive) {
-                await new Promise((resolve) => {
-                    gapi.load('client:auth2', resolve);
-                });
-                
-                await gapi.client.init({
-                    apiKey: this.API_KEY,
-                    clientId: this.CLIENT_ID,
-                    discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-                    scope: CONFIG.OAUTH_SCOPE
-                });
+
+            const authInstance = gapi.auth2.getAuthInstance();
+            if (!authInstance || !authInstance.isSignedIn.get()) {
+                console.error('User not authenticated');
+                return null;
             }
 
-            // Get current auth token
-            const authInstance = gapi.auth2.getAuthInstance();
-            if (!authInstance.isSignedIn.get()) {
-                await authInstance.signIn();
+            // Get access token
+            const user = authInstance.currentUser.get();
+            const authResponse = user.getAuthResponse(true);
+            const accessToken = authResponse.access_token;
+
+            if (!accessToken) {
+                console.error('No access token available');
+                return null;
             }
-            
-            const accessToken = authInstance.currentUser.get().getAuthResponse().access_token;
 
             // Search for the file
-            const searchUrl = `https://www.googleapis.com/drive/v3/files?q=name='lams-data.json'&orderBy=modifiedTime desc&pageSize=1`;
-            const searchResponse = await fetch(searchUrl, {
+            const fileName = 'lams-institute-data.json';
+            const searchResponse = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${fileName}'&spaces=drive&orderBy=modifiedTime desc&pageSize=1`, {
                 headers: {
-                    'Authorization': `Bearer ${accessToken}`
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
                 }
             });
+            
+            if (!searchResponse.ok) {
+                throw new Error(`Search failed: ${searchResponse.status}`);
+            }
+            
             const searchResult = await searchResponse.json();
 
             if (searchResult.files && searchResult.files.length > 0) {
@@ -391,20 +406,47 @@ class AuthManager {
                     }
                 });
                 
-                const fileContent = await fileResponse.text();
-                const data = JSON.parse(fileContent);
-                if (window.dataManager) {
-                    window.dataManager.data = { ...window.dataManager.data, ...data };
-                    localStorage.setItem('labManagementData', JSON.stringify(window.dataManager.data));
-                    window.dataManager.refreshAllComponents();
-                    console.log('Data loaded from Google Drive');
+                if (!fileResponse.ok) {
+                    throw new Error(`File download failed: ${fileResponse.status}`);
                 }
-                return data;
+                
+                const fileContent = await fileResponse.text();
+                const driveData = JSON.parse(fileContent);
+                
+                // Check if this is newer than local data
+                const localTimestamp = localStorage.getItem('lams_last_sync');
+                const driveTimestamp = new Date(driveData.lastModified || 0).getTime();
+                const localTime = parseInt(localTimestamp || '0');
+                
+                if (driveTimestamp > localTime || !localTimestamp) {
+                    // Update local data with drive data
+                    if (window.dataManager && driveData) {
+                        // Merge data carefully
+                        const mergedData = {
+                            ...window.dataManager.data,
+                            ...driveData
+                        };
+                        
+                        // Remove metadata fields
+                        delete mergedData.lastModified;
+                        delete mergedData.version;
+                        
+                        window.dataManager.data = mergedData;
+                        localStorage.setItem('labManagementData', JSON.stringify(mergedData));
+                        localStorage.setItem('lams_last_sync', driveTimestamp.toString());
+                        
+                        // Refresh UI without triggering another save
+                        window.dataManager.refreshAllComponents();
+                        console.log('✅ Data loaded from Google Drive');
+                    }
+                }
+                
+                return driveData;
             } else {
-                console.log('No data found in Google Drive');
+                console.log('ℹ️ No data found in Google Drive');
             }
         } catch (error) {
-            console.error('Drive load failed:', error);
+            console.error('❌ Drive load failed:', error);
         }
         return null;
     }
@@ -550,8 +592,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
+// Manual sync functions for testing
+async function manualSyncToDrive() {
+    if (window.authManager && window.dataManager) {
+        showMessage('Manually syncing to Google Drive...', 'info');
+        const success = await window.authManager.saveToGoogleDrive(window.dataManager.data);
+        if (success) {
+            showMessage('Manual sync to Drive completed!', 'success');
+        } else {
+            showMessage('Manual sync to Drive failed!', 'error');
+        }
+    } else {
+        showMessage('Please sign in first', 'error');
+    }
+}
+
+async function manualLoadFromDrive() {
+    if (window.authManager) {
+        showMessage('Loading from Google Drive...', 'info');
+        const data = await window.authManager.loadFromDrive();
+        if (data) {
+            showMessage('Data loaded from Drive successfully!', 'success');
+        } else {
+            showMessage('No data found in Drive or load failed', 'error');
+        }
+    } else {
+        showMessage('Please sign in first', 'error');
+    }
+}
+
 // Export functions
 window.approveUser = approveUser;
 window.rejectUser = rejectUser;
 window.removeApprovedUser = removeApprovedUser;
 window.loadFromDrive = loadFromDrive;
+window.manualSyncToDrive = manualSyncToDrive;
+window.manualLoadFromDrive = manualLoadFromDrive;
