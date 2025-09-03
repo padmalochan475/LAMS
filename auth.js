@@ -194,24 +194,55 @@ class AuthManager {
     }
 
     initializeSignInButton() {
-        if (this.CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID') return;
+        if (this.CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID') {
+            console.error('Client ID not configured properly');
+            return;
+        }
+        
+        console.log('Initializing Google Sign-In with Client ID:', this.CLIENT_ID.substring(0, 20) + '...');
         
         const signInDiv = document.getElementById('g_id_onload');
         if (signInDiv) {
             signInDiv.setAttribute('data-client_id', this.CLIENT_ID);
+            signInDiv.setAttribute('data-callback', 'handleCredentialResponse');
         }
         
         // Render Google Sign-In button
-        if (window.google) {
-            google.accounts.id.initialize({
-                client_id: this.CLIENT_ID,
-                callback: handleCredentialResponse
-            });
-            
-            google.accounts.id.renderButton(
-                document.querySelector('.g_id_signin'),
-                { theme: 'outline', size: 'large' }
-            );
+        if (window.google && window.google.accounts) {
+            try {
+                // Make sure callback is globally available
+                window.handleCredentialResponse = handleCredentialResponse;
+                
+                google.accounts.id.initialize({
+                    client_id: this.CLIENT_ID,
+                    callback: 'handleCredentialResponse',
+                    auto_select: false,
+                    cancel_on_tap_outside: false
+                });
+                
+                const buttonContainer = document.querySelector('.g_id_signin');
+                if (buttonContainer) {
+                    // Clear existing content
+                    buttonContainer.innerHTML = '';
+                    
+                    google.accounts.id.renderButton(buttonContainer, {
+                        theme: 'outline',
+                        size: 'large',
+                        type: 'standard',
+                        shape: 'rectangular',
+                        text: 'signin_with',
+                        logo_alignment: 'left'
+                    });
+                    console.log('Google Sign-In button rendered successfully');
+                } else {
+                    console.error('Sign-in button container not found');
+                }
+            } catch (error) {
+                console.error('Google Sign-In initialization error:', error);
+            }
+        } else {
+            console.error('Google Sign-In library not loaded');
+            setTimeout(() => this.initializeSignInButton(), 1000);
         }
     }
 
@@ -319,12 +350,18 @@ class AuthManager {
 // Global auth manager
 let authManager;
 
-// Google Sign-In callback
+// Google Sign-In callback - must be global
 function handleCredentialResponse(response) {
-    if (authManager) {
-        authManager.signIn(response.credential);
+    console.log('Google Sign-In callback triggered');
+    if (window.authManager) {
+        window.authManager.signIn(response.credential);
+    } else {
+        console.error('AuthManager not available');
     }
 }
+
+// Make callback globally available
+window.handleCredentialResponse = handleCredentialResponse;
 
 // Sign out function
 function signOut() {
@@ -392,6 +429,7 @@ function removeApprovedUser(email) {
 
 // Initialize auth when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM loaded, checking CONFIG...');
     // Ensure CONFIG is loaded
     if (typeof CONFIG === 'undefined') {
         console.error('CONFIG not loaded! Check config.js');
@@ -399,9 +437,33 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
     
+    console.log('CONFIG found, initializing AuthManager...');
     authManager = new AuthManager();
     authManager.checkExistingSession();
     authManager.init();
+    
+    // Wait for Google library to load
+    const checkGoogle = () => {
+        if (window.google && window.google.accounts) {
+            console.log('Google library loaded, initializing sign-in...');
+            authManager.initializeSignInButton();
+        } else {
+            console.log('Waiting for Google library...');
+            setTimeout(checkGoogle, 500);
+        }
+    };
+    checkGoogle();
+});
+
+// Backup initialization on window load
+window.addEventListener('load', function() {
+    console.log('Window loaded');
+    if (authManager && window.google) {
+        setTimeout(() => {
+            console.log('Backup initialization of sign-in button');
+            authManager.initializeSignInButton();
+        }, 1000);
+    }
 });
 
 // Export functions
