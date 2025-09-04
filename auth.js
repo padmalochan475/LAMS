@@ -188,6 +188,19 @@ class AuthManager {
         location.reload();
     }
 
+    getUserInfo() {
+        if (this.isSignedIn && this.currentUser) {
+            return {
+                name: this.currentUser.name,
+                email: this.currentUser.email,
+                picture: this.currentUser.picture,
+                isSignedIn: this.isSignedIn,
+                role: this.currentUser.role || 'user'
+            };
+        }
+        return null;
+    }
+
     updateUI() {
         const loginSection = document.getElementById('login-section');
         const userInfo = document.getElementById('user-info');

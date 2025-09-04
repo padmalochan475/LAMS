@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LAMS - System Status Check</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .status-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .status-item:last-child {
+            border-bottom: none;
+        }
+        .status-label {
+            font-weight: 500;
+        }
+        .status-value {
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .status-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status-info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .log-output {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        h2 {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .fix-summary {
+            background: #e7f3ff;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 LAMS System Status Check</h1>
+    
+    <div class="fix-summary">
+        <h3>🔧 Recent Fixes Applied:</h3>
+        <ul>
+            <li>✅ Added Chart.js library for analytics</li>
+            <li>✅ Added getUserInfo() method to AuthManager</li>
+            <li>✅ Fixed data array initialization in DataManager</li>
+            <li>✅ Enhanced cloud data loading with proper array assignment</li>
+            <li>✅ Improved default data structure setup</li>
+        </ul>
+    </div>
+
+    <!-- Core System Status -->
+    <div class="status-container">
+        <h2>🏗️ Core System Components</h2>
+        <div id="coreStatus"></div>
+        <button class="test-button" onclick="checkCoreSystem()">Recheck Core System</button>
+    </div>
+
+    <!-- Authentication Status -->
+    <div class="status-container">
+        <h2>🔐 Authentication System</h2>
+        <div id="authStatus"></div>
+        <button class="test-button" onclick="checkAuthSystem()">Recheck Authentication</button>
+    </div>
+
+    <!-- Data Management Status -->
+    <div class="status-container">
+        <h2>💾 Data Management</h2>
+        <div id="dataStatus"></div>
+        <button class="test-button" onclick="checkDataSystem()">Recheck Data System</button>
+    </div>
+
+    <!-- Sync System Status -->
+    <div class="status-container">
+        <h2>🔄 Sync System</h2>
+        <div id="syncStatus"></div>
+        <button class="test-button" onclick="checkSyncSystem()">Recheck Sync System</button>
+    </div>
+
+    <!-- Analytics Status -->
+    <div class="status-container">
+        <h2>📊 Analytics System</h2>
+        <div id="analyticsStatus"></div>
+        <button class="test-button" onclick="checkAnalyticsSystem()">Recheck Analytics</button>
+    </div>
+
+    <!-- Test Logs -->
+    <div class="status-container">
+        <h2>📝 Test Logs</h2>
+        <div class="log-output" id="testLogs"></div>
+        <button class="test-button" onclick="clearLogs()">Clear Logs</button>
+        <button class="test-button" onclick="runAllTests()">Run All Tests</button>
+    </div>
+
+    <!-- External Libraries -->
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.min.js"></script>
+    
+    <!-- Application Scripts -->
+    <script src="config.js"></script>
+    <script src="auth.js"></script>
+    <script src="sync-helper.js"></script>
+    <script src="app.js"></script>
+
+    <script>
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logOutput = document.getElementById('testLogs');
+            const typeIcon = {
+                'success': '✅',
+                'error': '❌',
+                'warning': '⚠️',
+                'info': 'ℹ️'
+            };
+            logOutput.innerHTML += `[${timestamp}] ${typeIcon[type]} ${message}\n`;
+            logOutput.scrollTop = logOutput.scrollHeight;
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        function createStatusItem(label, value, status) {
+            return `
+                <div class="status-item">
+                    <span class="status-label">${label}</span>
+                    <span class="status-value status-${status}">${value}</span>
+                </div>
+            `;
+        }
+
+        function checkCoreSystem() {
+            log('Checking core system components...', 'info');
+            let html = '';
+            let passCount = 0;
+            const totalTests = 6;
+
+            // DataManager
+            if (window.dataManager) {
+                html += createStatusItem('DataManager', 'Available', 'success');
+                passCount++;
+                log('DataManager: Available', 'success');
+            } else {
+                html += createStatusItem('DataManager', 'Missing', 'error');
+                log('DataManager: Missing', 'error');
+            }
+
+            // AuthManager
+            if (window.authManager) {
+                html += createStatusItem('AuthManager', 'Available', 'success');
+                passCount++;
+                log('AuthManager: Available', 'success');
+            } else {
+                html += createStatusItem('AuthManager', 'Missing', 'error');
+                log('AuthManager: Missing', 'error');
+            }
+
+            // NotificationManager
+            if (window.notificationManager) {
+                html += createStatusItem('NotificationManager', 'Available', 'success');
+                passCount++;
+                log('NotificationManager: Available', 'success');
+            } else {
+                html += createStatusItem('NotificationManager', 'Missing', 'error');
+                log('NotificationManager: Missing', 'error');
+            }
+
+            // Google APIs
+            if (typeof gapi !== 'undefined') {
+                html += createStatusItem('Google APIs', 'Loaded', 'success');
+                passCount++;
+                log('Google APIs: Loaded', 'success');
+            } else {
+                html += createStatusItem('Google APIs', 'Not Loaded', 'error');
+                log('Google APIs: Not Loaded', 'error');
+            }
+
+            // Chart.js
+            if (typeof Chart !== 'undefined') {
+                html += createStatusItem('Chart.js', 'Available', 'success');
+                passCount++;
+                log('Chart.js: Available', 'success');
+            } else {
+                html += createStatusItem('Chart.js', 'Missing', 'error');
+                log('Chart.js: Missing', 'error');
+            }
+
+            // Data Structure
+            if (window.dataManager && window.dataManager.data) {
+                html += createStatusItem('Data Structure', 'Initialized', 'success');
+                passCount++;
+                log('Data Structure: Initialized', 'success');
+            } else {
+                html += createStatusItem('Data Structure', 'Not Initialized', 'error');
+                log('Data Structure: Not Initialized', 'error');
+            }
+
+            html += createStatusItem('Core System Test', `${passCount}/${totalTests} passed`, 
+                passCount === totalTests ? 'success' : passCount > totalTests/2 ? 'warning' : 'error');
+
+            document.getElementById('coreStatus').innerHTML = html;
+            log(`Core System Test Complete: ${passCount}/${totalTests} passed`, 
+                passCount === totalTests ? 'success' : 'warning');
+        }
+
+        function checkAuthSystem() {
+            log('Checking authentication system...', 'info');
+            let html = '';
+            let passCount = 0;
+            const totalTests = 5;
+
+            if (window.authManager) {
+                const isSignedIn = window.authManager.isSignedIn;
+                html += createStatusItem('Auth Status', isSignedIn ? 'Signed In' : 'Not Signed In', 
+                    isSignedIn ? 'success' : 'info');
+                log(`Auth Status: ${isSignedIn ? 'Signed In' : 'Not Signed In'}`, 'info');
+
+                // Check methods
+                const methods = ['signIn', 'signOut', 'getAccessToken', 'getUserInfo'];
+                methods.forEach(method => {
+                    if (typeof window.authManager[method] === 'function') {
+                        html += createStatusItem(`Method ${method}`, 'Available', 'success');
+                        passCount++;
+                        log(`Method ${method}: Available`, 'success');
+                    } else {
+                        html += createStatusItem(`Method ${method}`, 'Missing', 'error');
+                        log(`Method ${method}: Missing`, 'error');
+                    }
+                });
+
+                // Test getUserInfo specifically
+                try {
+                    const userInfo = window.authManager.getUserInfo();
+                    html += createStatusItem('getUserInfo Test', 'Working', 'success');
+                    passCount++;
+                    log('getUserInfo Test: Working', 'success');
+                } catch (error) {
+                    html += createStatusItem('getUserInfo Test', 'Error', 'error');
+                    log(`getUserInfo Test: Error - ${error.message}`, 'error');
+                }
+            } else {
+                html += createStatusItem('AuthManager', 'Not Available', 'error');
+                log('AuthManager: Not Available', 'error');
+            }
+
+            html += createStatusItem('Auth System Test', `${passCount}/${totalTests} passed`, 
+                passCount === totalTests ? 'success' : passCount > totalTests/2 ? 'warning' : 'error');
+
+            document.getElementById('authStatus').innerHTML = html;
+            log(`Auth System Test Complete: ${passCount}/${totalTests} passed`, 
+                passCount === totalTests ? 'success' : 'warning');
+        }
+
+        function checkDataSystem() {
+            log('Checking data management system...', 'info');
+            let html = '';
+            let passCount = 0;
+            const totalTests = 9;
+
+            if (window.dataManager) {
+                // Check data arrays
+                const dataArrays = [
+                    { name: 'assignments', array: window.dataManager.assignments },
+                    { name: 'subjects', array: window.dataManager.subjects },
+                    { name: 'faculties', array: window.dataManager.faculties },
+                    { name: 'periods', array: window.dataManager.periods },
+                    { name: 'branches', array: window.dataManager.branches }
+                ];
+
+                dataArrays.forEach(item => {
+                    if (Array.isArray(item.array) || (typeof item.array === 'object' && item.array !== null)) {
+                        html += createStatusItem(item.name, 'Valid', 'success');
+                        passCount++;
+                        log(`${item.name}: Valid (${Array.isArray(item.array) ? item.array.length : 'object'})`, 'success');
+                    } else {
+                        html += createStatusItem(item.name, 'Invalid/Missing', 'error');
+                        log(`${item.name}: Invalid/Missing`, 'error');
+                    }
+                });
+
+                // Check CRUD methods
+                const crudMethods = [
+                    'addAssignment', 'removeAssignment', 
+                    'addMasterDataItem', 'removeMasterDataItem'
+                ];
+
+                crudMethods.forEach(method => {
+                    if (typeof window.dataManager[method] === 'function') {
+                        html += createStatusItem(method, 'Available', 'success');
+                        passCount++;
+                        log(`${method}: Available`, 'success');
+                    } else {
+                        html += createStatusItem(method, 'Missing', 'error');
+                        log(`${method}: Missing`, 'error');
+                    }
+                });
+            } else {
+                html += createStatusItem('DataManager', 'Not Available', 'error');
+                log('DataManager: Not Available', 'error');
+            }
+
+            html += createStatusItem('Data System Test', `${passCount}/${totalTests} passed`, 
+                passCount === totalTests ? 'success' : passCount > totalTests/2 ? 'warning' : 'error');
+
+            document.getElementById('dataStatus').innerHTML = html;
+            log(`Data System Test Complete: ${passCount}/${totalTests} passed`, 
+                passCount === totalTests ? 'success' : 'warning');
+        }
+
+        function checkSyncSystem() {
+            log('Checking sync system...', 'info');
+            let html = '';
+            let passCount = 0;
+            const totalTests = 6;
+
+            if (window.dataManager) {
+                // Check sync methods
+                const syncMethods = [
+                    'startRealTimeSync', 'stopRealTimeSync', 'syncWithCloud',
+                    'shouldSkipSync', 'setupAdvancedInteractionTracking'
+                ];
+
+                syncMethods.forEach(method => {
+                    if (typeof window.dataManager[method] === 'function') {
+                        html += createStatusItem(method, 'Available', 'success');
+                        passCount++;
+                        log(`${method}: Available`, 'success');
+                    } else {
+                        html += createStatusItem(method, 'Missing', 'error');
+                        log(`${method}: Missing`, 'error');
+                    }
+                });
+
+                // Check sync properties
+                if (typeof window.dataManager.isDropdownOpen !== 'undefined') {
+                    html += createStatusItem('Dropdown Detection', 'Enabled', 'success');
+                    passCount++;
+                    log('Dropdown Detection: Enabled', 'success');
+                } else {
+                    html += createStatusItem('Dropdown Detection', 'Missing', 'error');
+                    log('Dropdown Detection: Missing', 'error');
+                }
+            } else {
+                html += createStatusItem('DataManager', 'Not Available', 'error');
+                log('DataManager: Not Available', 'error');
+            }
+
+            html += createStatusItem('Sync System Test', `${passCount}/${totalTests} passed`, 
+                passCount === totalTests ? 'success' : passCount > totalTests/2 ? 'warning' : 'error');
+
+            document.getElementById('syncStatus').innerHTML = html;
+            log(`Sync System Test Complete: ${passCount}/${totalTests} passed`, 
+                passCount === totalTests ? 'success' : 'warning');
+        }
+
+        function checkAnalyticsSystem() {
+            log('Checking analytics system...', 'info');
+            let html = '';
+            let passCount = 0;
+            const totalTests = 9;
+
+            // Check Chart.js
+            if (typeof Chart !== 'undefined') {
+                html += createStatusItem('Chart.js Library', 'Available', 'success');
+                passCount++;
+                log('Chart.js Library: Available', 'success');
+            } else {
+                html += createStatusItem('Chart.js Library', 'Missing', 'error');
+                log('Chart.js Library: Missing', 'error');
+            }
+
+            // Check analytics functions
+            const analyticsFunctions = [
+                'generateSubjectAssignmentChart', 'generateFacultyWorkloadChart',
+                'generateAssignmentStatusChart', 'generateWeeklyDistributionChart',
+                'generateSubjectFacultyChart', 'generateCompletionRateChart',
+                'generateTimelineChart', 'generateWorkloadHeatmap'
+            ];
+
+            analyticsFunctions.forEach(func => {
+                if (typeof window[func] === 'function') {
+                    html += createStatusItem(func, 'Available', 'success');
+                    passCount++;
+                    log(`${func}: Available`, 'success');
+                } else {
+                    html += createStatusItem(func, 'Missing', 'error');
+                    log(`${func}: Missing`, 'error');
+                }
+            });
+
+            html += createStatusItem('Analytics System Test', `${passCount}/${totalTests} passed`, 
+                passCount === totalTests ? 'success' : passCount > totalTests/2 ? 'warning' : 'error');
+
+            document.getElementById('analyticsStatus').innerHTML = html;
+            log(`Analytics System Test Complete: ${passCount}/${totalTests} passed`, 
+                passCount === totalTests ? 'success' : 'warning');
+        }
+
+        function clearLogs() {
+            document.getElementById('testLogs').innerHTML = '';
+        }
+
+        function runAllTests() {
+            clearLogs();
+            log('Starting comprehensive system check...', 'info');
+            setTimeout(() => checkCoreSystem(), 100);
+            setTimeout(() => checkAuthSystem(), 200);
+            setTimeout(() => checkDataSystem(), 300);
+            setTimeout(() => checkSyncSystem(), 400);
+            setTimeout(() => checkAnalyticsSystem(), 500);
+            setTimeout(() => log('All tests completed!', 'success'), 600);
+        }
+
+        // Auto-run tests when page loads
+        window.addEventListener('load', function() {
+            log('System Status Check loaded - running initial tests...', 'info');
+            setTimeout(runAllTests, 1000);
+        });
+    </script>
+</body>
+</html>

@@ -71,21 +71,46 @@ class DataManager {
     // 100% Cloud-based loading - NO LOCAL STORAGE
     async loadFromCloud() {
         if (!window.authManager || !window.authManager.isSignedIn) {
-            showMessage('🔐 Sign in required for cloud access', 'warning');
+            console.log('🔐 User not signed in - loading default data structure');
+            this.initializeDefaultData();
             return;
         }
 
         try {
-            showMessage('☁️ Loading everything from Google Drive...', 'info');
+            showMessage('☁️ Loading data from Google Drive...', 'info');
             
             // Force cloud loading - no localStorage fallback
             const cloudData = await window.authManager.loadFromDrive(false);
             
-            if (cloudData) {
+            if (cloudData && Object.keys(cloudData).length > 1) {
                 // Load main application data from cloud
                 this.data = { ...this.data, ...cloudData };
                 this.version = cloudData.version || 0;
                 this.lastSyncTime = new Date().toISOString();
+                
+                // Properly assign data to individual arrays for CRUD operations
+                this.assignments = this.data.assignments || [];
+                this.subjects = this.data.subjects || [];
+                this.faculties = {
+                    theoryFaculty: this.data.theoryFaculty || [],
+                    labFaculty: this.data.labFaculty || []
+                };
+                this.periods = this.data.timeSlots || [];
+                this.branches = this.data.departments || [];
+                this.days = this.data.days || [];
+                this.timeSlots = this.data.timeSlots || [];
+                this.departments = this.data.departments || [];
+                this.semesters = this.data.semesters || [];
+                this.groups = this.data.groups || [];
+                this.subGroups = this.data.subGroups || [];
+                this.labRooms = this.data.labRooms || [];
+
+                console.log('📊 Data arrays properly assigned:', {
+                    assignments: this.assignments.length,
+                    subjects: this.subjects.length,
+                    periods: this.periods.length,
+                    branches: this.branches.length
+                });
                 
                 // Load user management data from cloud (NO localStorage)
                 if (cloudData.userManagement) {
@@ -100,29 +125,70 @@ class DataManager {
                         window.authManager.updatePendingUsersCountFromCloud(this.pendingUsers.length);
                     }
                 } else {
-                    // Initialize empty user management in cloud
+                    // Initialize empty user management for new accounts
                     this.pendingUsers = [];
                     this.approvedUsers = [];
+                    console.log('🆕 New account - initializing empty user management');
                 }
                 
-                showMessage('✅ All data loaded from Google Drive', 'success');
-                console.log('☁️ 100% Cloud-based data loaded successfully');
-                return;
+                showMessage('✅ Data loaded from Google Drive successfully!', 'success');
+                console.log('☁️ Cloud data loaded successfully');
             } else {
-                // No cloud data exists - initialize new cloud data
-                console.log('🆕 No cloud data found, initializing new cloud storage');
-                this.pendingUsers = [];
-                this.approvedUsers = [];
-                await this.save(); // Create initial cloud data
-                showMessage('🆕 New cloud storage initialized', 'success');
+                // No existing data in cloud - initialize with defaults for new account
+                console.log('🆕 No existing cloud data found - initializing new account');
+                this.initializeDefaultData();
+                // Save initial data structure to cloud
+                await this.save();
+                showMessage('🆕 New account initialized with default data', 'success');
             }
         } catch (error) {
             console.error('❌ Cloud loading failed:', error);
             showMessage('❌ Failed to load from Google Drive. Please check internet connection.', 'error');
-            // NO fallback - everything must be cloud-based
+            // Initialize defaults for offline operation
+            this.initializeDefaultData();
             this.pendingUsers = [];
             this.approvedUsers = [];
         }
+    }
+
+    initializeDefaultData() {
+        // Initialize with basic data structure
+        this.data = {
+            days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+            timeSlots: ['9:00-10:00', '10:00-11:00', '11:00-12:00', '2:00-3:00', '3:00-4:00'],
+            departments: ['Computer Science', 'Mathematics', 'Physics'],
+            semesters: ['1st Semester', '2nd Semester', '3rd Semester', '4th Semester'],
+            groups: ['Group A', 'Group B', 'Group C'],
+            subGroups: ['Sub Group 1', 'Sub Group 2'],
+            subjects: ['Data Structures', 'Algorithms', 'Database Systems'],
+            labRooms: ['Lab 1', 'Lab 2', 'Lab 3'],
+            theoryFaculty: ['Dr. Smith', 'Prof. Johnson', 'Dr. Brown'],
+            labFaculty: ['Prof. Davis', 'Dr. Wilson', 'Prof. Miller'],
+            assignments: [],
+            academicYear: '2024-25',
+            scheduleOrientation: 'daysHorizontal',
+            lastModified: new Date().toISOString(),
+            version: 1
+        };
+
+        // Properly assign data to individual arrays for CRUD operations
+        this.assignments = this.data.assignments || [];
+        this.subjects = this.data.subjects || [];
+        this.faculties = {
+            theoryFaculty: this.data.theoryFaculty || [],
+            labFaculty: this.data.labFaculty || []
+        };
+        this.periods = this.data.timeSlots || [];
+        this.branches = this.data.departments || [];
+        this.days = this.data.days || [];
+        this.timeSlots = this.data.timeSlots || [];
+        this.departments = this.data.departments || [];
+        this.semesters = this.data.semesters || [];
+        this.groups = this.data.groups || [];
+        this.subGroups = this.data.subGroups || [];
+        this.labRooms = this.data.labRooms || [];
+
+        console.log('🔄 Default data structure initialized with proper array assignments');
     }
 
     // 100% Cloud-based saving - NO LOCAL STORAGE
@@ -168,31 +234,111 @@ class DataManager {
         }
     }
 
-    // Real-time synchronization
+    // Real-time synchronization with smart user interaction detection
     startRealTimeSync() {
         if (this.syncInterval) {
             clearInterval(this.syncInterval);
         }
         
-        console.log('▶️ Starting aggressive real-time sync (every 3 seconds)...');
+        console.log('▶️ Starting intelligent real-time sync...');
         
         // Update status immediately
-        this.updateSyncStatus('Auto-sync active');
+        this.updateSyncStatus('Smart sync active');
         
-        // Sync every 3 seconds when signed in for true real-time experience
+        // Enhanced interaction tracking
+        this.lastUserActivity = Date.now();
+        this.isDropdownOpen = false;
+        this.isFormActive = false;
+        this.isSyncInProgress = false;
+        this.setupAdvancedInteractionTracking();
+        
+        // Intelligent sync every 15 seconds - with comprehensive interference detection
         this.syncInterval = setInterval(async () => {
             if (window.authManager && window.authManager.isSignedIn) {
+                // Skip sync if any interactive element is active
+                if (this.shouldSkipSync()) {
+                    console.log('⏸️ Sync paused - user interface active');
+                    return;
+                }
+                
                 try {
+                    this.isSyncInProgress = true;
                     await this.syncWithCloud();
+                    this.isSyncInProgress = false;
                 } catch (error) {
+                    this.isSyncInProgress = false;
                     console.log('Background sync skipped:', error.message);
                 }
             } else {
                 this.stopRealTimeSync();
             }
-        }, 3000); // 3 second intervals for true real-time sync
+        }, 15000); // 15 second intervals with smart pausing
         
-        console.log('🔄 Real-time sync active - all changes will sync immediately');
+        console.log('🎯 Smart sync active - detects dropdowns and form interactions');
+    }
+
+    setupAdvancedInteractionTracking() {
+        // Track all user interactions
+        const events = ['click', 'keypress', 'input', 'change', 'focus', 'mousemove'];
+        
+        events.forEach(event => {
+            document.addEventListener(event, () => {
+                this.lastUserActivity = Date.now();
+            }, true);
+        });
+
+        // Specifically detect dropdown interactions
+        document.addEventListener('mousedown', (e) => {
+            if (e.target.tagName === 'SELECT' || e.target.closest('select')) {
+                this.isDropdownOpen = true;
+                console.log('🎯 Dropdown opened - sync paused');
+            }
+        }, true);
+
+        document.addEventListener('change', (e) => {
+            if (e.target.tagName === 'SELECT') {
+                setTimeout(() => {
+                    this.isDropdownOpen = false;
+                    console.log('🎯 Dropdown closed - sync can resume');
+                }, 1000); // Wait 1 second after selection
+            }
+        }, true);
+
+        // Detect form interactions
+        document.addEventListener('focusin', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') {
+                this.isFormActive = true;
+                console.log('📝 Form active - sync paused');
+            }
+        }, true);
+
+        document.addEventListener('focusout', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') {
+                setTimeout(() => {
+                    this.isFormActive = false;
+                    console.log('📝 Form inactive - sync can resume');
+                }, 500);
+            }
+        }, true);
+    }
+
+    // Comprehensive check for when to skip sync
+    shouldSkipSync() {
+        const now = Date.now();
+        const timeSinceActivity = now - this.lastUserActivity;
+        
+        // Skip if any of these conditions are true:
+        return (
+            timeSinceActivity < 2000 ||  // User active in last 2 seconds
+            this.isDropdownOpen ||       // Dropdown is currently open
+            this.isFormActive ||         // Form element has focus
+            this.isSyncInProgress ||     // Sync already running
+            document.activeElement?.tagName === 'SELECT' ||  // Select element focused
+            document.activeElement?.tagName === 'INPUT' ||   // Input element focused
+            document.querySelector('select:focus') ||        // Any select has focus
+            document.querySelector('input:focus') ||         // Any input has focus
+            !!document.querySelector('.dropdown-open')      // Custom dropdown open
+        );
     }
 
     async syncWithCloud() {
