@@ -74,9 +74,12 @@ class AuthManager {
                 localStorage.setItem('userSession', JSON.stringify(this.currentUser));
                 console.log('Admin signed in, session saved');
                 this.updateUI();
-                // Trigger cloud-first data loading
+                // Trigger cloud-first data loading and start real-time sync
                 if (window.dataManager) {
-                    window.dataManager.loadFromCloud();
+                    window.dataManager.loadFromCloud().then(() => {
+                        // Auto-start real-time sync for signed-in admin
+                        this.initializeRealTimeSync();
+                    });
                 }
                 return;
             }
@@ -91,9 +94,12 @@ class AuthManager {
                 localStorage.setItem('userSession', JSON.stringify(this.currentUser));
                 console.log('Approved user signed in, session saved');
                 this.updateUI();
-                // Trigger cloud-first data loading
+                // Trigger cloud-first data loading and start real-time sync
                 if (window.dataManager) {
-                    window.dataManager.loadFromCloud();
+                    window.dataManager.loadFromCloud().then(() => {
+                        // Auto-start real-time sync for approved users
+                        this.initializeRealTimeSync();
+                    });
                 }
                 return;
             }
@@ -438,6 +444,50 @@ class AuthManager {
         }
     }
 
+    // Initialize real-time sync after successful sign-in
+    async initializeRealTimeSync() {
+        try {
+            console.log('🚀 Initializing real-time sync for signed-in user...');
+            
+            // Request access token with user consent (one-time popup)
+            const token = await this.getAccessToken(true);
+            if (token) {
+                console.log('✅ Access token obtained - starting real-time sync');
+                
+                // Start real-time sync now that we have permission
+                if (window.dataManager) {
+                    window.dataManager.startRealTimeSync();
+                    showMessage('🔄 Real-time sync activated! Changes sync every 3 seconds across all devices.', 'success');
+                }
+            } else {
+                console.log('⚠️ No access token - real-time sync not available');
+                showMessage('⚠️ Cloud sync not available. Use "Activate Real-Time Sync" to enable.', 'warning');
+            }
+        } catch (error) {
+            console.log('❌ Failed to initialize real-time sync:', error);
+            showMessage('⚠️ Could not activate real-time sync automatically. Use manual sync button.', 'warning');
+        }
+    }
+
+    // Try to start real-time sync without popups (for session restoration)
+    async tryStartRealTimeSync() {
+        try {
+            // Only try if we have a cached token - no popups during session restore
+            const token = await this.getAccessToken(false);
+            if (token) {
+                console.log('🔄 Cached token found - starting real-time sync');
+                if (window.dataManager) {
+                    window.dataManager.startRealTimeSync();
+                    showMessage('🔄 Real-time sync resumed', 'success');
+                }
+            } else {
+                console.log('💡 No cached token - real-time sync available via "Activate" button');
+            }
+        } catch (error) {
+            console.log('⚠️ Silent sync check failed:', error.message);
+        }
+    }
+
     addSyncLog(type, status, message, details = null) {
         const logs = JSON.parse(localStorage.getItem('lams_sync_logs') || '[]');
         const logEntry = {
@@ -592,17 +642,8 @@ class AuthManager {
                     console.log('Admin session restored');
                     this.updateUI();
                     
-                    // Request access token immediately for admin
-                    console.log('🔑 Requesting access token for restored admin session...');
-                    setTimeout(async () => {
-                        const token = await this.getAccessToken(true);
-                        if (token) {
-                            console.log('✅ Access token obtained for admin - real-time sync enabled');
-                        } else {
-                            console.log('⚠️ Could not obtain access token - manual sync required');
-                        }
-                    }, 1000);
-                    
+                    // Try to start real-time sync if we have a cached token (no popup)
+                    setTimeout(() => this.tryStartRealTimeSync(), 1000);
                     return;
                 }
                 
@@ -614,8 +655,9 @@ class AuthManager {
                     this.isSignedIn = true;
                     console.log('User session restored');
                     this.updateUI();
-                    // Automatic sync disabled to prevent popup blocking
-                    // Use manual sync buttons instead
+                    
+                    // Try to start real-time sync if we have a cached token (no popup)
+                    setTimeout(() => this.tryStartRealTimeSync(), 1000);
                 } else {
                     console.log('User no longer approved, clearing session');
                     localStorage.removeItem('userSession');

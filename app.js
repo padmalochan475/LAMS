@@ -46,12 +46,15 @@ class DataManager {
             this.validateMasterDataIntegrity();
             this.refreshAllComponents();
             
-            // Auto-start real-time sync if user is signed in
-            if (window.authManager && window.authManager.isSignedIn) {
-                console.log('🔄 Auto-starting real-time sync for signed-in user');
-                this.startRealTimeSync();
-                this.updateSyncUI(true);
-            }
+            // Auto-start real-time sync like all modern apps
+            setTimeout(() => {
+                if (window.authManager && window.authManager.isSignedIn) {
+                    console.log(' Auto-starting real-time sync for signed-in user...');
+                    this.startRealTimeSync();
+                } else {
+                    console.log(' LAMS initialized. Sign in to enable automatic real-time sync.');
+                }
+            }, 2000);
         });
     }
 
@@ -179,32 +182,29 @@ class DataManager {
         } else {
             syncBtnText.textContent = 'Start Real-Time Sync';
             syncBtn.querySelector('.nav-icon').textContent = '▶️';
-            syncStatus.querySelector('.nav-icon').textContent = '⏸️';
-            syncStatusText.textContent = 'Real-time sync off';
+            syncStatus.querySelector('.nav-icon').textContent = '🔄';
+            syncStatusText.textContent = 'Auto-sync ready';
         }
     }
 
     async syncWithCloud() {
         try {
-            // Use cached token for background sync, but also try to get new token if needed
-            if (!window.authManager) {
-                console.log('⏳ Background sync skipped - authManager not available');
+            // Try to get access token (background request, no popup spam)
+            if (!window.authManager || !window.authManager.isSignedIn) {
+                console.log('⏸️ User not signed in - skipping sync');
                 return false;
             }
-            
-            // Try to get token, allowing popup for initial attempts
-            const isInitialSync = !this.accessTokenAttempted;
-            const token = await window.authManager.getAccessToken(!isInitialSync);
-            this.accessTokenAttempted = true;
-            
+
+            // Try to get or refresh access token
+            const token = await window.authManager.getAccessToken(false);
             if (!token) {
-                console.log('⏳ Background sync skipped - no valid token');
+                console.log('⏸️ No access token available - use "Activate Real-Time Sync" for initial setup');
                 return false;
             }
 
             console.log('🔄 Starting cloud sync...');
             
-            // Load cloud version
+            // Load cloud version using existing token
             const cloudData = await window.authManager.loadFromDrive(true);
             if (!cloudData) {
                 console.log('📤 No cloud data found, saving current version');

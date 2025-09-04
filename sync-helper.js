@@ -5,7 +5,7 @@ async function requestSyncPermission() {
         return;
     }
 
-    showMessage('🔑 Requesting sync permissions...', 'info');
+    showMessage('🔑 Requesting sync permissions... Please allow the popup.', 'info');
     
     try {
         const token = await authManager.getAccessToken(true);
@@ -15,9 +15,14 @@ async function requestSyncPermission() {
             // Hide activation button and enable toggle button
             const activateBtn = document.getElementById('activateSyncBtn');
             const toggleBtn = document.getElementById('realTimeSyncBtn');
+            const syncNotice = document.getElementById('sync-notice');
             
             if (activateBtn) activateBtn.style.display = 'none';
-            if (toggleBtn) toggleBtn.disabled = false;
+            if (toggleBtn) {
+                toggleBtn.disabled = false;
+                toggleBtn.style.display = 'inline-block';
+            }
+            if (syncNotice) syncNotice.style.display = 'none';
             
             // Start real-time sync automatically
             if (dataManager && !dataManager.syncInterval) {
@@ -40,12 +45,26 @@ async function requestSyncPermission() {
 // Check if sync is already active on page load
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
+        const activateBtn = document.getElementById('activateSyncBtn');
+        const toggleBtn = document.getElementById('realTimeSyncBtn');
+        
+        // Show activation button by default
+        if (activateBtn) {
+            activateBtn.style.display = 'inline-block';
+        }
+        
+        // Hide toggle button until activated
+        if (toggleBtn) {
+            toggleBtn.style.display = 'none';
+        }
+        
+        // Only show toggle if we already have token
         if (authManager && authManager.accessToken) {
-            const activateBtn = document.getElementById('activateSyncBtn');
-            const toggleBtn = document.getElementById('realTimeSyncBtn');
-            
             if (activateBtn) activateBtn.style.display = 'none';
-            if (toggleBtn) toggleBtn.disabled = false;
+            if (toggleBtn) {
+                toggleBtn.disabled = false;
+                toggleBtn.style.display = 'inline-block';
+            }
         }
     }, 2000);
 });

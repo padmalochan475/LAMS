@@ -96,6 +96,17 @@
             </div>
         </div>
 
+        <!-- Automatic Sync Information -->
+        <div id="sync-notice" class="security-notice" style="background: #e8f5e8; border-color: #4caf50;">
+            <div class="notice-content">
+                <span class="notice-icon">✅</span>
+                <div class="notice-text">
+                    <strong>Automatic Real-Time Sync:</strong> Your lab assignment data automatically syncs across all devices when you sign in - just like Google Docs, Slack, or any modern app! 
+                    <a href="#" onclick="this.parentElement.parentElement.parentElement.style.display='none';">Got it</a>
+                </div>
+            </div>
+        </div>
+
         <!-- Dashboard Tab -->
         <div class="tab-content active" id="dashboard-tab">
             <div class="dashboard-header">
@@ -104,7 +115,7 @@
                     <button class="btn btn--primary" onclick="requestSyncPermission()" id="activateSyncBtn" title="Activate Real-Time Cloud Sync">
                         <span class="nav-icon">🔑</span> Activate Real-Time Sync
                     </button>
-                    <button class="btn btn--secondary" onclick="toggleRealTimeSync()" id="realTimeSyncBtn" title="Toggle Real-Time Cloud Sync" disabled>
+                    <button class="btn btn--secondary" onclick="toggleRealTimeSync()" id="realTimeSyncBtn" title="Toggle Real-Time Cloud Sync" style="display: none;">
                         <span class="nav-icon">🔄</span> <span id="syncButtonText">Start Real-Time Sync</span>
                     </button>
                     <button class="btn btn--secondary" onclick="manualSyncToDrive()" title="Save to Google Drive">
@@ -114,7 +125,7 @@
                         <span class="nav-icon">📥</span> Load from Drive
                     </button>
                     <div class="sync-status" id="syncStatus" style="display: inline-block;">
-                        <span class="nav-icon">⏸️</span> <span id="syncStatusText">Real-time sync off</span>
+                        <span class="nav-icon">🔄</span> <span id="syncStatusText">Auto-sync ready</span>
                     </div>
                     <button class="btn btn--secondary" onclick="exportData()" title="Export Data">
                         <span class="nav-icon">📥</span> Export
