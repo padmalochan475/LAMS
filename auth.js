@@ -642,8 +642,18 @@ class AuthManager {
                     console.log('Admin session restored');
                     this.updateUI();
                     
-                    // Try to start real-time sync if we have a cached token (no popup)
-                    setTimeout(() => this.tryStartRealTimeSync(), 1000);
+                    // Only try to start sync if we have a valid cached token (no API calls)
+                    setTimeout(() => {
+                        if (this.accessToken && this.tokenExpiry && new Date() < new Date(this.tokenExpiry)) {
+                            console.log('🔄 Valid admin token found - resuming real-time sync');
+                            if (window.dataManager) {
+                                window.dataManager.startRealTimeSync();
+                                showMessage('🔄 Admin real-time sync resumed', 'success');
+                            }
+                        } else {
+                            console.log('💡 Admin logged in - use "Enable Real-Time Sync" to activate cloud sync');
+                        }
+                    }, 1000);
                     return;
                 }
                 
@@ -656,8 +666,18 @@ class AuthManager {
                     console.log('User session restored');
                     this.updateUI();
                     
-                    // Try to start real-time sync if we have a cached token (no popup)
-                    setTimeout(() => this.tryStartRealTimeSync(), 1000);
+                    // Only try to start sync if we have a valid cached token (no API calls)
+                    setTimeout(() => {
+                        if (this.accessToken && this.tokenExpiry && new Date() < new Date(this.tokenExpiry)) {
+                            console.log('🔄 Valid token found - resuming real-time sync');
+                            if (window.dataManager) {
+                                window.dataManager.startRealTimeSync();
+                                showMessage('🔄 Real-time sync resumed', 'success');
+                            }
+                        } else {
+                            console.log('💡 No valid token - use "Enable Real-Time Sync" to activate');
+                        }
+                    }, 1000);
                 } else {
                     console.log('User no longer approved, clearing session');
                     localStorage.removeItem('userSession');

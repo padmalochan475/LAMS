@@ -267,43 +267,37 @@ class DataManager {
 
     // Prompt user for sync permission in a friendly way
     promptForSyncPermission() {
-        // Check if we already have permission
-        window.authManager.getAccessToken(false).then(token => {
-            if (token) {
-                // We have permission, start sync immediately
+        // Check if we already have a valid cached token WITHOUT requesting new one
+        if (window.authManager && window.authManager.accessToken && window.authManager.tokenExpiry) {
+            const expiryTime = new Date(window.authManager.tokenExpiry);
+            if (new Date() < expiryTime) {
+                // We have valid permission, start sync immediately
                 console.log('✅ Sync permission already granted - starting real-time sync');
                 this.startRealTimeSync();
                 showMessage('🔄 Real-time sync activated! Changes sync across all devices.', 'success');
-            } else {
-                // Need permission, show user-friendly prompt
-                this.showSyncPermissionDialog();
+                return;
             }
-        }).catch(() => {
-            // No permission, show dialog
-            this.showSyncPermissionDialog();
-        });
+        }
+        
+        // No valid token, show user-friendly prompt (NO API CALLS)
+        this.showSyncPermissionDialog();
     }
 
     // Show friendly permission dialog
     showSyncPermissionDialog() {
-        showMessage('💡 Enable real-time sync across devices? This requires one-time Google Drive permission.', 'info');
+        // Show status in sync indicator
+        const syncStatus = document.getElementById('syncStatus');
+        const syncStatusText = document.getElementById('syncStatusText');
+        if (syncStatus && syncStatusText) {
+            syncStatus.querySelector('.nav-icon').textContent = '💡';
+            syncStatusText.textContent = 'Real-time sync available';
+            syncStatus.style.color = '#ff9800';
+            syncStatus.style.cursor = 'pointer';
+            syncStatus.onclick = () => this.requestSyncPermission();
+            syncStatus.title = 'Click to enable real-time sync across devices';
+        }
         
-        // Create permission button in notification area
-        setTimeout(() => {
-            const enableSyncBtn = document.createElement('button');
-            enableSyncBtn.textContent = '🔄 Enable Real-Time Sync';
-            enableSyncBtn.className = 'btn btn--primary';
-            enableSyncBtn.style.margin = '10px';
-            enableSyncBtn.onclick = () => this.requestSyncPermission();
-            
-            // Find the message element and add button
-            const messages = document.querySelectorAll('.message');
-            if (messages.length > 0) {
-                const lastMessage = messages[messages.length - 1];
-                lastMessage.appendChild(document.createElement('br'));
-                lastMessage.appendChild(enableSyncBtn);
-            }
-        }, 500);
+        showMessage('💡 Real-time sync available! Click the sync status to enable cross-device synchronization.', 'info');
     }
 
     // Request sync permission with user interaction
@@ -311,12 +305,24 @@ class DataManager {
         try {
             showMessage('🔄 Requesting Google Drive permission... Please allow the popup.', 'info');
             
-            // This will show popup because user clicked button (user interaction)
+            // This will show popup because user clicked (user interaction)
             const token = await window.authManager.getAccessToken(true);
             
             if (token) {
                 console.log('✅ Sync permission granted - starting real-time sync');
                 this.startRealTimeSync();
+                
+                // Update sync status indicator
+                const syncStatus = document.getElementById('syncStatus');
+                const syncStatusText = document.getElementById('syncStatusText');
+                if (syncStatus && syncStatusText) {
+                    syncStatus.querySelector('.nav-icon').textContent = '🔄';
+                    syncStatusText.textContent = 'Syncing every 3s';
+                    syncStatus.style.color = '#4caf50';
+                    syncStatus.onclick = null;
+                    syncStatus.title = 'Real-time sync active';
+                }
+                
                 showMessage('🎉 Real-time sync enabled! Changes will sync across all devices within 3-6 seconds.', 'success');
             } else {
                 showMessage('⚠️ Sync permission denied. Enable popups for this site to use real-time sync.', 'warning');
