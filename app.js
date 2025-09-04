@@ -45,8 +45,13 @@ class DataManager {
         this.loadFromCloud().then(() => {
             this.validateMasterDataIntegrity();
             this.refreshAllComponents();
-            // Start real-time sync every 10 seconds
-            this.startRealTimeSync();
+            
+            // Auto-start real-time sync if user is signed in
+            if (window.authManager && window.authManager.isSignedIn) {
+                console.log('🔄 Auto-starting real-time sync for signed-in user');
+                this.startRealTimeSync();
+                this.updateSyncUI(true);
+            }
         });
     }
 
@@ -98,11 +103,12 @@ class DataManager {
     async save() {
         try {
             this.data.lastModified = new Date().toISOString();
-            this.data.version = (this.data.version || 1) + 1;
+            this.data.version = (this.data.version || 0) + 1;
             
             // Save to cloud immediately
             if (window.authManager && window.authManager.isSignedIn) {
-                const success = await window.authManager.saveToGoogleDrive(this.data);
+                console.log('☁️ Attempting immediate cloud save...');
+                const success = await window.authManager.saveToDrive(this.data);
                 if (success) {
                     this.lastSyncTime = new Date().toISOString();
                     showMessage('☁️ Synced to cloud', 'success');
@@ -127,6 +133,11 @@ class DataManager {
             showMessage('⚠️ Saved locally, cloud sync will retry', 'warning');
             this.validateMasterDataIntegrity();
             this.refreshAllComponents();
+            
+            // Schedule immediate retry for cloud sync
+            if (window.authManager && window.authManager.isSignedIn) {
+                setTimeout(() => this.syncWithCloud(), 2000);
+            }
         }
     }
 
@@ -136,7 +147,9 @@ class DataManager {
             clearInterval(this.syncInterval);
         }
         
-        // Sync every 10 seconds when signed in
+        console.log('▶️ Starting aggressive real-time sync (every 3 seconds)...');
+        
+        // Sync every 3 seconds when signed in for true real-time experience
         this.syncInterval = setInterval(async () => {
             if (window.authManager && window.authManager.isSignedIn) {
                 try {
@@ -145,29 +158,45 @@ class DataManager {
                     console.log('Background sync skipped:', error.message);
                 }
             }
-        }, 10000); // 10 second intervals for real-time feel
+        }, 3000); // 3 second intervals for true real-time sync
         
-        // Sync immediately when window gains focus
-        window.addEventListener('focus', () => this.syncWithCloud());
-        
-        // Sync when page becomes visible
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) {
-                this.syncWithCloud();
-            }
-        });
+        console.log('🔄 Real-time sync active - all changes will sync immediately');
     }
 
-    // Intelligent sync with conflict resolution
+    updateSyncUI(isActive) {
+        const syncBtn = document.getElementById('realTimeSyncBtn');
+        const syncBtnText = document.getElementById('syncButtonText');
+        const syncStatus = document.getElementById('syncStatus');
+        const syncStatusText = document.getElementById('syncStatusText');
+        
+        if (!syncBtn || !syncBtnText || !syncStatus || !syncStatusText) return;
+        
+        if (isActive) {
+            syncBtnText.textContent = 'Stop Real-Time Sync';
+            syncBtn.querySelector('.nav-icon').textContent = '⏸️';
+            syncStatus.querySelector('.nav-icon').textContent = '🔄';
+            syncStatusText.textContent = 'Syncing every 3s';
+        } else {
+            syncBtnText.textContent = 'Start Real-Time Sync';
+            syncBtn.querySelector('.nav-icon').textContent = '▶️';
+            syncStatus.querySelector('.nav-icon').textContent = '⏸️';
+            syncStatusText.textContent = 'Real-time sync off';
+        }
+    }
+
     async syncWithCloud() {
         try {
-            // Use cached token for background sync to avoid popups
+            // Use cached token for background sync, but also try to get new token if needed
             if (!window.authManager) {
                 console.log('⏳ Background sync skipped - authManager not available');
                 return false;
             }
             
-            const token = await window.authManager.getAccessToken(false);
+            // Try to get token, allowing popup for initial attempts
+            const isInitialSync = !this.accessTokenAttempted;
+            const token = await window.authManager.getAccessToken(!isInitialSync);
+            this.accessTokenAttempted = true;
+            
             if (!token) {
                 console.log('⏳ Background sync skipped - no valid token');
                 return false;
@@ -186,17 +215,17 @@ class DataManager {
             // Parse cloud data to get version info
             const cloudVersion = cloudData.version || 0;
             const cloudTime = new Date(cloudData.lastModified || 0);
-            const localTime = new Date(this.lastSyncTime || 0);
+            const localVersion = this.data.version || 0;
+            const localTime = new Date(this.data.lastModified || 0);
             
-            console.log(`📊 Version comparison - Cloud: ${cloudVersion} (${cloudTime.toLocaleString()}), Local: ${this.version} (${localTime.toLocaleString()})`);
+            console.log(`📊 Version comparison - Cloud: ${cloudVersion} (${cloudTime.toLocaleString()}), Local: ${localVersion} (${localTime.toLocaleString()})`);
 
             // If cloud is newer, load it
-            if (cloudVersion > this.version || cloudTime > localTime) {
+            if (cloudVersion > localVersion || (cloudVersion === localVersion && cloudTime > localTime)) {
                 console.log('⬇️ Loading newer data from cloud');
                 
                 // Update local data with cloud data
                 this.data = { ...this.data, ...cloudData };
-                this.version = cloudVersion;
                 this.lastSyncTime = new Date().toISOString();
                 
                 // Update UI to reflect changes
@@ -206,9 +235,13 @@ class DataManager {
             }
 
             // If local is newer, save to cloud
-            if (this.version > cloudVersion || localTime > cloudTime) {
+            if (localVersion > cloudVersion || (localVersion === cloudVersion && localTime > cloudTime)) {
                 console.log('⬆️ Saving newer local data to cloud');
-                await this.save();
+                const success = await window.authManager.saveToDrive(this.data);
+                if (success) {
+                    this.lastSyncTime = new Date().toISOString();
+                    showMessage('☁️ Local changes synced to cloud', 'success');
+                }
                 return true;
             }
 
@@ -267,6 +300,15 @@ class DataManager {
         });
     }
 
+    // Trigger immediate sync on any data change
+    triggerImmediateSync() {
+        if (window.authManager && window.authManager.isSignedIn) {
+            // Sync immediately on data changes
+            setTimeout(() => this.syncWithCloud(), 100);
+        }
+    }
+
+    // Override methods to trigger immediate sync
     addMasterDataItem(type, value) {
         if (!value || value.trim() === '') {
             showMessage('Please enter a value!', 'error');
@@ -281,6 +323,7 @@ class DataManager {
         
         this.data[type].push(trimmedValue);
         this.save();
+        this.triggerImmediateSync(); // Sync immediately after adding
         showMessage('Item added successfully!', 'success');
         return true;
     }
@@ -398,6 +441,7 @@ class DataManager {
 
         this.data.assignments.push(assignment);
         this.save();
+        this.triggerImmediateSync(); // Sync immediately after adding assignment
         showMessage('Assignment created successfully!', 'success');
         return true;
     }
@@ -406,6 +450,7 @@ class DataManager {
         if (index >= 0 && index < this.data.assignments.length) {
             this.data.assignments.splice(index, 1);
             this.save();
+            this.triggerImmediateSync(); // Sync immediately after removing assignment
             showMessage('Assignment deleted successfully!', 'success');
             return true;
         }

@@ -341,6 +341,7 @@ class AuthManager {
         try {
             // Return cached token if still valid
             if (this.accessToken && this.tokenExpiry && new Date() < new Date(this.tokenExpiry)) {
+                console.log('🔑 Using cached access token');
                 return this.accessToken;
             }
 
@@ -349,7 +350,43 @@ class AuthManager {
                 return null;
             }
 
-            // Don't attempt popup for background sync
+            // For background sync, try to get token silently first
+            if (!allowPopup && this.currentUser) {
+                console.log('🔄 Attempting silent token refresh...');
+                try {
+                    // Try to refresh token using existing session
+                    const tokenClient = google.accounts.oauth2.initTokenClient({
+                        client_id: this.CLIENT_ID,
+                        scope: 'https://www.googleapis.com/auth/drive.file',
+                        callback: () => {}, // Will be handled by promise
+                    });
+
+                    return new Promise((resolve) => {
+                        tokenClient.callback = (response) => {
+                            if (response.access_token) {
+                                console.log('✅ Silent token refresh successful');
+                                this.accessToken = response.access_token;
+                                this.tokenExpiry = new Date(Date.now() + 3600000).toISOString();
+                                resolve(response.access_token);
+                            } else {
+                                console.log('⚠️ Silent token refresh failed');
+                                resolve(null);
+                            }
+                        };
+                        
+                        // Request token silently
+                        tokenClient.requestAccessToken({ 
+                            prompt: '',
+                            hint: this.currentUser.email
+                        });
+                    });
+                } catch (error) {
+                    console.log('⚠️ Silent refresh failed:', error.message);
+                    return null;
+                }
+            }
+
+            // Don't attempt popup for background sync if silent failed
             if (!allowPopup) {
                 console.log('⏳ Background sync - no token available');
                 return null;
@@ -746,19 +783,13 @@ async function toggleRealTimeSync() {
     if (dataManager.syncInterval) {
         // Stop real-time sync
         dataManager.stopRealTimeSync();
-        syncBtnText.textContent = 'Start Real-Time Sync';
-        syncBtn.querySelector('.nav-icon').textContent = '▶️';
-        syncStatus.querySelector('.nav-icon').textContent = '⏸️';
-        syncStatusText.textContent = 'Real-time sync off';
+        dataManager.updateSyncUI(false);
         showMessage('🛑 Real-time sync stopped', 'info');
     } else {
         // Start real-time sync
         dataManager.startRealTimeSync();
-        syncBtnText.textContent = 'Stop Real-Time Sync';
-        syncBtn.querySelector('.nav-icon').textContent = '⏸️';
-        syncStatus.querySelector('.nav-icon').textContent = '🔄';
-        syncStatusText.textContent = 'Syncing every 10s';
-        showMessage('🔄 Real-time sync started (10s intervals)', 'success');
+        dataManager.updateSyncUI(true);
+        showMessage('🔄 Real-time sync started (3s intervals) - All users will see changes immediately!', 'success');
     }
 }
 
