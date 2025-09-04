@@ -61,6 +61,21 @@ const CONFIG = {
 };
 ```
 
+## 🏗️ Cloud-First Architecture
+
+### Real-Time Data Synchronization
+- **Primary Storage**: Google Drive API (lams-data.json file)
+- **Multi-Device Sync**: Real-time synchronization every 10 seconds across all devices
+- **Conflict Resolution**: Version-based conflict detection with timestamps
+- **Offline Resilience**: Automatic fallback to local storage when cloud is unavailable
+- **Smart Token Management**: Cached authentication tokens prevent popup interruptions
+
+### Data Flow
+1. **Initial Load**: Attempts cloud load first, falls back to local storage
+2. **Real-Time Updates**: Background sync maintains consistency across devices
+3. **Version Control**: Each save includes version number and timestamp for conflict resolution
+4. **Seamless Experience**: Users see live updates without manual refresh
+
 ## 🖨️ Print Features
 
 - **A4 Landscape Optimization**: Perfect for institute schedules

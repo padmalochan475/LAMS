@@ -70,15 +70,14 @@ class AuthManager {
             if (user.email === CONFIG.ADMIN_EMAIL) {
                 this.currentUser = { ...user, isAdmin: true };
                 this.isSignedIn = true;
+                this.accessToken = null; // Reset token for fresh auth
                 localStorage.setItem('userSession', JSON.stringify(this.currentUser));
                 console.log('Admin signed in, session saved');
                 this.updateUI();
-                // Auto-load with delay and error handling
-                setTimeout(() => {
-                    if (window.google?.accounts?.oauth2) {
-                        this.loadFromDrive().catch(e => console.log('Auto-load skipped:', e.message));
-                    }
-                }, 5000);
+                // Trigger cloud-first data loading
+                if (window.dataManager) {
+                    window.dataManager.loadFromCloud();
+                }
                 return;
             }
             
@@ -88,15 +87,14 @@ class AuthManager {
             if (isApproved) {
                 this.currentUser = { ...user, isAdmin: false };
                 this.isSignedIn = true;
+                this.accessToken = null; // Reset token for fresh auth
                 localStorage.setItem('userSession', JSON.stringify(this.currentUser));
                 console.log('Approved user signed in, session saved');
                 this.updateUI();
-                // Auto-load with delay and error handling
-                setTimeout(() => {
-                    if (window.google?.accounts?.oauth2) {
-                        this.loadFromDrive().catch(e => console.log('Auto-load skipped:', e.message));
-                    }
-                }, 5000);
+                // Trigger cloud-first data loading
+                if (window.dataManager) {
+                    window.dataManager.loadFromCloud();
+                }
                 return;
             }
             
@@ -339,10 +337,21 @@ class AuthManager {
         }
     }
 
-    async getAccessToken() {
+    async getAccessToken(allowPopup = true) {
         try {
+            // Return cached token if still valid
+            if (this.accessToken && this.tokenExpiry && new Date() < new Date(this.tokenExpiry)) {
+                return this.accessToken;
+            }
+
             if (!window.google?.accounts?.oauth2) {
                 console.log('❌ Google Identity Services not available');
+                return null;
+            }
+
+            // Don't attempt popup for background sync
+            if (!allowPopup) {
+                console.log('⏳ Background sync - no token available');
                 return null;
             }
 
@@ -353,6 +362,9 @@ class AuthManager {
                     callback: (response) => {
                         if (response.access_token) {
                             console.log('✅ Access token obtained');
+                            this.accessToken = response.access_token;
+                            // Tokens typically expire in 1 hour
+                            this.tokenExpiry = new Date(Date.now() + 3600000).toISOString();
                             resolve(response.access_token);
                         } else {
                             console.log('❌ No access token in response');
@@ -365,10 +377,10 @@ class AuthManager {
                     }
                 });
                 
-                // Try to request token with user interaction hint to help with popup blockers
+                // Request token with minimal prompt for returning users
                 try {
                     tokenClient.requestAccessToken({ 
-                        prompt: 'consent',
+                        prompt: this.currentUser ? '' : 'consent',
                         hint: this.currentUser?.email || ''
                     });
                 } catch (popupError) {
@@ -460,10 +472,16 @@ class AuthManager {
             const accessToken = await this.getAccessToken();
             if (!accessToken) {
                 console.log('❌ No access token, skipping load');
-                // Only show popup warning for manual sync attempts
+                // Show popup warning for manual attempts
                 const isManualAttempt = new Error().stack.includes('manualLoadFromDrive');
                 if (isManualAttempt && typeof showMessage === 'function') {
                     showMessage('Please allow popups for Google Drive sync. Check browser popup settings.', 'warning');
+                } else if (isManualAttempt) {
+                    // Show popup warning banner if showMessage not available
+                    const warningBanner = document.getElementById('popup-warning');
+                    if (warningBanner) {
+                        warningBanner.style.display = 'block';
+                    }
                 }
                 return null;
             }
@@ -536,12 +554,8 @@ class AuthManager {
                     this.isSignedIn = true;
                     console.log('Admin session restored');
                     this.updateUI();
-                    // Auto-load with delay and error handling
-                    setTimeout(() => {
-                        if (window.google?.accounts?.oauth2) {
-                            this.loadFromDrive().catch(e => console.log('Auto-load skipped:', e.message));
-                        }
-                    }, 5000);
+                    // Automatic sync disabled to prevent popup blocking
+                    // Use manual sync buttons instead
                     return;
                 }
                 
@@ -553,12 +567,8 @@ class AuthManager {
                     this.isSignedIn = true;
                     console.log('User session restored');
                     this.updateUI();
-                    // Auto-load with delay and error handling
-                    setTimeout(() => {
-                        if (window.google?.accounts?.oauth2) {
-                            this.loadFromDrive().catch(e => console.log('Auto-load skipped:', e.message));
-                        }
-                    }, 5000);
+                    // Automatic sync disabled to prevent popup blocking
+                    // Use manual sync buttons instead
                 } else {
                     console.log('User no longer approved, clearing session');
                     localStorage.removeItem('userSession');

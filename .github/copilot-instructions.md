@@ -1,9 +1,17 @@
 # Copilot Instructions for LAMS (Lab Management System)
 
 ## Project Overview
-- **Purpose:** Web-based lab assignment management for educational institutes, with Google Drive integration and responsive A4 print features.
+- **Purpose:** Cloud-first lab assignment management for educational institutes with real-time multi-device synchronization.
+- **Architecture:** Real-time sync every 10 seconds via Google Drive API, version-based conflict resolution, smart token management.
 - **Tech Stack:** Vanilla JavaScript, HTML5, CSS3. No frameworks. Uses Google OAuth 2.0 and Google Drive API for authentication and storage.
 - **Hosting:** GitHub Pages. All code runs client-side; no backend server.
+
+## Cloud-First Data Management
+- **Primary Storage:** Google Drive (lams-data.json file)
+- **Real-Time Sync:** Background synchronization every 10 seconds across all devices
+- **Token Management:** Cached authentication tokens prevent popup interruptions during background sync
+- **Conflict Resolution:** Version numbers and timestamps ensure data consistency
+- **Offline Support:** Automatic fallback to localStorage when cloud unavailable
 
 ## Key Files & Structure
 - `app.js`: Main application logic, UI, and event handling (~1900 lines).
@@ -21,7 +29,7 @@
 ## Known Issues & Solutions
 - **Popup Blockers:** Google Drive sync requires popups. Users should allow popups for the domain.
 - **Cross-Origin Policy:** Modern browsers may block some auth flows; manual sync buttons provide fallback.
-- **Background Sync:** Automatic syncing is throttled to avoid spam and popup issues.
+- **Background Sync:** Automatic syncing is DISABLED to avoid popup spam. Use manual sync buttons only.
 
 ## Developer Workflows
 - **No build step required** - Static files deployment.
@@ -39,6 +47,13 @@
 - **Responsive design** - Mobile-first CSS with print optimization.
 - **Data persistence** - Dual storage: localStorage (session) + Google Drive (cloud sync).
 - **Error handling** - Try/catch blocks with user-friendly notifications.
+
+## Recent Architecture Changes (Cloud-First Implementation)
+- **DataManager Class**: Redesigned from localStorage-first to cloud-first with version control
+- **Token Management**: Added `getAccessToken(allowPopup)` parameter to prevent background sync popup spam  
+- **Real-Time Sync**: `startRealTimeSync()` method with 10-second intervals and intelligent conflict resolution
+- **Background Operations**: `syncWithCloud()` uses cached tokens for seamless multi-device experience
+- **Offline Resilience**: `loadFromCloud()` with automatic `loadLocal()` fallback ensures app availability
 
 ## Integration Points
 - **Google OAuth 2.0:** Authentication via `auth.js` using credentials from `config.js`.

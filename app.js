@@ -30,22 +30,52 @@ class DataManager {
             labFaculty: [],
             assignments: [],
             academicYear: "2024-25",
-            scheduleOrientation: "daysHorizontal" // or "timesHorizontal"
+            scheduleOrientation: "daysHorizontal", // or "timesHorizontal"
+            lastModified: new Date().toISOString(),
+            version: 1
         };
+        this.isCloudMode = true; // Cloud-first mode
+        this.syncInterval = null;
+        this.lastSyncTime = null;
         this.init();
     }
 
     init() {
-        this.load();
-        this.validateMasterDataIntegrity();
-        setTimeout(() => {
+        // Load from cloud first, fallback to localStorage only for offline scenarios
+        this.loadFromCloud().then(() => {
+            this.validateMasterDataIntegrity();
             this.refreshAllComponents();
-            // Start periodic sync with delay
-            setTimeout(() => this.startPeriodicSync(), 10000);
-        }, 100);
+            // Start real-time sync every 10 seconds
+            this.startRealTimeSync();
+        });
     }
 
-    load() {
+    // Cloud-first loading with localStorage fallback
+    async loadFromCloud() {
+        if (window.authManager && window.authManager.isSignedIn) {
+            try {
+                showMessage('🔄 Loading from cloud...', 'info');
+                const cloudData = await window.authManager.loadFromDrive();
+                if (cloudData) {
+                    // Merge cloud data with defaults
+                    this.data = { ...this.data, ...cloudData };
+                    this.lastSyncTime = new Date().toISOString();
+                    showMessage('✅ Data loaded from cloud', 'success');
+                    console.log('📥 Cloud data loaded successfully');
+                    return;
+                }
+            } catch (error) {
+                console.warn('Cloud load failed, using localStorage fallback:', error);
+                showMessage('⚠️ Cloud sync unavailable, using local data', 'warning');
+            }
+        }
+        
+        // Fallback to localStorage only if cloud is unavailable
+        this.loadLocal();
+    }
+
+    // Local storage as fallback only
+    loadLocal() {
         const saved = localStorage.getItem('labManagementData');
         if (saved) {
             try {
@@ -55,84 +85,142 @@ class DataManager {
                         this.data[key] = parsed[key];
                     }
                 });
+                console.log('📱 Local fallback data loaded');
             } catch (e) {
-                console.error('Error loading data:', e);
+                console.error('Error loading local data:', e);
             }
         }
     }
 
-    save() {
+    // Cloud-first saving with real-time sync
+    async save() {
         try {
+            this.data.lastModified = new Date().toISOString();
+            this.data.version = (this.data.version || 1) + 1;
+            
+            // Save to cloud immediately
+            if (window.authManager && window.authManager.isSignedIn) {
+                const success = await window.authManager.saveToGoogleDrive(this.data);
+                if (success) {
+                    this.lastSyncTime = new Date().toISOString();
+                    showMessage('☁️ Synced to cloud', 'success');
+                    console.log('☁️ Data saved to cloud successfully');
+                } else {
+                    throw new Error('Cloud save failed');
+                }
+            } else {
+                throw new Error('Not signed in');
+            }
+            
+            // Keep local copy as backup
             localStorage.setItem('labManagementData', JSON.stringify(this.data));
+            
             this.validateMasterDataIntegrity();
             this.refreshAllComponents();
-            // Auto-sync to Google Drive with error handling
-            this.autoSyncToDrive();
-        } catch (e) {
-            console.error('Error saving data:', e);
+            
+        } catch (error) {
+            console.error('Save error:', error);
+            // Fallback to local save only
+            localStorage.setItem('labManagementData', JSON.stringify(this.data));
+            showMessage('⚠️ Saved locally, cloud sync will retry', 'warning');
+            this.validateMasterDataIntegrity();
+            this.refreshAllComponents();
         }
     }
 
-    async autoSyncToDrive() {
-        if (window.authManager && window.authManager.isSignedIn) {
-            try {
-                await window.authManager.saveToGoogleDrive(this.data);
-            } catch (error) {
-                console.error('Auto-sync failed:', error);
-            }
+    // Real-time synchronization
+    startRealTimeSync() {
+        if (this.syncInterval) {
+            clearInterval(this.syncInterval);
         }
-    }
-
-    startPeriodicSync() {
-        // Real-time sync every 30 seconds (reduced frequency)
-        setInterval(async () => {
-            if (window.authManager && window.authManager.isSignedIn && window.google?.accounts?.oauth2) {
-                try {
-                    await window.authManager.loadFromDrive();
-                } catch (error) {
-                    // Silent error handling for background sync to avoid popup spam
-                    if (error.message && !error.message.includes('popup')) {
-                        console.log('Background sync skipped:', error.message);
-                    }
-                }
-            }
-        }, 30000);
         
-        // Immediate sync when window gets focus (switching between devices)
-        window.addEventListener('focus', async () => {
+        // Sync every 10 seconds when signed in
+        this.syncInterval = setInterval(async () => {
             if (window.authManager && window.authManager.isSignedIn) {
                 try {
-                    await window.authManager.loadFromDrive();
+                    await this.syncWithCloud();
                 } catch (error) {
-                    console.error('Focus sync failed:', error);
+                    console.log('Background sync skipped:', error.message);
                 }
             }
-        });
+        }, 10000); // 10 second intervals for real-time feel
         
-        // Immediate sync when page becomes visible
-        document.addEventListener('visibilitychange', async () => {
-            if (!document.hidden && window.authManager && window.authManager.isSignedIn) {
-                try {
-                    await window.authManager.loadFromDrive();
-                } catch (error) {
-                    console.error('Visibility sync failed:', error);
-                }
-            }
-        });
+        // Sync immediately when window gains focus
+        window.addEventListener('focus', () => this.syncWithCloud());
         
-        // Cross-tab sync - listen for changes from other tabs
-        window.addEventListener('storage', async (e) => {
-            if (e.key === 'lams_sync_timestamp' && window.authManager && window.authManager.isSignedIn) {
-                try {
-                    // Small delay to ensure the other tab has finished syncing
-                    setTimeout(async () => {
-                        await window.authManager.loadFromDrive();
-                    }, 1000);
-                } catch (error) {
-                    console.error('Cross-tab sync failed:', error);
-                }
+        // Sync when page becomes visible
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                this.syncWithCloud();
             }
         });
+    }
+
+    // Intelligent sync with conflict resolution
+    async syncWithCloud() {
+        try {
+            // Use cached token for background sync to avoid popups
+            const token = await authManager.getAccessToken(false);
+            if (!token) {
+                console.log('⏳ Background sync skipped - no valid token');
+                return false;
+            }
+
+            console.log('🔄 Starting cloud sync...');
+            
+            // Load cloud version
+            const cloudData = await authManager.loadFromDrive(true);
+            if (!cloudData) {
+                console.log('📤 No cloud data found, saving current version');
+                await this.save();
+                return true;
+            }
+
+            // Parse cloud data to get version info
+            const cloudVersion = cloudData.version || 0;
+            const cloudTime = new Date(cloudData.lastModified || 0);
+            const localTime = new Date(this.lastSyncTime || 0);
+            
+            console.log(`📊 Version comparison - Cloud: ${cloudVersion} (${cloudTime.toLocaleString()}), Local: ${this.version} (${localTime.toLocaleString()})`);
+
+            // If cloud is newer, load it
+            if (cloudVersion > this.version || cloudTime > localTime) {
+                console.log('⬇️ Loading newer data from cloud');
+                
+                // Update local data with cloud data
+                this.data = { ...this.data, ...cloudData };
+                this.version = cloudVersion;
+                this.lastSyncTime = new Date().toISOString();
+                
+                // Update UI to reflect changes
+                this.refreshAllComponents();
+                showMessage('✅ Data synced from cloud', 'success');
+                return true;
+            }
+
+            // If local is newer, save to cloud
+            if (this.version > cloudVersion || localTime > cloudTime) {
+                console.log('⬆️ Saving newer local data to cloud');
+                await this.save();
+                return true;
+            }
+
+            console.log('✅ Data already in sync');
+            this.lastSyncTime = new Date().toISOString();
+            return true;
+
+        } catch (error) {
+            console.log('❌ Cloud sync failed:', error);
+            showMessage('⚠️ Cloud sync failed - working offline', 'warning');
+            return false;
+        }
+    }
+
+    stopRealTimeSync() {
+        if (this.syncInterval) {
+            clearInterval(this.syncInterval);
+            this.syncInterval = null;
+        }
     }
 
     validateMasterDataIntegrity() {
@@ -1271,13 +1359,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             themeIcon.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
         }
     }
-
-    document.querySelectorAll('.nav-tab').forEach(tab => {
-        tab.addEventListener('click', (e) => {
-            const tabId = e.currentTarget.getAttribute('data-tab');
-            showTab(tabId);
-        });
-    });
 
     const themeToggle = document.getElementById('themeToggle');
     if (themeToggle) {
