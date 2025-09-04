@@ -48,16 +48,17 @@ class DataManager {
             this.validateMasterDataIntegrity();
             this.refreshAllComponents();
             
-            // Auto-start real-time sync like all modern apps
+            // Auto-start real-time sync immediately like all modern apps
             setTimeout(() => {
                 if (window.authManager && window.authManager.isSignedIn) {
-                    console.log('🔄 Auto-starting real-time sync for signed-in user...');
-                    // Show friendly popup permission request instead of starting immediately
-                    this.promptForSyncPermission();
+                    console.log('� Auto-starting real-time sync - no user action required');
+                    this.startRealTimeSync();
+                    showMessage('✅ Real-time sync active across all devices', 'success');
                 } else {
-                    console.log('💡 LAMS initialized. Sign in to enable automatic real-time sync.');
+                    console.log('💡 LAMS ready. Sign in to enable automatic sync.');
+                    this.updateSyncStatus('Sign in to sync');
                 }
-            }, 2000);
+            }, 1000);
         });
     }
 
@@ -114,7 +115,7 @@ class DataManager {
             // Save to cloud immediately
             if (window.authManager && window.authManager.isSignedIn) {
                 console.log('☁️ Attempting immediate cloud save...');
-                const success = await window.authManager.saveToGoogleDrive(this.data);
+                const success = await window.authManager.saveToGoogleDrive(this.data, true); // Allow popups for user actions
                 if (success) {
                     this.lastSyncTime = new Date().toISOString();
                     this.syncFailureCount = 0; // Reset failure count on success
@@ -161,6 +162,9 @@ class DataManager {
         
         console.log('▶️ Starting aggressive real-time sync (every 3 seconds)...');
         
+        // Update status immediately
+        this.updateSyncStatus('Auto-sync active');
+        
         // Sync every 3 seconds when signed in for true real-time experience
         this.syncInterval = setInterval(async () => {
             if (window.authManager && window.authManager.isSignedIn) {
@@ -169,31 +173,12 @@ class DataManager {
                 } catch (error) {
                     console.log('Background sync skipped:', error.message);
                 }
+            } else {
+                this.stopRealTimeSync();
             }
         }, 3000); // 3 second intervals for true real-time sync
         
         console.log('🔄 Real-time sync active - all changes will sync immediately');
-    }
-
-    updateSyncUI(isActive) {
-        const syncBtn = document.getElementById('realTimeSyncBtn');
-        const syncBtnText = document.getElementById('syncButtonText');
-        const syncStatus = document.getElementById('syncStatus');
-        const syncStatusText = document.getElementById('syncStatusText');
-        
-        if (!syncBtn || !syncBtnText || !syncStatus || !syncStatusText) return;
-        
-        if (isActive) {
-            syncBtnText.textContent = 'Stop Real-Time Sync';
-            syncBtn.querySelector('.nav-icon').textContent = '⏸️';
-            syncStatus.querySelector('.nav-icon').textContent = '🔄';
-            syncStatusText.textContent = 'Syncing every 3s';
-        } else {
-            syncBtnText.textContent = 'Start Real-Time Sync';
-            syncBtn.querySelector('.nav-icon').textContent = '▶️';
-            syncStatus.querySelector('.nav-icon').textContent = '🔄';
-            syncStatusText.textContent = 'Auto-sync ready';
-        }
     }
 
     async syncWithCloud() {
@@ -246,7 +231,7 @@ class DataManager {
             // If local is newer, save to cloud
             if (localVersion > cloudVersion || (localVersion === cloudVersion && localTime > cloudTime)) {
                 console.log('⬆️ Saving newer local data to cloud');
-                const success = await window.authManager.saveToGoogleDrive(this.data);
+                const success = await window.authManager.saveToGoogleDrive(this.data, false); // No popups for background sync
                 if (success) {
                     this.lastSyncTime = new Date().toISOString();
                     showMessage('☁️ Local changes synced to cloud', 'success');
@@ -256,6 +241,7 @@ class DataManager {
 
             console.log('✅ Data already in sync');
             this.lastSyncTime = new Date().toISOString();
+            this.updateSyncStatus('Auto-sync active');
             return true;
 
         } catch (error) {
@@ -265,71 +251,25 @@ class DataManager {
         }
     }
 
-    // Prompt user for sync permission in a friendly way
-    promptForSyncPermission() {
-        // Check if we already have a valid cached token WITHOUT requesting new one
-        if (window.authManager && window.authManager.accessToken && window.authManager.tokenExpiry) {
-            const expiryTime = new Date(window.authManager.tokenExpiry);
-            if (new Date() < expiryTime) {
-                // We have valid permission, start sync immediately
-                console.log('✅ Sync permission already granted - starting real-time sync');
-                this.startRealTimeSync();
-                showMessage('🔄 Real-time sync activated! Changes sync across all devices.', 'success');
-                return;
-            }
-        }
-        
-        // No valid token, show user-friendly prompt (NO API CALLS)
-        this.showSyncPermissionDialog();
-    }
-
-    // Show friendly permission dialog
-    showSyncPermissionDialog() {
-        // Show status in sync indicator
-        const syncStatus = document.getElementById('syncStatus');
+    updateSyncStatus(status) {
         const syncStatusText = document.getElementById('syncStatusText');
-        if (syncStatus && syncStatusText) {
-            syncStatus.querySelector('.nav-icon').textContent = '💡';
-            syncStatusText.textContent = 'Real-time sync available';
-            syncStatus.style.color = '#ff9800';
-            syncStatus.style.cursor = 'pointer';
-            syncStatus.onclick = () => this.requestSyncPermission();
-            syncStatus.title = 'Click to enable real-time sync across devices';
+        const syncIcon = document.querySelector('#syncStatus .nav-icon');
+        
+        if (syncStatusText) {
+            syncStatusText.textContent = status;
         }
         
-        showMessage('💡 Real-time sync available! Click the sync status to enable cross-device synchronization.', 'info');
-    }
-
-    // Request sync permission with user interaction
-    async requestSyncPermission() {
-        try {
-            showMessage('🔄 Requesting Google Drive permission... Please allow the popup.', 'info');
-            
-            // This will show popup because user clicked (user interaction)
-            const token = await window.authManager.getAccessToken(true);
-            
-            if (token) {
-                console.log('✅ Sync permission granted - starting real-time sync');
-                this.startRealTimeSync();
-                
-                // Update sync status indicator
-                const syncStatus = document.getElementById('syncStatus');
-                const syncStatusText = document.getElementById('syncStatusText');
-                if (syncStatus && syncStatusText) {
-                    syncStatus.querySelector('.nav-icon').textContent = '🔄';
-                    syncStatusText.textContent = 'Syncing every 3s';
-                    syncStatus.style.color = '#4caf50';
-                    syncStatus.onclick = null;
-                    syncStatus.title = 'Real-time sync active';
-                }
-                
-                showMessage('🎉 Real-time sync enabled! Changes will sync across all devices within 3-6 seconds.', 'success');
+        // Update icon based on status
+        if (syncIcon) {
+            if (status.includes('Syncing')) {
+                syncIcon.textContent = '🔄';
+            } else if (status.includes('Synced') || status.includes('Active')) {
+                syncIcon.textContent = '✅';
+            } else if (status.includes('Ready') || status.includes('Available')) {
+                syncIcon.textContent = '☁️';
             } else {
-                showMessage('⚠️ Sync permission denied. Enable popups for this site to use real-time sync.', 'warning');
+                syncIcon.textContent = '🔄';
             }
-        } catch (error) {
-            console.log('❌ Permission request failed:', error);
-            showMessage('⚠️ Please allow popups for this site to enable real-time sync.', 'warning');
         }
     }
 
@@ -337,6 +277,8 @@ class DataManager {
         if (this.syncInterval) {
             clearInterval(this.syncInterval);
             this.syncInterval = null;
+            this.updateSyncStatus('Sync stopped');
+            console.log('🛑 Real-time sync stopped');
         }
     }
 

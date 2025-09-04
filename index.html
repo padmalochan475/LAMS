@@ -2,7 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="w                    <div class="sync-status" id="syncStatus" style="display: inline-block;">
+                        <span class="nav-icon">☁️</span> <span id="syncStatusText">Loading...</span>
+                    </div>
+                    <button class="btn btn--secondary" onclick="exportData()" title="Export Data">
+                        <span class="nav-icon">📥</span> Export
+                    </button>ice-width, initial-scale=1.0">
     <title>Institute Lab Management System</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -68,10 +73,6 @@
                 <span class="nav-icon">🖨️</span>
                 Print Schedule
             </button>
-            <button class="nav-tab admin-only" onclick="showTab('logs')" style="display: none;">
-                <span class="nav-icon">📝</span>
-                Sync Logs
-            </button>
         </nav>
 
         <!-- Loading Screen -->
@@ -109,22 +110,12 @@
             <div class="dashboard-header">
                 <h2>Academic Year: <span id="currentAcademicYear" class="academic-year-display" onclick="editAcademicYear()">2024-25</span></h2>
                 <div class="dashboard-actions">
-                    <button class="btn btn--primary" onclick="requestSyncPermission()" id="activateSyncBtn" title="Activate Real-Time Cloud Sync">
-                        <span class="nav-icon">🔑</span> Activate Real-Time Sync
-                    </button>
-                    <button class="btn btn--secondary" onclick="toggleRealTimeSync()" id="realTimeSyncBtn" title="Toggle Real-Time Cloud Sync" style="display: none;">
-                        <span class="nav-icon">🔄</span> <span id="syncButtonText">Start Real-Time Sync</span>
-                    </button>
-                    <button class="btn btn--secondary" onclick="manualSyncToDrive()" title="Save to Google Drive">
-                        <span class="nav-icon">☁️</span> Save to Drive
-                    </button>
-                    <button class="btn btn--secondary" onclick="manualLoadFromDrive()" title="Load from Google Drive">
-                        <span class="nav-icon">📥</span> Load from Drive
-                    </button>
                     <div class="sync-status" id="syncStatus" style="display: inline-block;">
-                        <span class="nav-icon">🔄</span> <span id="syncStatusText">Auto-sync ready</span>
+                        <span class="nav-icon">🔄</span> <span id="syncStatusText">Syncing...</span>
                     </div>
                     <button class="btn btn--secondary" onclick="exportData()" title="Export Data">
+                        <span class="nav-icon">�</span> Export
+                    </button>
                         <span class="nav-icon">📥</span> Export
                     </button>
                     <button class="btn btn--secondary admin-btn" onclick="importData()" title="Import Data (Admin Only)">
@@ -546,27 +537,6 @@
                 </div>
                 <div class="print-footer">
                     <p>For any queries, contact the Lab Coordinator</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Sync Logs Tab -->
-        <div class="tab-content" id="logs-tab">
-            <div class="glass-card">
-                <h2>Google Drive Sync Logs</h2>
-                <div class="logs-controls">
-                    <button class="btn btn--secondary" onclick="refreshSyncLogs()">
-                        <span class="nav-icon">🔄</span> Refresh
-                    </button>
-                    <button class="btn btn--outline" onclick="clearSyncLogs()">
-                        <span class="nav-icon">🗑️</span> Clear Logs
-                    </button>
-                    <button class="btn btn--secondary" onclick="exportSyncLogs()">
-                        <span class="nav-icon">📥</span> Export Logs
-                    </button>
-                </div>
-                <div id="syncLogsList" class="sync-logs-list">
-                    <p class="empty-state">No sync logs available.</p>
                 </div>
             </div>
         </div>

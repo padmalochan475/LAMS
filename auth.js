@@ -74,11 +74,14 @@ class AuthManager {
                 localStorage.setItem('userSession', JSON.stringify(this.currentUser));
                 console.log('Admin signed in, session saved');
                 this.updateUI();
-                // Trigger cloud-first data loading and start real-time sync
+                // Trigger cloud-first data loading and start real-time sync automatically
                 if (window.dataManager) {
                     window.dataManager.loadFromCloud().then(() => {
-                        // Use friendly permission prompt instead of automatic
-                        window.dataManager.promptForSyncPermission();
+                        // Start automatic sync immediately like Google Docs
+                        setTimeout(() => {
+                            window.dataManager.startRealTimeSync();
+                            showMessage('🚀 Real-time sync active! Data syncs across all devices.', 'success');
+                        }, 1000);
                     });
                 }
                 return;
@@ -94,11 +97,14 @@ class AuthManager {
                 localStorage.setItem('userSession', JSON.stringify(this.currentUser));
                 console.log('Approved user signed in, session saved');
                 this.updateUI();
-                // Trigger cloud-first data loading and start real-time sync
+                // Trigger cloud-first data loading and start real-time sync automatically
                 if (window.dataManager) {
                     window.dataManager.loadFromCloud().then(() => {
-                        // Use friendly permission prompt for approved users
-                        window.dataManager.promptForSyncPermission();
+                        // Start automatic sync immediately like Google Docs
+                        setTimeout(() => {
+                            window.dataManager.startRealTimeSync();
+                            showMessage('🚀 Real-time sync active! Data syncs across all devices.', 'success');
+                        }, 1000);
                     });
                 }
                 return;
@@ -254,7 +260,7 @@ class AuthManager {
         }
     }
 
-    async saveToGoogleDrive(data) {
+    async saveToGoogleDrive(data, allowPopup = true) {
         try {
             console.log('🔄 Starting Google Drive sync...');
             this.updateSyncStatus('Syncing...');
@@ -270,9 +276,9 @@ class AuthManager {
                 return false;
             }
 
-            const accessToken = await this.getAccessToken(false);
+            const accessToken = await this.getAccessToken(allowPopup);
             if (!accessToken) {
-                console.log('❌ No access token available for background sync');
+                console.log('❌ No access token available for sync');
                 return false;
             }
             
@@ -632,7 +638,10 @@ class AuthManager {
                                 showMessage('🔄 Admin real-time sync resumed', 'success');
                             }
                         } else {
-                            console.log('💡 Admin logged in - use "Enable Real-Time Sync" to activate cloud sync');
+                            console.log('💡 Admin logged in - automatic sync will start once Google permissions are available');
+                            if (window.dataManager) {
+                                window.dataManager.updateSyncStatus('Ready to sync');
+                            }
                         }
                     }, 1000);
                     return;
@@ -656,7 +665,10 @@ class AuthManager {
                                 showMessage('🔄 Real-time sync resumed', 'success');
                             }
                         } else {
-                            console.log('💡 No valid token - use "Enable Real-Time Sync" to activate');
+                            console.log('💡 User logged in - automatic sync will start once Google permissions are available');
+                            if (window.dataManager) {
+                                window.dataManager.updateSyncStatus('Ready to sync');
+                            }
                         }
                     }, 1000);
                 } else {
@@ -701,13 +713,6 @@ function signOut() {
 
 // Make functions globally available
 window.signOut = signOut;
-
-// Load from Google Drive (for initial load only)
-async function loadFromDrive() {
-    if (window.authManager) {
-        await window.authManager.loadFromDrive();
-    }
-}
 
 // User Management Functions
 function approveUser(email) {
@@ -773,91 +778,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-// Manual sync functions
-async function manualSyncToDrive() {
-    console.log('🔄 Manual sync to Drive requested');
-    
-    if (!window.authManager || !window.dataManager) {
-        showMessage('System not ready. Please refresh the page.', 'error');
-        return;
-    }
-    
-    showMessage('Syncing to Google Drive...', 'info');
-    const success = await window.authManager.saveToGoogleDrive(window.dataManager.data);
-    
-    if (success) {
-        showMessage('✅ Synced to Google Drive!', 'success');
-    } else {
-        showMessage('❌ Sync failed. Check console for details.', 'error');
-    }
-}
-
-async function manualLoadFromDrive() {
-    console.log('📥 Manual load from Drive requested');
-    
-    if (!window.authManager) {
-        showMessage('System not ready. Please refresh the page.', 'error');
-        return;
-    }
-    
-    showMessage('Loading from Google Drive...', 'info');
-    
-    try {
-        const data = await window.authManager.loadFromDrive();
-        
-        if (data && window.dataManager) {
-            window.dataManager.data = { ...window.dataManager.data, ...data };
-            window.dataManager.save();
-            window.dataManager.refreshAllComponents();
-            showMessage('✅ Loaded from Google Drive!', 'success');
-        } else {
-            // Check if it's a popup issue
-            if (typeof google !== 'undefined' && google.accounts) {
-                showMessage('ℹ️ No data found in Google Drive or sync cancelled.', 'info');
-            } else {
-                showMessage('⚠️ Google services not ready. Please allow popups and try again.', 'warning');
-            }
-        }
-    } catch (error) {
-        if (error.message && error.message.includes('popup')) {
-            showMessage('⚠️ Popup blocked. Please allow popups for this site and try again.', 'warning');
-        } else {
-            showMessage('❌ Load failed. Check your internet connection.', 'error');
-        }
-        console.error('Manual load error:', error);
-    }
-}
-
-// Real-time sync toggle function
-async function toggleRealTimeSync() {
-    if (!authManager || !authManager.isSignedIn) {
-        showMessage('Please sign in to enable real-time sync', 'warning');
-        return;
-    }
-    
-    const syncBtn = document.getElementById('realTimeSyncBtn');
-    const syncBtnText = document.getElementById('syncButtonText');
-    const syncStatus = document.getElementById('syncStatus');
-    const syncStatusText = document.getElementById('syncStatusText');
-    
-    if (dataManager.syncInterval) {
-        // Stop real-time sync
-        dataManager.stopRealTimeSync();
-        dataManager.updateSyncUI(false);
-        showMessage('🛑 Real-time sync stopped', 'info');
-    } else {
-        // Start real-time sync
-        dataManager.startRealTimeSync();
-        dataManager.updateSyncUI(true);
-        showMessage('🔄 Real-time sync started (3s intervals) - All users will see changes immediately!', 'success');
-    }
-}
-
-// Export functions
+// Export only essential functions
 window.approveUser = approveUser;
 window.rejectUser = rejectUser;
 window.removeApprovedUser = removeApprovedUser;
-window.loadFromDrive = loadFromDrive;
-window.manualSyncToDrive = manualSyncToDrive;
-window.manualLoadFromDrive = manualLoadFromDrive;
-window.toggleRealTimeSync = toggleRealTimeSync;
