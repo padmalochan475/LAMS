@@ -88,7 +88,22 @@ class AuthManager {
             }
             
             const approvedUsers = JSON.parse(localStorage.getItem(CONFIG.APPROVED_USERS_KEY) || '[]');
+            console.log('🔍 Enhanced debugging for localStorage inspection');
+            console.log('✨ Checking approved users for:', user.email);
+            console.log('📊 Approved users list:', approvedUsers);
+            
+            // Enhanced debugging for localStorage inspection
+            const allKeys = Object.keys(localStorage);
+            console.log('🔍 All localStorage keys:', allKeys);
+            console.log('📊 CONFIG.PENDING_USERS_KEY value:', CONFIG.PENDING_USERS_KEY);
+            console.log('📊 CONFIG.APPROVED_USERS_KEY value:', CONFIG.APPROVED_USERS_KEY);
+            console.log('📋 Raw pending users from localStorage:', localStorage.getItem(CONFIG.PENDING_USERS_KEY));
+            console.log('📋 Raw approved users from localStorage:', localStorage.getItem(CONFIG.APPROVED_USERS_KEY));
+            
             const isApproved = approvedUsers.some(u => u.email === user.email);
+            console.log('🔍 Checking user approval status for:', user.email);
+            console.log('📋 Total approved users:', approvedUsers.length);
+            console.log('✅ User approved status:', isApproved);
             
             if (isApproved) {
                 this.currentUser = { ...user, isAdmin: false };
@@ -110,6 +125,7 @@ class AuthManager {
                 return;
             }
             
+            console.log('❌ User not approved, adding to pending list');
             this.addToPendingUsers(user);
             showMessage('Access request sent to admin. You will be notified once approved.', 'info');
             console.log('Access request sent to admin.');
@@ -120,11 +136,25 @@ class AuthManager {
     }
     
     addToPendingUsers(user) {
+        console.log('🔍 Adding user to pending list:', user.email);
         const pendingUsers = JSON.parse(localStorage.getItem(CONFIG.PENDING_USERS_KEY) || '[]');
-        if (pendingUsers.some(u => u.email === user.email)) return;
+        console.log('📋 Current pending users before add:', pendingUsers.length);
+        
+        if (pendingUsers.some(u => u.email === user.email)) {
+            console.log('⚠️ User already in pending list:', user.email);
+            return;
+        }
         
         pendingUsers.push(user);
         localStorage.setItem(CONFIG.PENDING_USERS_KEY, JSON.stringify(pendingUsers));
+        console.log('✅ User added to pending list. Total pending:', pendingUsers.length);
+        console.log('💾 Stored in localStorage with key:', CONFIG.PENDING_USERS_KEY);
+        
+        // Update admin UI immediately if admin is logged in
+        if (window.authManager?.currentUser?.isAdmin) {
+            this.updatePendingUsersCount();
+            console.log('🔔 Updated admin pending count display');
+        }
     }
 
     signOut() {
@@ -214,10 +244,15 @@ class AuthManager {
     
     updatePendingUsersCount() {
         const pendingUsers = JSON.parse(localStorage.getItem(CONFIG.PENDING_USERS_KEY) || '[]');
+        console.log('🔄 Updating pending users count. Found:', pendingUsers.length, 'pending users');
+        
         const countElement = document.getElementById('pendingUsersCount');
         if (countElement) {
             countElement.textContent = pendingUsers.length;
             countElement.style.display = pendingUsers.length > 0 ? 'inline' : 'none';
+            console.log('📊 Updated UI badge with count:', pendingUsers.length);
+        } else {
+            console.warn('⚠️ Could not find pendingUsersCount element in DOM');
         }
     }
 

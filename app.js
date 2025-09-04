@@ -1808,6 +1808,11 @@ function showUserManagement() {
     const pendingUsers = JSON.parse(localStorage.getItem(CONFIG.PENDING_USERS_KEY) || '[]');
     const approvedUsers = JSON.parse(localStorage.getItem(CONFIG.APPROVED_USERS_KEY) || '[]');
     
+    console.log('🔍 User Management Panel opened');
+    console.log('📋 Pending users:', pendingUsers.length);
+    console.log('✅ Approved users:', approvedUsers.length);
+    console.log('📊 Pending users data:', pendingUsers);
+    
     const modal = document.createElement('div');
     modal.className = 'user-management-modal';
     modal.innerHTML = `
