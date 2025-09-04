@@ -37,6 +37,8 @@ class DataManager {
         this.isCloudMode = true; // Cloud-first mode
         this.syncInterval = null;
         this.lastSyncTime = null;
+        this.syncFailureCount = 0; // Track consecutive failures
+        this.maxSyncFailures = 5; // Stop retrying after 5 failures
         this.init();
     }
 
@@ -111,9 +113,10 @@ class DataManager {
             // Save to cloud immediately
             if (window.authManager && window.authManager.isSignedIn) {
                 console.log('☁️ Attempting immediate cloud save...');
-                const success = await window.authManager.saveToDrive(this.data);
+                const success = await window.authManager.saveToGoogleDrive(this.data);
                 if (success) {
                     this.lastSyncTime = new Date().toISOString();
+                    this.syncFailureCount = 0; // Reset failure count on success
                     showMessage('☁️ Synced to cloud', 'success');
                     console.log('☁️ Data saved to cloud successfully');
                 } else {
@@ -131,15 +134,20 @@ class DataManager {
             
         } catch (error) {
             console.error('Save error:', error);
+            this.syncFailureCount++;
+            
             // Fallback to local save only
             localStorage.setItem('labManagementData', JSON.stringify(this.data));
             showMessage('⚠️ Saved locally, cloud sync will retry', 'warning');
             this.validateMasterDataIntegrity();
             this.refreshAllComponents();
             
-            // Schedule immediate retry for cloud sync
-            if (window.authManager && window.authManager.isSignedIn) {
+            // Only retry if we haven't exceeded max failures
+            if (this.syncFailureCount < this.maxSyncFailures && window.authManager && window.authManager.isSignedIn) {
                 setTimeout(() => this.syncWithCloud(), 2000);
+            } else if (this.syncFailureCount >= this.maxSyncFailures) {
+                console.warn('⚠️ Too many sync failures, stopping auto-retry');
+                showMessage('⚠️ Cloud sync disabled due to repeated failures. Check connection.', 'error');
             }
         }
     }
@@ -237,7 +245,7 @@ class DataManager {
             // If local is newer, save to cloud
             if (localVersion > cloudVersion || (localVersion === cloudVersion && localTime > cloudTime)) {
                 console.log('⬆️ Saving newer local data to cloud');
-                const success = await window.authManager.saveToDrive(this.data);
+                const success = await window.authManager.saveToGoogleDrive(this.data);
                 if (success) {
                     this.lastSyncTime = new Date().toISOString();
                     showMessage('☁️ Local changes synced to cloud', 'success');
@@ -1334,7 +1342,7 @@ function deleteAssignment(index) {
 }
 
 // Simple tab management for production
-function showTab(tabId) {
+function showTab(tabId, event = null) {
     // Remove active states
     document.querySelectorAll('.nav-tab').forEach(tab => {
         tab.classList.remove('active');
@@ -1345,7 +1353,7 @@ function showTab(tabId) {
     });
     
     // Add active states
-    const selectedTab = event ? event.target.closest('.nav-tab') : document.querySelector('.nav-tab');
+    const selectedTab = event ? event.target.closest('.nav-tab') : document.querySelector(`[onclick="showTab('${tabId}')"]`);
     const selectedContent = document.getElementById(`${tabId}-tab`);
     
     if (selectedTab) selectedTab.classList.add('active');
