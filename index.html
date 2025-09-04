@@ -101,7 +101,10 @@
             <div class="dashboard-header">
                 <h2>Academic Year: <span id="currentAcademicYear" class="academic-year-display" onclick="editAcademicYear()">2024-25</span></h2>
                 <div class="dashboard-actions">
-                    <button class="btn btn--secondary" onclick="toggleRealTimeSync()" id="realTimeSyncBtn" title="Toggle Real-Time Cloud Sync">
+                    <button class="btn btn--primary" onclick="requestSyncPermission()" id="activateSyncBtn" title="Activate Real-Time Cloud Sync">
+                        <span class="nav-icon">🔑</span> Activate Real-Time Sync
+                    </button>
+                    <button class="btn btn--secondary" onclick="toggleRealTimeSync()" id="realTimeSyncBtn" title="Toggle Real-Time Cloud Sync" disabled>
                         <span class="nav-icon">🔄</span> <span id="syncButtonText">Start Real-Time Sync</span>
                     </button>
                     <button class="btn btn--secondary" onclick="manualSyncToDrive()" title="Save to Google Drive">
@@ -561,6 +564,9 @@
         </div>
     </div>
 
+    <script src="config.js"></script>
+    <script src="auth.js"></script>
+    <script src="sync-helper.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

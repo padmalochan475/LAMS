@@ -350,48 +350,65 @@ class AuthManager {
                 return null;
             }
 
-            // For background sync, try to get token silently first
-            if (!allowPopup && this.currentUser) {
-                console.log('🔄 Attempting silent token refresh...');
-                try {
-                    // Try to refresh token using existing session
+            // If user is signed in but we don't have a token, request one
+            if (this.isSignedIn && this.currentUser) {
+                console.log('🔄 Requesting access token for signed-in user...');
+                
+                return new Promise((resolve) => {
                     const tokenClient = google.accounts.oauth2.initTokenClient({
                         client_id: this.CLIENT_ID,
                         scope: 'https://www.googleapis.com/auth/drive.file',
-                        callback: () => {}, // Will be handled by promise
-                    });
-
-                    return new Promise((resolve) => {
-                        tokenClient.callback = (response) => {
+                        callback: (response) => {
                             if (response.access_token) {
-                                console.log('✅ Silent token refresh successful');
+                                console.log('✅ Access token obtained successfully');
                                 this.accessToken = response.access_token;
                                 this.tokenExpiry = new Date(Date.now() + 3600000).toISOString();
                                 resolve(response.access_token);
                             } else {
-                                console.log('⚠️ Silent token refresh failed');
+                                console.log('❌ No access token in response');
                                 resolve(null);
                             }
-                        };
-                        
-                        // Request token silently
+                        },
+                        error_callback: (error) => {
+                            if (allowPopup) {
+                                console.log('❌ Token request failed:', error);
+                            } else {
+                                console.log('⏳ Background sync - token request failed silently');
+                            }
+                            resolve(null);
+                        }
+                    });
+                    
+                    try {
+                        // For signed-in users, try with minimal prompt first
                         tokenClient.requestAccessToken({ 
                             prompt: '',
                             hint: this.currentUser.email
                         });
-                    });
-                } catch (error) {
-                    console.log('⚠️ Silent refresh failed:', error.message);
-                    return null;
-                }
+                    } catch (popupError) {
+                        if (allowPopup) {
+                            console.log('⚠️ Popup blocked, trying consent flow...');
+                            try {
+                                tokenClient.requestAccessToken({ prompt: 'consent' });
+                            } catch (consentError) {
+                                console.log('❌ Both silent and consent flows failed');
+                                resolve(null);
+                            }
+                        } else {
+                            console.log('⏳ Background sync - no popup allowed, skipping token request');
+                            resolve(null);
+                        }
+                    }
+                });
             }
 
-            // Don't attempt popup for background sync if silent failed
+            // Don't attempt popup for background sync if user not signed in
             if (!allowPopup) {
                 console.log('⏳ Background sync - no token available');
                 return null;
             }
 
+            // Standard token request for new users
             return new Promise((resolve) => {
                 const tokenClient = google.accounts.oauth2.initTokenClient({
                     client_id: this.CLIENT_ID,
@@ -400,7 +417,6 @@ class AuthManager {
                         if (response.access_token) {
                             console.log('✅ Access token obtained');
                             this.accessToken = response.access_token;
-                            // Tokens typically expire in 1 hour
                             this.tokenExpiry = new Date(Date.now() + 3600000).toISOString();
                             resolve(response.access_token);
                         } else {
@@ -414,16 +430,7 @@ class AuthManager {
                     }
                 });
                 
-                // Request token with minimal prompt for returning users
-                try {
-                    tokenClient.requestAccessToken({ 
-                        prompt: this.currentUser ? '' : 'consent',
-                        hint: this.currentUser?.email || ''
-                    });
-                } catch (popupError) {
-                    console.log('⚠️ Popup blocked, falling back to consent flow');
-                    tokenClient.requestAccessToken({ prompt: 'consent' });
-                }
+                tokenClient.requestAccessToken({ prompt: 'consent' });
             });
         } catch (error) {
             console.log('❌ Token request error:', error);
@@ -584,8 +591,18 @@ class AuthManager {
                     this.isSignedIn = true;
                     console.log('Admin session restored');
                     this.updateUI();
-                    // Automatic sync disabled to prevent popup blocking
-                    // Use manual sync buttons instead
+                    
+                    // Request access token immediately for admin
+                    console.log('🔑 Requesting access token for restored admin session...');
+                    setTimeout(async () => {
+                        const token = await this.getAccessToken(true);
+                        if (token) {
+                            console.log('✅ Access token obtained for admin - real-time sync enabled');
+                        } else {
+                            console.log('⚠️ Could not obtain access token - manual sync required');
+                        }
+                    }, 1000);
+                    
                     return;
                 }
                 
