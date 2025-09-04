@@ -77,8 +77,8 @@ class AuthManager {
                 // Trigger cloud-first data loading and start real-time sync
                 if (window.dataManager) {
                     window.dataManager.loadFromCloud().then(() => {
-                        // Auto-start real-time sync for signed-in admin
-                        this.initializeRealTimeSync();
+                        // Use friendly permission prompt instead of automatic
+                        window.dataManager.promptForSyncPermission();
                     });
                 }
                 return;
@@ -97,8 +97,8 @@ class AuthManager {
                 // Trigger cloud-first data loading and start real-time sync
                 if (window.dataManager) {
                     window.dataManager.loadFromCloud().then(() => {
-                        // Auto-start real-time sync for approved users
-                        this.initializeRealTimeSync();
+                        // Use friendly permission prompt for approved users
+                        window.dataManager.promptForSyncPermission();
                     });
                 }
                 return;

@@ -1,73 +1,53 @@
-// Manual token acquisition for immediate sync activation
+// Sync permission helper - delegates to DataManager
 async function requestSyncPermission() {
-    if (!authManager || !authManager.isSignedIn) {
-        showMessage('Please sign in first', 'warning');
-        return;
-    }
-
-    showMessage('🔑 Requesting sync permissions... Please allow the popup.', 'info');
-    
-    try {
-        const token = await authManager.getAccessToken(true);
-        if (token) {
-            showMessage('✅ Sync permissions granted! Real-time sync is now active.', 'success');
-            
-            // Hide activation button and enable toggle button
-            const activateBtn = document.getElementById('activateSyncBtn');
-            const toggleBtn = document.getElementById('realTimeSyncBtn');
-            const syncNotice = document.getElementById('sync-notice');
-            
-            if (activateBtn) activateBtn.style.display = 'none';
-            if (toggleBtn) {
-                toggleBtn.disabled = false;
-                toggleBtn.style.display = 'inline-block';
-            }
-            if (syncNotice) syncNotice.style.display = 'none';
-            
-            // Start real-time sync automatically
-            if (dataManager && !dataManager.syncInterval) {
-                dataManager.startRealTimeSync();
-                dataManager.updateSyncUI(true);
-            }
-            
-            // Trigger immediate sync
-            if (dataManager) {
-                setTimeout(() => dataManager.syncWithCloud(), 500);
-            }
-        } else {
-            showMessage('⚠️ Could not obtain sync permissions. Please allow popups and try again.', 'warning');
-        }
-    } catch (error) {
-        showMessage('❌ Failed to request sync permissions: ' + error.message, 'error');
+    if (window.dataManager) {
+        await window.dataManager.requestSyncPermission();
+    } else {
+        showMessage('⚠️ Data manager not available. Please refresh the page.', 'error');
     }
 }
 
-// Check if sync is already active on page load
-document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => {
-        const activateBtn = document.getElementById('activateSyncBtn');
-        const toggleBtn = document.getElementById('realTimeSyncBtn');
-        
-        // Show activation button by default
-        if (activateBtn) {
-            activateBtn.style.display = 'inline-block';
+// Toggle real-time sync on/off
+function toggleRealTimeSync() {
+    if (window.dataManager) {
+        if (window.dataManager.syncInterval) {
+            window.dataManager.stopRealTimeSync();
+            showMessage('Real-time sync stopped', 'info');
+        } else {
+            window.dataManager.startRealTimeSync();
+            showMessage('Real-time sync started', 'success');
         }
-        
-        // Hide toggle button until activated
-        if (toggleBtn) {
-            toggleBtn.style.display = 'none';
-        }
-        
-        // Only show toggle if we already have token
-        if (authManager && authManager.accessToken) {
-            if (activateBtn) activateBtn.style.display = 'none';
-            if (toggleBtn) {
-                toggleBtn.disabled = false;
-                toggleBtn.style.display = 'inline-block';
-            }
-        }
-    }, 2000);
-});
+    }
+}
 
-// Make function globally available
+// Manual sync functions
+async function manualSyncToDrive() {
+    if (window.dataManager) {
+        try {
+            await window.dataManager.save();
+        } catch (error) {
+            console.error('Manual sync failed:', error);
+        }
+    }
+}
+
+async function manualSyncFromDrive() {
+    if (window.authManager) {
+        try {
+            const data = await window.authManager.loadFromDrive(true);
+            if (data && window.dataManager) {
+                window.dataManager.data = { ...window.dataManager.data, ...data };
+                window.dataManager.refreshAllComponents();
+                showMessage('Data loaded from Google Drive', 'success');
+            }
+        } catch (error) {
+            console.error('Manual load failed:', error);
+        }
+    }
+}
+
+// Make functions globally available
 window.requestSyncPermission = requestSyncPermission;
+window.toggleRealTimeSync = toggleRealTimeSync;
+window.manualSyncToDrive = manualSyncToDrive;
+window.manualSyncFromDrive = manualSyncFromDrive;

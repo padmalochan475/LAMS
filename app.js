@@ -51,10 +51,11 @@ class DataManager {
             // Auto-start real-time sync like all modern apps
             setTimeout(() => {
                 if (window.authManager && window.authManager.isSignedIn) {
-                    console.log(' Auto-starting real-time sync for signed-in user...');
-                    this.startRealTimeSync();
+                    console.log('🔄 Auto-starting real-time sync for signed-in user...');
+                    // Show friendly popup permission request instead of starting immediately
+                    this.promptForSyncPermission();
                 } else {
-                    console.log(' LAMS initialized. Sign in to enable automatic real-time sync.');
+                    console.log('💡 LAMS initialized. Sign in to enable automatic real-time sync.');
                 }
             }, 2000);
         });
@@ -261,6 +262,68 @@ class DataManager {
             console.log('❌ Cloud sync failed:', error);
             showMessage('⚠️ Cloud sync failed - working offline', 'warning');
             return false;
+        }
+    }
+
+    // Prompt user for sync permission in a friendly way
+    promptForSyncPermission() {
+        // Check if we already have permission
+        window.authManager.getAccessToken(false).then(token => {
+            if (token) {
+                // We have permission, start sync immediately
+                console.log('✅ Sync permission already granted - starting real-time sync');
+                this.startRealTimeSync();
+                showMessage('🔄 Real-time sync activated! Changes sync across all devices.', 'success');
+            } else {
+                // Need permission, show user-friendly prompt
+                this.showSyncPermissionDialog();
+            }
+        }).catch(() => {
+            // No permission, show dialog
+            this.showSyncPermissionDialog();
+        });
+    }
+
+    // Show friendly permission dialog
+    showSyncPermissionDialog() {
+        showMessage('💡 Enable real-time sync across devices? This requires one-time Google Drive permission.', 'info');
+        
+        // Create permission button in notification area
+        setTimeout(() => {
+            const enableSyncBtn = document.createElement('button');
+            enableSyncBtn.textContent = '🔄 Enable Real-Time Sync';
+            enableSyncBtn.className = 'btn btn--primary';
+            enableSyncBtn.style.margin = '10px';
+            enableSyncBtn.onclick = () => this.requestSyncPermission();
+            
+            // Find the message element and add button
+            const messages = document.querySelectorAll('.message');
+            if (messages.length > 0) {
+                const lastMessage = messages[messages.length - 1];
+                lastMessage.appendChild(document.createElement('br'));
+                lastMessage.appendChild(enableSyncBtn);
+            }
+        }, 500);
+    }
+
+    // Request sync permission with user interaction
+    async requestSyncPermission() {
+        try {
+            showMessage('🔄 Requesting Google Drive permission... Please allow the popup.', 'info');
+            
+            // This will show popup because user clicked button (user interaction)
+            const token = await window.authManager.getAccessToken(true);
+            
+            if (token) {
+                console.log('✅ Sync permission granted - starting real-time sync');
+                this.startRealTimeSync();
+                showMessage('🎉 Real-time sync enabled! Changes will sync across all devices within 3-6 seconds.', 'success');
+            } else {
+                showMessage('⚠️ Sync permission denied. Enable popups for this site to use real-time sync.', 'warning');
+            }
+        } catch (error) {
+            console.log('❌ Permission request failed:', error);
+            showMessage('⚠️ Please allow popups for this site to enable real-time sync.', 'warning');
         }
     }
 
