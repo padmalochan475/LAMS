@@ -213,8 +213,8 @@ class DataManager {
 
             console.log('🔄 Starting cloud sync...');
             
-            // Load cloud version using existing token
-            const cloudData = await window.authManager.loadFromDrive(true);
+            // Load cloud version using existing token (no popups for background sync)
+            const cloudData = await window.authManager.loadFromDrive(false);
             if (!cloudData) {
                 console.log('📤 No cloud data found, saving current version');
                 await this.save();

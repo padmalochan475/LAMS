@@ -270,9 +270,9 @@ class AuthManager {
                 return false;
             }
 
-            const accessToken = await this.getAccessToken();
+            const accessToken = await this.getAccessToken(false);
             if (!accessToken) {
-                console.log('❌ No access token, skipping sync');
+                console.log('❌ No access token available for background sync');
                 return false;
             }
             
@@ -466,25 +466,6 @@ class AuthManager {
         } catch (error) {
             console.log('❌ Failed to initialize real-time sync:', error);
             showMessage('⚠️ Could not activate real-time sync automatically. Use manual sync button.', 'warning');
-        }
-    }
-
-    // Try to start real-time sync without popups (for session restoration)
-    async tryStartRealTimeSync() {
-        try {
-            // Only try if we have a cached token - no popups during session restore
-            const token = await this.getAccessToken(false);
-            if (token) {
-                console.log('🔄 Cached token found - starting real-time sync');
-                if (window.dataManager) {
-                    window.dataManager.startRealTimeSync();
-                    showMessage('🔄 Real-time sync resumed', 'success');
-                }
-            } else {
-                console.log('💡 No cached token - real-time sync available via "Activate" button');
-            }
-        } catch (error) {
-            console.log('⚠️ Silent sync check failed:', error.message);
         }
     }
 
