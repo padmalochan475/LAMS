@@ -101,14 +101,17 @@
             <div class="dashboard-header">
                 <h2>Academic Year: <span id="currentAcademicYear" class="academic-year-display" onclick="editAcademicYear()">2024-25</span></h2>
                 <div class="dashboard-actions">
+                    <button class="btn btn--secondary" onclick="toggleRealTimeSync()" id="realTimeSyncBtn" title="Toggle Real-Time Cloud Sync">
+                        <span class="nav-icon">🔄</span> <span id="syncButtonText">Start Real-Time Sync</span>
+                    </button>
                     <button class="btn btn--secondary" onclick="manualSyncToDrive()" title="Save to Google Drive">
                         <span class="nav-icon">☁️</span> Save to Drive
                     </button>
                     <button class="btn btn--secondary" onclick="manualLoadFromDrive()" title="Load from Google Drive">
                         <span class="nav-icon">📥</span> Load from Drive
                     </button>
-                    <div class="sync-status" id="syncStatus" style="display: none;">
-                        <span class="nav-icon">☁️</span> <span id="syncStatusText">Synced</span>
+                    <div class="sync-status" id="syncStatus" style="display: inline-block;">
+                        <span class="nav-icon">⏸️</span> <span id="syncStatusText">Real-time sync off</span>
                     </div>
                     <button class="btn btn--secondary" onclick="exportData()" title="Export Data">
                         <span class="nav-icon">📥</span> Export

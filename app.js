@@ -55,10 +55,12 @@ class DataManager {
         if (window.authManager && window.authManager.isSignedIn) {
             try {
                 showMessage('🔄 Loading from cloud...', 'info');
-                const cloudData = await window.authManager.loadFromDrive();
+                // Don't trigger popups during initialization
+                const cloudData = await window.authManager.loadFromDrive(false);
                 if (cloudData) {
                     // Merge cloud data with defaults
                     this.data = { ...this.data, ...cloudData };
+                    this.version = cloudData.version || 0;
                     this.lastSyncTime = new Date().toISOString();
                     showMessage('✅ Data loaded from cloud', 'success');
                     console.log('📥 Cloud data loaded successfully');
@@ -160,7 +162,12 @@ class DataManager {
     async syncWithCloud() {
         try {
             // Use cached token for background sync to avoid popups
-            const token = await authManager.getAccessToken(false);
+            if (!window.authManager) {
+                console.log('⏳ Background sync skipped - authManager not available');
+                return false;
+            }
+            
+            const token = await window.authManager.getAccessToken(false);
             if (!token) {
                 console.log('⏳ Background sync skipped - no valid token');
                 return false;
@@ -169,7 +176,7 @@ class DataManager {
             console.log('🔄 Starting cloud sync...');
             
             // Load cloud version
-            const cloudData = await authManager.loadFromDrive(true);
+            const cloudData = await window.authManager.loadFromDrive(true);
             if (!cloudData) {
                 console.log('📤 No cloud data found, saving current version');
                 await this.save();

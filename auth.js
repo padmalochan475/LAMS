@@ -454,7 +454,7 @@ class AuthManager {
         }
     }
 
-    async loadFromDrive() {
+    async loadFromDrive(allowPopup = true) {
         try {
             console.log('📥 Loading from Google Drive...');
             
@@ -469,19 +469,12 @@ class AuthManager {
                 return null;
             }
 
-            const accessToken = await this.getAccessToken();
+            const accessToken = await this.getAccessToken(allowPopup);
             if (!accessToken) {
                 console.log('❌ No access token, skipping load');
-                // Show popup warning for manual attempts
-                const isManualAttempt = new Error().stack.includes('manualLoadFromDrive');
-                if (isManualAttempt && typeof showMessage === 'function') {
+                // Show popup warning for manual attempts only
+                if (allowPopup && typeof showMessage === 'function') {
                     showMessage('Please allow popups for Google Drive sync. Check browser popup settings.', 'warning');
-                } else if (isManualAttempt) {
-                    // Show popup warning banner if showMessage not available
-                    const warningBanner = document.getElementById('popup-warning');
-                    if (warningBanner) {
-                        warningBanner.style.display = 'block';
-                    }
                 }
                 return null;
             }
@@ -738,6 +731,37 @@ async function manualLoadFromDrive() {
     }
 }
 
+// Real-time sync toggle function
+async function toggleRealTimeSync() {
+    if (!authManager || !authManager.isSignedIn) {
+        showMessage('Please sign in to enable real-time sync', 'warning');
+        return;
+    }
+    
+    const syncBtn = document.getElementById('realTimeSyncBtn');
+    const syncBtnText = document.getElementById('syncButtonText');
+    const syncStatus = document.getElementById('syncStatus');
+    const syncStatusText = document.getElementById('syncStatusText');
+    
+    if (dataManager.syncInterval) {
+        // Stop real-time sync
+        dataManager.stopRealTimeSync();
+        syncBtnText.textContent = 'Start Real-Time Sync';
+        syncBtn.querySelector('.nav-icon').textContent = '▶️';
+        syncStatus.querySelector('.nav-icon').textContent = '⏸️';
+        syncStatusText.textContent = 'Real-time sync off';
+        showMessage('🛑 Real-time sync stopped', 'info');
+    } else {
+        // Start real-time sync
+        dataManager.startRealTimeSync();
+        syncBtnText.textContent = 'Stop Real-Time Sync';
+        syncBtn.querySelector('.nav-icon').textContent = '⏸️';
+        syncStatus.querySelector('.nav-icon').textContent = '🔄';
+        syncStatusText.textContent = 'Syncing every 10s';
+        showMessage('🔄 Real-time sync started (10s intervals)', 'success');
+    }
+}
+
 // Export functions
 window.approveUser = approveUser;
 window.rejectUser = rejectUser;
@@ -745,3 +769,4 @@ window.removeApprovedUser = removeApprovedUser;
 window.loadFromDrive = loadFromDrive;
 window.manualSyncToDrive = manualSyncToDrive;
 window.manualLoadFromDrive = manualLoadFromDrive;
+window.toggleRealTimeSync = toggleRealTimeSync;
