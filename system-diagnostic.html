@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LAMS System Diagnostic</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-result { padding: 10px; margin: 5px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .warning { background: #fff3cd; color: #856404; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        .code { background: #f8f9fa; padding: 10px; margin: 10px 0; border-radius: 5px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>🔍 LAMS System Diagnostic Report</h1>
+    <div id="diagnosticResults"></div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="config.js"></script>
+    <script src="auth.js"></script>
+    <script src="app.js"></script>
+    
+    <script>
+        function addResult(message, type = 'info') {
+            const container = document.getElementById('diagnosticResults');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = message;
+            container.appendChild(div);
+        }
+
+        function runDiagnostic() {
+            addResult('🚀 Starting LAMS System Diagnostic...', 'info');
+            
+            // Test 1: Check if Chart.js is loaded
+            try {
+                if (typeof Chart !== 'undefined') {
+                    addResult('✅ Chart.js library loaded successfully', 'success');
+                } else {
+                    addResult('❌ Chart.js library not loaded', 'error');
+                }
+            } catch (e) {
+                addResult(`❌ Chart.js test failed: ${e.message}`, 'error');
+            }
+
+            // Test 2: Check if DataManager is available
+            try {
+                if (typeof DataManager !== 'undefined') {
+                    addResult('✅ DataManager class available', 'success');
+                } else {
+                    addResult('❌ DataManager class not available', 'error');
+                }
+            } catch (e) {
+                addResult(`❌ DataManager test failed: ${e.message}`, 'error');
+            }
+
+            // Test 3: Check if auth configuration is loaded
+            try {
+                if (typeof AUTH_CONFIG !== 'undefined' && AUTH_CONFIG.clientId) {
+                    addResult('✅ Authentication configuration loaded', 'success');
+                } else {
+                    addResult('❌ Authentication configuration missing', 'error');
+                }
+            } catch (e) {
+                addResult(`❌ Auth config test failed: ${e.message}`, 'error');
+            }
+
+            // Test 4: Initialize DataManager
+            try {
+                const testDataManager = new DataManager();
+                if (testDataManager && testDataManager.data) {
+                    addResult('✅ DataManager initialization successful', 'success');
+                    addResult(`📊 Default data loaded: ${testDataManager.data.assignments.length} assignments, ${testDataManager.data.subjects.length} subjects`, 'info');
+                } else {
+                    addResult('❌ DataManager initialization failed', 'error');
+                }
+            } catch (e) {
+                addResult(`❌ DataManager initialization failed: ${e.message}`, 'error');
+            }
+
+            // Test 5: Check sync functions
+            try {
+                if (typeof AuthManager !== 'undefined') {
+                    addResult('✅ AuthManager class available for sync', 'success');
+                } else {
+                    addResult('⚠️ AuthManager class not available - sync disabled', 'warning');
+                }
+            } catch (e) {
+                addResult(`❌ Sync test failed: ${e.message}`, 'error');
+            }
+
+            // Test 6: Check analytics functions
+            try {
+                if (typeof renderAnalytics === 'function') {
+                    addResult('✅ Analytics rendering function available', 'success');
+                } else {
+                    addResult('❌ Analytics rendering function missing', 'error');
+                }
+            } catch (e) {
+                addResult(`❌ Analytics test failed: ${e.message}`, 'error');
+            }
+
+            // Test 7: Check UI components
+            try {
+                const testDiv = document.createElement('div');
+                testDiv.id = 'facultyWorkloadChart';
+                document.body.appendChild(testDiv);
+                
+                if (typeof Chart !== 'undefined') {
+                    const testChart = new Chart(testDiv, {
+                        type: 'bar',
+                        data: { labels: ['Test'], datasets: [{ data: [1] }] }
+                    });
+                    testChart.destroy();
+                    addResult('✅ Chart.js can create charts successfully', 'success');
+                } else {
+                    addResult('❌ Chart.js chart creation failed', 'error');
+                }
+                
+                document.body.removeChild(testDiv);
+            } catch (e) {
+                addResult(`❌ Chart creation test failed: ${e.message}`, 'error');
+            }
+
+            // Summary
+            addResult('🎯 Diagnostic complete! Check results above for any issues.', 'info');
+            
+            // Recommendations
+            const errorCount = document.querySelectorAll('.error').length;
+            const warningCount = document.querySelectorAll('.warning').length;
+            
+            if (errorCount === 0 && warningCount === 0) {
+                addResult('🎉 All systems operational! Ready for production use.', 'success');
+            } else if (errorCount === 0) {
+                addResult(`⚠️ ${warningCount} warning(s) found. System functional but check warnings.`, 'warning');
+            } else {
+                addResult(`❌ ${errorCount} error(s) found. Please fix errors before using the system.`, 'error');
+            }
+        }
+
+        // Run diagnostic when page loads
+        window.addEventListener('load', () => {
+            setTimeout(runDiagnostic, 1000);
+        });
+    </script>
+</body>
+</html>

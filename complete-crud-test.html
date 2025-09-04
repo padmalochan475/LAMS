@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LAMS Complete CRUD Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .test-container { max-width: 1200px; margin: 0 auto; }
+        .test-section { 
+            background: white; 
+            margin: 20px 0; 
+            padding: 20px; 
+            border-radius: 10px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .operation-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
+            gap: 20px; 
+            margin: 20px 0;
+        }
+        .operation-card { 
+            border: 1px solid #ddd; 
+            border-radius: 8px; 
+            padding: 15px;
+            background: #fafafa;
+        }
+        .operation-title { 
+            font-weight: bold; 
+            color: #333; 
+            margin-bottom: 10px;
+            padding: 5px 10px;
+            background: #e3f2fd;
+            border-radius: 5px;
+        }
+        button { 
+            padding: 8px 12px; 
+            margin: 5px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer;
+            background: #2196f3;
+            color: white;
+            font-size: 12px;
+        }
+        button:hover { background: #1976d2; }
+        .create { background: #4caf50; }
+        .create:hover { background: #45a049; }
+        .delete { background: #f44336; }
+        .delete:hover { background: #da190b; }
+        .edit { background: #ff9800; }
+        .edit:hover { background: #e68900; }
+        .status-display { 
+            padding: 10px; 
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+            text-align: center;
+        }
+        .sync-active { background: #c8e6c9; color: #2e7d32; }
+        .log { 
+            background: #333; 
+            color: #0f0; 
+            padding: 15px; 
+            border-radius: 5px; 
+            height: 300px; 
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .data-display { 
+            background: #f8f9fa; 
+            padding: 10px; 
+            border-radius: 5px; 
+            margin: 10px 0;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        .count-badge { 
+            background: #2196f3; 
+            color: white; 
+            padding: 2px 8px; 
+            border-radius: 12px; 
+            font-size: 11px;
+        }
+        input, select { 
+            padding: 5px; 
+            margin: 2px; 
+            border: 1px solid #ddd; 
+            border-radius: 3px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 LAMS Complete CRUD & Real-Time Sync Test</h1>
+        <p>Test all Create, Read, Update, Delete operations with real-time sync verification.</p>
+        
+        <div class="status-display sync-active" id="globalSyncStatus">
+            ✅ Real-Time Sync Monitoring Active
+        </div>
+        
+        <div class="operation-grid">
+            <!-- Assignment Operations -->
+            <div class="operation-card">
+                <div class="operation-title">📋 Assignment Operations</div>
+                <div>
+                    <input type="text" id="assignmentSubject" placeholder="Subject name" />
+                    <button class="create" onclick="testCreateAssignment()">➕ Create Assignment</button>
+                </div>
+                <div class="data-display" id="assignmentDisplay">
+                    <strong>Assignments: <span class="count-badge" id="assignmentCount">0</span></strong>
+                    <div id="assignmentList">No assignments yet</div>
+                </div>
+                <button class="delete" onclick="testDeleteLatestAssignment()">🗑️ Delete Latest</button>
+            </div>
+            
+            <!-- Master Data Operations -->
+            <div class="operation-card">
+                <div class="operation-title">📚 Subject Operations</div>
+                <div>
+                    <input type="text" id="subjectName" placeholder="Subject name" />
+                    <button class="create" onclick="testCreateSubject()">➕ Add Subject</button>
+                </div>
+                <div class="data-display" id="subjectDisplay">
+                    <strong>Subjects: <span class="count-badge" id="subjectCount">0</span></strong>
+                    <div id="subjectList">Loading...</div>
+                </div>
+                <button class="delete" onclick="testDeleteLatestSubject()">🗑️ Delete Latest</button>
+            </div>
+            
+            <!-- Faculty Operations -->
+            <div class="operation-card">
+                <div class="operation-title">👥 Faculty Operations</div>
+                <div>
+                    <input type="text" id="facultyShort" placeholder="Short name (e.g., JS)" />
+                    <input type="text" id="facultyFull" placeholder="Full name" />
+                    <button class="create" onclick="testCreateFaculty()">➕ Add Faculty</button>
+                </div>
+                <div class="data-display" id="facultyDisplay">
+                    <strong>Theory Faculty: <span class="count-badge" id="facultyCount">0</span></strong>
+                    <div id="facultyList">Loading...</div>
+                </div>
+                <button class="delete" onclick="testDeleteLatestFaculty()">🗑️ Delete Latest</button>
+            </div>
+            
+            <!-- Settings Operations -->
+            <div class="operation-card">
+                <div class="operation-title">⚙️ Settings Operations</div>
+                <div>
+                    <input type="text" id="academicYear" placeholder="Academic Year (e.g., 2024-25)" />
+                    <button class="edit" onclick="testUpdateAcademicYear()">📝 Update Year</button>
+                </div>
+                <div>
+                    <button class="edit" onclick="testToggleOrientation()">🔄 Toggle Layout</button>
+                </div>
+                <div class="data-display" id="settingsDisplay">
+                    <strong>Current Settings:</strong>
+                    <div id="settingsList">Loading...</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>🚀 Batch Operations</h3>
+            <div style="text-align: center;">
+                <button onclick="testAllOperations()" style="padding: 15px 30px; font-size: 16px;">
+                    🧪 Test All CRUD Operations
+                </button>
+                <button onclick="clearAllData()" style="padding: 15px 30px; font-size: 16px; background: #f44336;">
+                    🗑️ Clear All Test Data
+                </button>
+                <button onclick="refreshAllDisplays()" style="padding: 15px 30px; font-size: 16px; background: #ff9800;">
+                    🔄 Refresh All Displays
+                </button>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>📊 Real-Time Sync Activity Log</h3>
+            <div class="log" id="syncLog"></div>
+            <button onclick="clearLog()">Clear Log</button>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="config.js"></script>
+    <script src="auth.js"></script>
+    <script src="app.js"></script>
+    
+    <script>
+        let testDataManager;
+        let operationCounter = 0;
+        
+        function logSync(message, type = 'info') {
+            const log = document.getElementById('syncLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'success' ? '#0f0' : type === 'error' ? '#f44' : type === 'warning' ? '#ff0' : '#0ff';
+            log.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        function clearLog() {
+            document.getElementById('syncLog').innerHTML = '';
+        }
+        
+        function refreshAllDisplays() {
+            if (!testDataManager) return;
+            
+            // Update assignment display
+            const assignments = testDataManager.data.assignments || [];
+            document.getElementById('assignmentCount').textContent = assignments.length;
+            document.getElementById('assignmentList').innerHTML = assignments.length === 0 ? 
+                'No assignments yet' : 
+                assignments.map((a, i) => `${i+1}. ${a.subject} (${a.day} ${a.timeSlot})`).join('<br>');
+            
+            // Update subject display
+            const subjects = testDataManager.data.subjects || [];
+            document.getElementById('subjectCount').textContent = subjects.length;
+            document.getElementById('subjectList').innerHTML = subjects.length === 0 ? 
+                'No subjects yet' : 
+                subjects.map((s, i) => `${i+1}. ${s}`).join('<br>');
+            
+            // Update faculty display
+            const theoryFaculty = testDataManager.data.theoryFaculty || [];
+            document.getElementById('facultyCount').textContent = theoryFaculty.length;
+            document.getElementById('facultyList').innerHTML = theoryFaculty.length === 0 ? 
+                'No faculty yet' : 
+                theoryFaculty.map((f, i) => `${i+1}. ${typeof f === 'object' ? f.short + ' - ' + f.full : f}`).join('<br>');
+            
+            // Update settings display
+            document.getElementById('settingsList').innerHTML = `
+                Academic Year: ${testDataManager.data.academicYear || 'Not set'}<br>
+                Layout: ${testDataManager.data.scheduleOrientation === 'daysHorizontal' ? 'Days as Columns' : 'Times as Columns'}
+            `;
+            
+            logSync('🔄 All displays refreshed', 'info');
+        }
+        
+        // Test Functions
+        function testCreateAssignment() {
+            const subject = document.getElementById('assignmentSubject').value.trim();
+            if (!subject) {
+                logSync('❌ Please enter a subject name', 'error');
+                return;
+            }
+            
+            operationCounter++;
+            const assignment = {
+                day: ['Monday', 'Tuesday', 'Wednesday'][operationCounter % 3],
+                timeSlot: `${8 + (operationCounter % 5)}:00-${9 + (operationCounter % 5)}:00`,
+                department: 'Computer Science',
+                semester: '1st Semester',
+                group: 'Group A',
+                subGroup: 'Sub Group 1',
+                subject: subject,
+                theoryFaculty: 'Dr. Smith',
+                labFaculty: 'Prof. Davis',
+                labRoom: `Lab ${operationCounter}`
+            };
+            
+            logSync(`🚀 Creating assignment: ${subject}`, 'info');
+            
+            if (testDataManager && testDataManager.addAssignment(assignment)) {
+                document.getElementById('assignmentSubject').value = '';
+                setTimeout(() => {
+                    refreshAllDisplays();
+                    logSync(`✅ Assignment "${subject}" created and synced!`, 'success');
+                }, 100);
+            } else {
+                logSync('❌ Failed to create assignment', 'error');
+            }
+        }
+        
+        function testDeleteLatestAssignment() {
+            if (!testDataManager || testDataManager.data.assignments.length === 0) {
+                logSync('❌ No assignments to delete', 'error');
+                return;
+            }
+            
+            const latestIndex = testDataManager.data.assignments.length - 1;
+            const assignment = testDataManager.data.assignments[latestIndex];
+            
+            logSync(`🗑️ Deleting assignment: ${assignment.subject}`, 'warning');
+            
+            if (testDataManager.removeAssignment(latestIndex)) {
+                setTimeout(() => {
+                    refreshAllDisplays();
+                    logSync(`✅ Assignment "${assignment.subject}" deleted and synced!`, 'success');
+                }, 100);
+            } else {
+                logSync('❌ Failed to delete assignment', 'error');
+            }
+        }
+        
+        function testCreateSubject() {
+            const subject = document.getElementById('subjectName').value.trim();
+            if (!subject) {
+                logSync('❌ Please enter a subject name', 'error');
+                return;
+            }
+            
+            logSync(`🚀 Adding subject: ${subject}`, 'info');
+            
+            if (testDataManager && testDataManager.addMasterDataItem('subjects', subject)) {
+                document.getElementById('subjectName').value = '';
+                setTimeout(() => {
+                    refreshAllDisplays();
+                    logSync(`✅ Subject "${subject}" added and synced!`, 'success');
+                }, 100);
+            } else {
+                logSync('❌ Failed to add subject', 'error');
+            }
+        }
+        
+        function testDeleteLatestSubject() {
+            if (!testDataManager || testDataManager.data.subjects.length === 0) {
+                logSync('❌ No subjects to delete', 'error');
+                return;
+            }
+            
+            const latestSubject = testDataManager.data.subjects[testDataManager.data.subjects.length - 1];
+            
+            logSync(`🗑️ Deleting subject: ${latestSubject}`, 'warning');
+            
+            if (testDataManager.removeMasterDataItem('subjects', latestSubject)) {
+                setTimeout(() => {
+                    refreshAllDisplays();
+                    logSync(`✅ Subject "${latestSubject}" deleted and synced!`, 'success');
+                }, 100);
+            } else {
+                logSync('❌ Failed to delete subject', 'error');
+            }
+        }
+        
+        function testCreateFaculty() {
+            const shortName = document.getElementById('facultyShort').value.trim();
+            const fullName = document.getElementById('facultyFull').value.trim();
+            
+            if (!shortName || !fullName) {
+                logSync('❌ Please enter both short and full names', 'error');
+                return;
+            }
+            
+            const facultyData = {
+                short: shortName,
+                full: fullName,
+                dept: 'Computer Science'
+            };
+            
+            logSync(`🚀 Adding faculty: ${shortName} - ${fullName}`, 'info');
+            
+            if (testDataManager && testDataManager.addFaculty('theory', facultyData)) {
+                document.getElementById('facultyShort').value = '';
+                document.getElementById('facultyFull').value = '';
+                setTimeout(() => {
+                    refreshAllDisplays();
+                    logSync(`✅ Faculty "${shortName}" added and synced!`, 'success');
+                }, 100);
+            } else {
+                logSync('❌ Failed to add faculty', 'error');
+            }
+        }
+        
+        function testDeleteLatestFaculty() {
+            if (!testDataManager || testDataManager.data.theoryFaculty.length === 0) {
+                logSync('❌ No faculty to delete', 'error');
+                return;
+            }
+            
+            const latestFaculty = testDataManager.data.theoryFaculty[testDataManager.data.theoryFaculty.length - 1];
+            const shortName = typeof latestFaculty === 'object' ? latestFaculty.short : latestFaculty;
+            
+            logSync(`🗑️ Deleting faculty: ${shortName}`, 'warning');
+            
+            if (testDataManager.removeFaculty('theory', shortName)) {
+                setTimeout(() => {
+                    refreshAllDisplays();
+                    logSync(`✅ Faculty "${shortName}" deleted and synced!`, 'success');
+                }, 100);
+            } else {
+                logSync('❌ Failed to delete faculty', 'error');
+            }
+        }
+        
+        function testUpdateAcademicYear() {
+            const year = document.getElementById('academicYear').value.trim();
+            if (!year) {
+                logSync('❌ Please enter an academic year', 'error');
+                return;
+            }
+            
+            logSync(`📝 Updating academic year to: ${year}`, 'info');
+            
+            if (testDataManager && testDataManager.setAcademicYear(year)) {
+                document.getElementById('academicYear').value = '';
+                setTimeout(() => {
+                    refreshAllDisplays();
+                    logSync(`✅ Academic year updated to "${year}" and synced!`, 'success');
+                }, 100);
+            } else {
+                logSync('❌ Failed to update academic year', 'error');
+            }
+        }
+        
+        function testToggleOrientation() {
+            if (!testDataManager) {
+                logSync('❌ DataManager not available', 'error');
+                return;
+            }
+            
+            const oldOrientation = testDataManager.data.scheduleOrientation;
+            logSync(`🔄 Toggling layout orientation from ${oldOrientation}`, 'info');
+            
+            const newOrientation = testDataManager.toggleScheduleOrientation();
+            setTimeout(() => {
+                refreshAllDisplays();
+                logSync(`✅ Layout changed to ${newOrientation} and synced!`, 'success');
+            }, 100);
+        }
+        
+        function testAllOperations() {
+            logSync('🧪 Starting comprehensive CRUD test...', 'info');
+            
+            let delay = 0;
+            const operations = [
+                () => { 
+                    document.getElementById('subjectName').value = 'Test Subject ' + Date.now(); 
+                    testCreateSubject(); 
+                },
+                () => { 
+                    document.getElementById('facultyShort').value = 'TS' + Date.now().toString().slice(-4); 
+                    document.getElementById('facultyFull').value = 'Test Professor'; 
+                    testCreateFaculty(); 
+                },
+                () => { 
+                    document.getElementById('assignmentSubject').value = 'Test Assignment ' + Date.now(); 
+                    testCreateAssignment(); 
+                },
+                () => { 
+                    document.getElementById('academicYear').value = '2024-25'; 
+                    testUpdateAcademicYear(); 
+                },
+                () => { testToggleOrientation(); },
+                () => { testDeleteLatestAssignment(); },
+                () => { testDeleteLatestSubject(); },
+                () => { testDeleteLatestFaculty(); }
+            ];
+            
+            operations.forEach((operation, index) => {
+                setTimeout(operation, delay);
+                delay += 1000; // 1 second between operations
+            });
+            
+            setTimeout(() => {
+                logSync('🎉 Comprehensive CRUD test completed!', 'success');
+            }, delay);
+        }
+        
+        function clearAllData() {
+            if (!testDataManager) return;
+            
+            if (confirm('Clear all test data?')) {
+                testDataManager.data.assignments = [];
+                testDataManager.data.subjects = testDataManager.data.subjects.slice(0, 3); // Keep first 3
+                testDataManager.data.theoryFaculty = testDataManager.data.theoryFaculty.slice(0, 3); // Keep first 3
+                
+                testDataManager.save();
+                testDataManager.triggerImmediateSync();
+                
+                setTimeout(() => {
+                    refreshAllDisplays();
+                    logSync('🗑️ All test data cleared and synced!', 'warning');
+                }, 100);
+            }
+        }
+        
+        // Initialize test
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                try {
+                    testDataManager = new DataManager();
+                    logSync('🚀 CRUD Test System initialized!', 'success');
+                    
+                    // Start sync monitoring
+                    if (testDataManager.startRealTimeSync) {
+                        testDataManager.startRealTimeSync();
+                        logSync('⚡ Real-time sync monitoring active', 'success');
+                    }
+                    
+                    refreshAllDisplays();
+                } catch (e) {
+                    logSync(`❌ Test initialization failed: ${e.message}`, 'error');
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

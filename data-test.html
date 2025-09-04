@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LAMS Data Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        #output { background: #f5f5f5; padding: 10px; margin: 10px 0; max-height: 300px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>🧪 LAMS Data & Sync Test</h1>
+    
+    <div class="test-section">
+        <h3>Test Assignment Creation & Display</h3>
+        <button onclick="testAssignmentCreation()">Create Test Assignment</button>
+        <button onclick="testDataDisplay()">Check Data Display</button>
+        <button onclick="testAnalytics()">Test Analytics</button>
+        <button onclick="clearOutput()">Clear Output</button>
+    </div>
+    
+    <div class="test-section">
+        <h3>Test Results:</h3>
+        <div id="output"></div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="config.js"></script>
+    <script src="auth.js"></script>
+    <script src="app.js"></script>
+    
+    <script>
+        let testDataManager;
+        
+        function log(message, type = 'info') {
+            const output = document.getElementById('output');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+            output.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function clearOutput() {
+            document.getElementById('output').innerHTML = '';
+        }
+
+        function initializeTestSystem() {
+            try {
+                testDataManager = new DataManager();
+                log('✅ DataManager initialized successfully', 'success');
+                log(`📊 Initial data: ${testDataManager.data.assignments.length} assignments`, 'info');
+                return true;
+            } catch (e) {
+                log(`❌ Failed to initialize DataManager: ${e.message}`, 'error');
+                return false;
+            }
+        }
+
+        function testAssignmentCreation() {
+            log('🧪 Testing assignment creation...', 'info');
+            
+            if (!testDataManager && !initializeTestSystem()) {
+                return;
+            }
+
+            const testAssignment = {
+                day: 'Monday',
+                timeSlot: '9:00-10:00',
+                department: 'Computer Science',
+                semester: '1st Semester',
+                group: 'Group A',
+                subGroup: 'Sub Group 1',
+                subject: 'Data Structures',
+                theoryFaculty: 'Dr. Smith',
+                labFaculty: 'Prof. Davis',
+                labRoom: 'Lab 1'
+            };
+
+            try {
+                const initialCount = testDataManager.data.assignments.length;
+                const result = testDataManager.addAssignment(testAssignment);
+                
+                if (result) {
+                    const newCount = testDataManager.data.assignments.length;
+                    log(`✅ Assignment created successfully! Count: ${initialCount} → ${newCount}`, 'success');
+                    log(`📋 Assignment: ${testDataManager.getAssignmentDisplay(testAssignment)}`, 'info');
+                } else {
+                    log('❌ Assignment creation failed', 'error');
+                }
+            } catch (e) {
+                log(`❌ Assignment creation error: ${e.message}`, 'error');
+            }
+        }
+
+        function testDataDisplay() {
+            log('🧪 Testing data display functions...', 'info');
+            
+            if (!testDataManager && !initializeTestSystem()) {
+                return;
+            }
+
+            try {
+                // Test various data arrays
+                log(`📊 Assignments: ${testDataManager.data.assignments.length}`, 'info');
+                log(`👥 Theory Faculty: ${testDataManager.data.theoryFaculty.length}`, 'info');
+                log(`🔬 Lab Faculty: ${testDataManager.data.labFaculty.length}`, 'info');
+                log(`📚 Subjects: ${testDataManager.data.subjects.length}`, 'info');
+                log(`🏢 Departments: ${testDataManager.data.departments.length}`, 'info');
+                log(`⏰ Time Slots: ${testDataManager.data.timeSlots.length}`, 'info');
+                
+                // Test if functions exist
+                const functions = [
+                    'renderAssignmentsList',
+                    'renderSchedule', 
+                    'renderAnalytics',
+                    'refreshDropdowns',
+                    'updateCountBadges'
+                ];
+                
+                functions.forEach(funcName => {
+                    if (typeof window[funcName] === 'function') {
+                        log(`✅ Function ${funcName} is available`, 'success');
+                    } else {
+                        log(`❌ Function ${funcName} is missing`, 'error');
+                    }
+                });
+                
+            } catch (e) {
+                log(`❌ Data display test error: ${e.message}`, 'error');
+            }
+        }
+
+        function testAnalytics() {
+            log('🧪 Testing analytics functionality...', 'info');
+            
+            try {
+                // Check Chart.js
+                if (typeof Chart !== 'undefined') {
+                    log('✅ Chart.js is loaded', 'success');
+                } else {
+                    log('❌ Chart.js is not loaded', 'error');
+                    return;
+                }
+
+                // Test analytics functions
+                if (typeof renderAnalytics === 'function') {
+                    log('✅ renderAnalytics function available', 'success');
+                    
+                    // Create temporary chart container
+                    const chartContainer = document.createElement('div');
+                    chartContainer.innerHTML = `
+                        <canvas id="facultyWorkloadChart"></canvas>
+                        <canvas id="subjectDistributionChart"></canvas>
+                    `;
+                    document.body.appendChild(chartContainer);
+                    
+                    try {
+                        renderAnalytics();
+                        log('✅ Analytics rendering completed', 'success');
+                    } catch (e) {
+                        log(`⚠️ Analytics rendering had issues: ${e.message}`, 'error');
+                    }
+                    
+                    // Clean up
+                    document.body.removeChild(chartContainer);
+                } else {
+                    log('❌ renderAnalytics function not available', 'error');
+                }
+                
+            } catch (e) {
+                log(`❌ Analytics test error: ${e.message}`, 'error');
+            }
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', () => {
+            log('🚀 LAMS Data Test System Loaded', 'success');
+            setTimeout(() => {
+                initializeTestSystem();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

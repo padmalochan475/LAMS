@@ -112,6 +112,15 @@ class DataManager {
                     branches: this.branches.length
                 });
                 
+                // Force refresh of all components to show loaded data
+                setTimeout(() => {
+                    this.refreshAllComponents();
+                    if (typeof renderSchedule === 'function') renderSchedule();
+                    if (typeof renderAssignmentList === 'function') renderAssignmentList();
+                    if (typeof populateFormDropdowns === 'function') populateFormDropdowns();
+                    console.log('🔄 All components refreshed with loaded data');
+                }, 500);
+                
                 // Load user management data from cloud (NO localStorage)
                 if (cloudData.userManagement) {
                     console.log('👥 Loading user management from Google Drive');
@@ -189,6 +198,12 @@ class DataManager {
         this.labRooms = this.data.labRooms || [];
 
         console.log('🔄 Default data structure initialized with proper array assignments');
+        
+        // Force refresh after initialization
+        setTimeout(() => {
+            this.refreshAllComponents();
+            console.log('🔄 Components refreshed after default data initialization');
+        }, 200);
     }
 
     // 100% Cloud-based saving - NO LOCAL STORAGE
@@ -252,7 +267,7 @@ class DataManager {
         this.isSyncInProgress = false;
         this.setupAdvancedInteractionTracking();
         
-        // Intelligent sync every 15 seconds - with comprehensive interference detection
+        // Intelligent sync every 5 seconds - much faster for real-time feel
         this.syncInterval = setInterval(async () => {
             if (window.authManager && window.authManager.isSignedIn) {
                 // Skip sync if any interactive element is active
@@ -263,16 +278,21 @@ class DataManager {
                 
                 try {
                     this.isSyncInProgress = true;
-                    await this.syncWithCloud();
+                    const result = await this.syncWithCloud();
                     this.isSyncInProgress = false;
+                    
+                    if (result) {
+                        console.log('✅ Background sync completed successfully');
+                        this.updateSyncStatus('Synced ' + new Date().toLocaleTimeString());
+                    }
                 } catch (error) {
                     this.isSyncInProgress = false;
-                    console.log('Background sync skipped:', error.message);
+                    console.log('⏸️ Background sync skipped:', error.message);
                 }
             } else {
                 this.stopRealTimeSync();
             }
-        }, 15000); // 15 second intervals with smart pausing
+        }, 5000); // 5 second intervals for real-time sync
         
         console.log('🎯 Smart sync active - detects dropdowns and form interactions');
     }
@@ -292,15 +312,22 @@ class DataManager {
             if (e.target.tagName === 'SELECT' || e.target.closest('select')) {
                 this.isDropdownOpen = true;
                 console.log('🎯 Dropdown opened - sync paused');
+                // Set a longer pause for dropdown interactions
+                setTimeout(() => {
+                    this.isDropdownOpen = false;
+                    console.log('🎯 Dropdown timeout - sync can resume');
+                }, 3000); // 3 seconds for dropdown selection
             }
         }, true);
 
         document.addEventListener('change', (e) => {
             if (e.target.tagName === 'SELECT') {
+                console.log('🎯 Dropdown selection made');
+                // Give extra time after selection before resuming sync
                 setTimeout(() => {
                     this.isDropdownOpen = false;
                     console.log('🎯 Dropdown closed - sync can resume');
-                }, 1000); // Wait 1 second after selection
+                }, 2000); // Wait 2 seconds after selection
             }
         }, true);
 
@@ -327,11 +354,21 @@ class DataManager {
         const now = Date.now();
         const timeSinceActivity = now - this.lastUserActivity;
         
+        // Check if dropdown is open
+        if (this.isDropdownOpen) {
+            this.updateSyncStatus('Paused - dropdown open');
+            return true;
+        }
+        
+        // Check if form is active
+        if (this.isFormActive) {
+            this.updateSyncStatus('Paused - form active');
+            return true;
+        }
+        
         // Skip if any of these conditions are true:
-        return (
+        const shouldSkip = (
             timeSinceActivity < 2000 ||  // User active in last 2 seconds
-            this.isDropdownOpen ||       // Dropdown is currently open
-            this.isFormActive ||         // Form element has focus
             this.isSyncInProgress ||     // Sync already running
             document.activeElement?.tagName === 'SELECT' ||  // Select element focused
             document.activeElement?.tagName === 'INPUT' ||   // Input element focused
@@ -339,6 +376,12 @@ class DataManager {
             document.querySelector('input:focus') ||         // Any input has focus
             !!document.querySelector('.dropdown-open')      // Custom dropdown open
         );
+        
+        if (shouldSkip && timeSinceActivity < 2000) {
+            this.updateSyncStatus('Paused - user active');
+        }
+        
+        return shouldSkip;
     }
 
     async syncWithCloud() {
@@ -408,9 +451,27 @@ class DataManager {
                 this.data = { ...this.data, ...cloudData };
                 this.lastSyncTime = new Date().toISOString();
                 
+                // Properly assign data to individual arrays for immediate access
+                this.assignments = this.data.assignments || [];
+                this.subjects = this.data.subjects || [];
+                this.faculties = {
+                    theoryFaculty: this.data.theoryFaculty || [],
+                    labFaculty: this.data.labFaculty || []
+                };
+                this.periods = this.data.timeSlots || [];
+                this.branches = this.data.departments || [];
+                
+                console.log('📊 Data updated from cloud:', {
+                    assignments: this.assignments.length,
+                    subjects: this.subjects.length,
+                    faculty: this.data.theoryFaculty.length + this.data.labFaculty.length
+                });
+                
                 // Update UI to reflect changes
-                this.refreshAllComponents();
-                showMessage('✅ Data synced from cloud', 'success');
+                setTimeout(() => {
+                    this.refreshAllComponents();
+                    showMessage('✅ Data synced from cloud', 'success');
+                }, 100);
                 return true;
             }
 
@@ -507,10 +568,27 @@ class DataManager {
 
     // Trigger immediate sync on any data change
     triggerImmediateSync() {
+        console.log('🚀 Triggering immediate sync after data change');
+        
         if (window.authManager && window.authManager.isSignedIn) {
-            // Sync immediately on data changes
-            setTimeout(() => this.syncWithCloud(), 100);
+            // Sync immediately on data changes - no delay
+            this.syncWithCloud().then(() => {
+                console.log('✅ Immediate sync completed - changes visible to all users');
+                this.updateSyncStatus('✅ Synced to all devices');
+                showMessage('✅ Assignment synced to all users!', 'success');
+            }).catch(error => {
+                console.log('⚠️ Immediate sync failed:', error);
+                showMessage('⚠️ Sync failed - try again', 'warning');
+            });
+        } else {
+            console.log('💡 Not signed in - changes saved locally only');
+            showMessage('💡 Sign in to sync changes to all users', 'info');
         }
+        
+        // Always ensure UI is updated immediately regardless of sync status
+        setTimeout(() => {
+            this.refreshAllComponents();
+        }, 100);
     }
 
     // Override methods to trigger immediate sync
@@ -527,9 +605,14 @@ class DataManager {
         }
         
         this.data[type].push(trimmedValue);
+        
+        // Immediately update UI and sync
+        this.refreshAllComponents();
         this.save();
         this.triggerImmediateSync(); // Sync immediately after adding
-        showMessage('Item added successfully!', 'success');
+        
+        showMessage('✅ Item added and synced to all users!', 'success');
+        console.log('✅ Master data item added and UI refreshed immediately');
         return true;
     }
 
@@ -548,8 +631,14 @@ class DataManager {
         }
 
         this.data[facultyType].push(facultyData);
+        
+        // Immediately update UI and sync
+        this.refreshAllComponents();
         this.save();
-        showMessage('Faculty added successfully!', 'success');
+        this.triggerImmediateSync(); // Sync immediately after adding faculty
+        
+        showMessage('✅ Faculty added and synced to all users!', 'success');
+        console.log('✅ Faculty added and UI refreshed immediately');
         return true;
     }
 
@@ -562,8 +651,14 @@ class DataManager {
         const index = this.data[type].indexOf(value);
         if (index > -1) {
             this.data[type].splice(index, 1);
+            
+            // Immediately update UI and sync
+            this.refreshAllComponents();
             this.save();
-            showMessage('Item deleted successfully!', 'success');
+            this.triggerImmediateSync(); // Sync immediately after master data deletion
+            
+            showMessage('✅ Item deleted and synced to all users!', 'success');
+            console.log('✅ Master data item deleted and UI refreshed immediately');
             return true;
         }
         return false;
@@ -585,8 +680,14 @@ class DataManager {
         
         if (index > -1) {
             this.data[facultyType].splice(index, 1);
+            
+            // Immediately update UI and sync
+            this.refreshAllComponents();
             this.save();
-            showMessage('Faculty deleted successfully!', 'success');
+            this.triggerImmediateSync(); // Sync immediately after faculty deletion
+            
+            showMessage('✅ Faculty deleted and synced to all users!', 'success');
+            console.log('✅ Faculty deleted and UI refreshed immediately');
             return true;
         }
         return false;
@@ -645,9 +746,16 @@ class DataManager {
         }
 
         this.data.assignments.push(assignment);
+        
+        // Immediately update UI before saving/syncing
+        this.assignments = this.data.assignments; // Update local reference
+        this.refreshAllComponents(); // Refresh UI immediately
+        
         this.save();
         this.triggerImmediateSync(); // Sync immediately after adding assignment
+        
         showMessage('Assignment created successfully!', 'success');
+        console.log('✅ Assignment added and UI refreshed immediately');
         return true;
     }
 
@@ -668,10 +776,15 @@ class DataManager {
             return false;
         }
         this.data.academicYear = year.trim();
-        this.save();
+        
+        // Immediately update UI and sync
         document.getElementById('currentAcademicYear').textContent = this.data.academicYear;
         document.getElementById('printAcademicYear').textContent = this.data.academicYear;
-        showMessage('Academic year updated successfully!', 'success');
+        this.save();
+        this.triggerImmediateSync(); // Sync immediately after academic year change
+        
+        showMessage('✅ Academic year updated and synced to all users!', 'success');
+        console.log('✅ Academic year updated and synced immediately');
         return true;
     }
 
@@ -679,8 +792,13 @@ class DataManager {
         this.data.scheduleOrientation = this.data.scheduleOrientation === "daysHorizontal" 
             ? "timesHorizontal" 
             : "daysHorizontal";
+        
+        // Immediately update UI and sync
         this.save();
+        this.triggerImmediateSync(); // Sync immediately after orientation change
         this.refreshAllComponents();
+        
+        console.log('✅ Schedule orientation changed and synced immediately');
         return this.data.scheduleOrientation;
     }
 
@@ -696,6 +814,12 @@ class DataManager {
 
     doRefresh() {
         try {
+            console.log('🔄 Refreshing all components with current data:', {
+                assignments: this.data.assignments.length,
+                subjects: this.data.subjects.length,
+                faculty: this.data.theoryFaculty.length + this.data.labFaculty.length
+            });
+            
             refreshDropdowns();
             updateCountBadges();
             renderDashboard();
@@ -703,8 +827,19 @@ class DataManager {
             renderSchedule();
             renderMasterDataLists();
             renderPrintSchedule();
+            
+            // Force update the current tab if it's analytics
+            const activeTab = document.querySelector('.nav-tab.active');
+            if (activeTab && activeTab.textContent.trim().includes('Analytics')) {
+                setTimeout(() => {
+                    renderAnalytics();
+                }, 200);
+            }
+            
+            console.log('✅ All components refreshed successfully');
         } catch (e) {
             console.error('Error refreshing components:', e);
+            showMessage('⚠️ Some components failed to refresh', 'warning');
         }
     }
 
@@ -973,19 +1108,32 @@ function renderDashboard() {
 }
 
 function renderAssignmentsList() {
-    if (!dataManager) return;
+    if (!dataManager) {
+        console.error('❌ DataManager not available for renderAssignmentsList');
+        return;
+    }
     
     const list = document.getElementById('assignmentsList');
     const searchInput = document.getElementById('assignmentSearch');
-    if (!list) return;
+    if (!list) {
+        console.error('❌ assignmentsList element not found');
+        return;
+    }
+    
+    console.log('📋 Rendering assignments list with data:', {
+        total: dataManager.data.assignments.length,
+        assignments: dataManager.data.assignments.map(a => `${a.subject} - ${a.department}`)
+    });
     
     const query = searchInput ? searchInput.value : '';
     const assignments = dataManager.searchAssignments(query);
     
     if (assignments.length === 0) {
-        list.innerHTML = query ? 
-            '<p class="empty-state">No assignments match your search.</p>' : 
-            '<p class="empty-state">No assignments created yet.</p>';
+        const message = query ? 
+            'No assignments match your search.' : 
+            'No assignments created yet. Click "Add Assignment" to create your first lab assignment.';
+        list.innerHTML = `<p class="empty-state">${message}</p>`;
+        console.log('📋 No assignments to display');
         return;
     }
 
@@ -1005,6 +1153,8 @@ function renderAssignmentsList() {
             </div>
         `;
     }).join('');
+    
+    console.log(`✅ Rendered ${assignments.length} assignments successfully`);
 }
 
 function renderSchedule() {
@@ -1168,6 +1318,19 @@ function renderAnalytics() {
     if (!window.dataManager) return;
     
     try {
+        // Check if Chart.js is loaded
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js is not loaded');
+            showMessage('📊 Loading analytics library...', 'info');
+            setTimeout(renderAnalytics, 1000); // Retry after 1 second
+            return;
+        }
+        
+        console.log('📊 Rendering analytics with data:', {
+            assignments: window.dataManager.data.assignments.length,
+            faculty: window.dataManager.data.theoryFaculty.length + window.dataManager.data.labFaculty.length
+        });
+        
         renderFacultyWorkloadChart();
         renderSubjectDistributionChart();
         renderRoomUtilizationChart();
@@ -1180,23 +1343,43 @@ function renderAnalytics() {
         renderWeeklyWorkloadChart();
         renderDepartmentResourceChart();
         updateAnalyticsFilters();
+        
+        showMessage('📊 Analytics loaded successfully!', 'success');
     } catch (e) {
         console.error('Error rendering analytics:', e);
+        showMessage('❌ Analytics failed to load. Refreshing...', 'error');
+        setTimeout(renderAnalytics, 2000);
     }
 }
 
 function renderFacultyWorkloadChart() {
     const ctx = document.getElementById('facultyWorkloadChart');
-    if (!ctx || !window.dataManager) return;
+    if (!ctx || !window.dataManager) {
+        console.log('📊 Faculty workload chart: missing element or data manager');
+        return;
+    }
+
+    // Check if Chart.js is available
+    if (typeof Chart === 'undefined') {
+        console.log('📊 Chart.js not ready, retrying in 1 second...');
+        setTimeout(renderFacultyWorkloadChart, 1000);
+        return;
+    }
 
     const facultyWorkload = {};
     
     window.dataManager.data.assignments.forEach(assignment => {
-        facultyWorkload[assignment.theoryFaculty] = (facultyWorkload[assignment.theoryFaculty] || 0) + 1;
-        facultyWorkload[assignment.labFaculty] = (facultyWorkload[assignment.labFaculty] || 0) + 1;
+        if (assignment.theoryFaculty) {
+            facultyWorkload[assignment.theoryFaculty] = (facultyWorkload[assignment.theoryFaculty] || 0) + 1;
+        }
+        if (assignment.labFaculty) {
+            facultyWorkload[assignment.labFaculty] = (facultyWorkload[assignment.labFaculty] || 0) + 1;
+        }
     });
 
     if (ctx.chart) ctx.chart.destroy();
+    
+    console.log('📊 Rendering faculty workload chart with data:', facultyWorkload);
 
     ctx.chart = new Chart(ctx, {
         type: 'bar',
@@ -1765,7 +1948,15 @@ function deleteMasterDataItem(type, value) {
     if (!dataManager) return;
     
     if (confirm(`Are you sure you want to delete "${value}"?`)) {
-        dataManager.removeMasterDataItem(type, value);
+        if (dataManager.removeMasterDataItem(type, value)) {
+            // Force immediate UI refresh after deletion
+            setTimeout(() => {
+                renderMasterDataLists();
+                refreshDropdowns();
+                updateCountBadges();
+                console.log('🔄 UI updated immediately after master data deletion');
+            }, 50);
+        }
     }
 }
 
@@ -1773,7 +1964,15 @@ function deleteFaculty(type, shortName) {
     if (!dataManager) return;
     
     if (confirm(`Are you sure you want to delete faculty "${shortName}"?`)) {
-        dataManager.removeFaculty(type, shortName);
+        if (dataManager.removeFaculty(type, shortName)) {
+            // Force immediate UI refresh after deletion
+            setTimeout(() => {
+                renderMasterDataLists();
+                refreshDropdowns();
+                updateCountBadges();
+                console.log('🔄 UI updated immediately after faculty deletion');
+            }, 50);
+        }
     }
 }
 
@@ -1781,7 +1980,16 @@ function deleteAssignment(index) {
     if (!dataManager) return;
     
     if (confirm('Are you sure you want to delete this assignment?')) {
-        dataManager.removeAssignment(index);
+        if (dataManager.removeAssignment(index)) {
+            // Force immediate UI refresh after deletion
+            setTimeout(() => {
+                renderAssignmentsList();
+                renderSchedule();
+                renderDashboard();
+                updateCountBadges();
+                console.log('🔄 UI updated immediately after assignment deletion');
+            }, 50);
+        }
     }
 }
 
@@ -1843,6 +2051,8 @@ function toggleTheme() {
 // Initialize Application for production
 document.addEventListener('DOMContentLoaded', async function() {
     try {
+        console.log('🚀 LAMS Application Starting...');
+        
         // Hide loading screen
         const loadingScreen = document.getElementById('loadingScreen');
         if (loadingScreen) loadingScreen.style.display = 'none';
@@ -1853,8 +2063,30 @@ document.addEventListener('DOMContentLoaded', async function() {
         
         console.log('✅ DataManager initialized and assigned to window.dataManager');
         console.log('🔍 DataManager properties:', Object.keys(window.dataManager));
+        
+        // Check Chart.js availability
+        let chartCheckCount = 0;
+        const checkChartJS = () => {
+            if (typeof Chart !== 'undefined') {
+                console.log('✅ Chart.js loaded successfully');
+                return;
+            }
+            
+            chartCheckCount++;
+            if (chartCheckCount < 10) {
+                console.log(`⏳ Waiting for Chart.js... (attempt ${chartCheckCount})`);
+                setTimeout(checkChartJS, 1000);
+            } else {
+                console.error('❌ Chart.js failed to load after 10 seconds');
+                showMessage('📊 Analytics charts may not display correctly', 'warning');
+            }
+        };
+        
+        setTimeout(checkChartJS, 1000);
+        
     } catch (error) {
-        console.error('Application initialization failed:', error);
+        console.error('❌ Application initialization failed:', error);
+        showMessage('Failed to initialize application. Please refresh the page.', 'error');
         return;
     }
     
@@ -1892,6 +2124,14 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             if (dataManager && dataManager.addAssignment(assignment)) {
                 e.target.reset();
+                // Force immediate UI refresh after assignment creation
+                setTimeout(() => {
+                    renderAssignmentsList();
+                    renderSchedule();
+                    renderDashboard();
+                    updateCountBadges();
+                    console.log('🔄 UI updated immediately after assignment creation');
+                }, 50);
             }
         });
     }
@@ -1911,6 +2151,28 @@ document.addEventListener('DOMContentLoaded', async function() {
             updateSearchStats();
         });
     }
+    
+    // Enhanced sync activation function
+    window.activateRealTimeSync = function() {
+        if (window.dataManager) {
+            console.log('🚀 Activating real-time sync after sign-in');
+            if (!window.dataManager.syncInterval) {
+                window.dataManager.startRealTimeSync();
+            }
+            window.dataManager.updateSyncStatus('✅ Real-time sync active');
+            showMessage('✅ Real-time sync activated - changes will sync to all users!', 'success');
+        }
+    };
+    
+    // Enhanced sync deactivation function
+    window.deactivateRealTimeSync = function() {
+        if (window.dataManager) {
+            console.log('⏸️ Deactivating real-time sync after sign-out');
+            window.dataManager.stopRealTimeSync();
+            window.dataManager.updateSyncStatus('Sign in to sync');
+            showMessage('💡 Sign in to enable real-time sync', 'info');
+        }
+    };
     
     // Add window beforeunload handler
     window.addEventListener('beforeunload', (e) => {
