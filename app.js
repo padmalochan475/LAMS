@@ -39,6 +39,7 @@ class DataManager {
         this.lastSyncTime = null;
         this.syncFailureCount = 0; // Track consecutive failures
         this.maxSyncFailures = 5; // Stop retrying after 5 failures
+        this.waitingForPermission = false; // Prevent permission spam
         this.init();
     }
 
@@ -192,8 +193,34 @@ class DataManager {
             // Try to get or refresh access token
             const token = await window.authManager.getAccessToken(false);
             if (!token) {
-                console.log('⏸️ No access token available - use "Activate Real-Time Sync" for initial setup');
+                // Only show the first time, then wait silently
+                if (!this.waitingForPermission) {
+                    this.waitingForPermission = true;
+                    console.log('⏸️ Waiting for Google Drive permissions - sync will start automatically once granted');
+                    this.updateSyncStatus('Waiting for permission');
+                    
+                    // Try to get permission with popup (one time only)
+                    setTimeout(async () => {
+                        try {
+                            const popupToken = await window.authManager.getAccessToken(true);
+                            if (popupToken) {
+                                this.waitingForPermission = false;
+                                this.updateSyncStatus('Auto-sync active');
+                                console.log('✅ Permissions granted - sync now active');
+                            }
+                        } catch (error) {
+                            console.log('💡 User can enable sync by interacting with any Google Drive feature');
+                        }
+                    }, 2000);
+                }
                 return false;
+            }
+            
+            // Reset flag when we have token
+            if (this.waitingForPermission) {
+                this.waitingForPermission = false;
+                this.updateSyncStatus('Auto-sync active');
+                console.log('✅ Sync permissions now available - continuing with normal operation');
             }
 
             console.log('🔄 Starting cloud sync...');
