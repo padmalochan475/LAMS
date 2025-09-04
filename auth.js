@@ -73,8 +73,12 @@ class AuthManager {
                 localStorage.setItem('userSession', JSON.stringify(this.currentUser));
                 console.log('Admin signed in, session saved');
                 this.updateUI();
-                // Auto-load data from Google Drive after APIs are ready
-                setTimeout(() => this.loadFromDrive(), 3000);
+                // Auto-load with delay and error handling
+                setTimeout(() => {
+                    if (window.google?.accounts?.oauth2) {
+                        this.loadFromDrive().catch(e => console.log('Auto-load skipped:', e.message));
+                    }
+                }, 5000);
                 return;
             }
             
@@ -87,8 +91,12 @@ class AuthManager {
                 localStorage.setItem('userSession', JSON.stringify(this.currentUser));
                 console.log('Approved user signed in, session saved');
                 this.updateUI();
-                // Auto-load data from Google Drive after APIs are ready
-                setTimeout(() => this.loadFromDrive(), 3000);
+                // Auto-load with delay and error handling
+                setTimeout(() => {
+                    if (window.google?.accounts?.oauth2) {
+                        this.loadFromDrive().catch(e => console.log('Auto-load skipped:', e.message));
+                    }
+                }, 5000);
                 return;
             }
             
@@ -247,16 +255,20 @@ class AuthManager {
             console.log('🔄 Starting Google Drive sync...');
             this.updateSyncStatus('Syncing...');
             
-            // Check if user is signed in
             if (!this.isSignedIn || !this.currentUser) {
                 console.log('❌ User not signed in');
                 return false;
             }
-            
-            // Get access token from Google Identity Services
+
+            // Skip sync if Google Identity Services not available
+            if (!window.google?.accounts?.oauth2) {
+                console.log('⏳ Google Identity Services not ready, skipping sync');
+                return false;
+            }
+
             const accessToken = await this.getAccessToken();
             if (!accessToken) {
-                console.log('❌ Failed to get access token');
+                console.log('❌ No access token, skipping sync');
                 return false;
             }
             
@@ -425,16 +437,20 @@ class AuthManager {
         try {
             console.log('📥 Loading from Google Drive...');
             
-            // Check if user is signed in
             if (!this.isSignedIn || !this.currentUser) {
                 console.log('❌ User not signed in');
                 return null;
             }
-            
-            // Get access token
+
+            // Skip load if Google Identity Services not available
+            if (!window.google?.accounts?.oauth2) {
+                console.log('⏳ Google Identity Services not ready, skipping load');
+                return null;
+            }
+
             const accessToken = await this.getAccessToken();
             if (!accessToken) {
-                console.log('❌ Failed to get access token');
+                console.log('❌ No access token, skipping load');
                 return null;
             }
             
@@ -506,8 +522,12 @@ class AuthManager {
                     this.isSignedIn = true;
                     console.log('Admin session restored');
                     this.updateUI();
-                    // Auto-load data from Google Drive after APIs are ready
-                    setTimeout(() => this.loadFromDrive(), 3000);
+                    // Auto-load with delay and error handling
+                    setTimeout(() => {
+                        if (window.google?.accounts?.oauth2) {
+                            this.loadFromDrive().catch(e => console.log('Auto-load skipped:', e.message));
+                        }
+                    }, 5000);
                     return;
                 }
                 
@@ -519,8 +539,12 @@ class AuthManager {
                     this.isSignedIn = true;
                     console.log('User session restored');
                     this.updateUI();
-                    // Auto-load data from Google Drive after APIs are ready
-                    setTimeout(() => this.loadFromDrive(), 3000);
+                    // Auto-load with delay and error handling
+                    setTimeout(() => {
+                        if (window.google?.accounts?.oauth2) {
+                            this.loadFromDrive().catch(e => console.log('Auto-load skipped:', e.message));
+                        }
+                    }, 5000);
                 } else {
                     console.log('User no longer approved, clearing session');
                     localStorage.removeItem('userSession');

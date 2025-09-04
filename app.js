@@ -40,8 +40,8 @@ class DataManager {
         this.validateMasterDataIntegrity();
         setTimeout(() => {
             this.refreshAllComponents();
-            // Start periodic sync after Google APIs have time to load
-            setTimeout(() => this.startPeriodicSync(), 5000);
+            // Start periodic sync with delay
+            setTimeout(() => this.startPeriodicSync(), 10000);
         }, 100);
     }
 
@@ -66,7 +66,7 @@ class DataManager {
             localStorage.setItem('labManagementData', JSON.stringify(this.data));
             this.validateMasterDataIntegrity();
             this.refreshAllComponents();
-            // Auto-sync to Google Drive
+            // Auto-sync to Google Drive with error handling
             this.autoSyncToDrive();
         } catch (e) {
             console.error('Error saving data:', e);
@@ -84,16 +84,17 @@ class DataManager {
     }
 
     startPeriodicSync() {
-        // Real-time sync every 5 seconds
+        // Real-time sync every 30 seconds (reduced frequency)
         setInterval(async () => {
-            if (window.authManager && window.authManager.isSignedIn) {
+            if (window.authManager && window.authManager.isSignedIn && window.google?.accounts?.oauth2) {
                 try {
                     await window.authManager.loadFromDrive();
                 } catch (error) {
-                    console.error('Real-time sync failed:', error);
+                    // Silent error handling for background sync
+                    console.log('Background sync skipped:', error.message);
                 }
             }
-        }, CONFIG.REALTIME_SYNC_INTERVAL);
+        }, 30000);
         
         // Immediate sync when window gets focus (switching between devices)
         window.addEventListener('focus', async () => {
