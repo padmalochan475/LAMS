@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LAMS - User Approval Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { border: 1px solid #ccc; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .btn { padding: 8px 16px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-warning { background: #ffc107; color: black; }
+        .console-output { background: #f8f9fa; padding: 10px; margin: 10px 0; border-radius: 4px; font-family: monospace; max-height: 300px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>🧪 LAMS User Approval System Test</h1>
+    
+    <div class="test-section">
+        <h3>📋 Current Status</h3>
+        <button class="btn btn-primary" onclick="checkCurrentStatus()">Check Status</button>
+        <button class="btn btn-warning" onclick="clearAllData()">Clear All Data</button>
+        <div id="status-output" class="console-output"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>👤 Simulate Non-Admin User Sign In</h3>
+        <p>This simulates what happens when a regular user tries to sign in:</p>
+        <button class="btn btn-primary" onclick="simulateUserSignIn()">Simulate User Sign In</button>
+        <div id="signin-output" class="console-output"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>👑 Admin Panel View</h3>
+        <p>This shows what the admin sees in the user management panel:</p>
+        <button class="btn btn-success" onclick="showAdminView()">Open Admin Panel</button>
+        <div id="admin-output" class="console-output"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>✅ Test Actions</h3>
+        <button class="btn btn-success" onclick="testApproveUser()">Test Approve User</button>
+        <button class="btn btn-danger" onclick="testRejectUser()">Test Reject User</button>
+        <div id="actions-output" class="console-output"></div>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+        // Test functions
+        function log(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.innerHTML += '<div>' + new Date().toLocaleTimeString() + ': ' + message + '</div>';
+            element.scrollTop = element.scrollHeight;
+        }
+
+        function checkCurrentStatus() {
+            const statusEl = document.getElementById('status-output');
+            statusEl.innerHTML = '<strong>Current localStorage Status:</strong><br>';
+            
+            const pendingUsers = JSON.parse(localStorage.getItem(CONFIG.PENDING_USERS_KEY) || '[]');
+            const approvedUsers = JSON.parse(localStorage.getItem(CONFIG.APPROVED_USERS_KEY) || '[]');
+            
+            log('status-output', `📋 Pending Users: ${pendingUsers.length}`);
+            log('status-output', `✅ Approved Users: ${approvedUsers.length}`);
+            log('status-output', `🔑 CONFIG.PENDING_USERS_KEY: ${CONFIG.PENDING_USERS_KEY}`);
+            log('status-output', `🔑 CONFIG.APPROVED_USERS_KEY: ${CONFIG.APPROVED_USERS_KEY}`);
+            
+            if (pendingUsers.length > 0) {
+                log('status-output', `📋 Pending users details: ${JSON.stringify(pendingUsers, null, 2)}`);
+            }
+            if (approvedUsers.length > 0) {
+                log('status-output', `✅ Approved users details: ${JSON.stringify(approvedUsers, null, 2)}`);
+            }
+        }
+
+        function clearAllData() {
+            localStorage.removeItem(CONFIG.PENDING_USERS_KEY);
+            localStorage.removeItem(CONFIG.APPROVED_USERS_KEY);
+            localStorage.removeItem('userSession');
+            log('status-output', '🧹 All user data cleared!');
+        }
+
+        function simulateUserSignIn() {
+            const testUser = {
+                id: 'test123',
+                name: 'John Doe',
+                email: 'john.doe@test.com',
+                picture: 'https://via.placeholder.com/40',
+                loginTime: new Date().toISOString()
+            };
+
+            log('signin-output', '👤 Simulating user sign in...');
+            log('signin-output', `User: ${testUser.name} (${testUser.email})`);
+            
+            // Check if user is approved
+            const approvedUsers = JSON.parse(localStorage.getItem(CONFIG.APPROVED_USERS_KEY) || '[]');
+            const isApproved = approvedUsers.some(u => u.email === testUser.email);
+            
+            if (isApproved) {
+                log('signin-output', '✅ User is already approved - would sign in directly');
+                return;
+            }
+            
+            // Add to pending users (simulating the actual process)
+            const pendingUsers = JSON.parse(localStorage.getItem(CONFIG.PENDING_USERS_KEY) || '[]');
+            
+            if (pendingUsers.some(u => u.email === testUser.email)) {
+                log('signin-output', '⏳ User is already in pending list');
+                return;
+            }
+            
+            pendingUsers.push(testUser);
+            localStorage.setItem(CONFIG.PENDING_USERS_KEY, JSON.stringify(pendingUsers));
+            
+            log('signin-output', '📝 User added to pending approval list');
+            log('signin-output', `📊 Total pending users: ${pendingUsers.length}`);
+            
+            // Update badge count (simulating the actual UI update)
+            updatePendingCount();
+        }
+
+        function showAdminView() {
+            const pendingUsers = JSON.parse(localStorage.getItem(CONFIG.PENDING_USERS_KEY) || '[]');
+            const approvedUsers = JSON.parse(localStorage.getItem(CONFIG.APPROVED_USERS_KEY) || '[]');
+            
+            log('admin-output', '👑 Admin Panel View:');
+            log('admin-output', `📋 Pending Approval: ${pendingUsers.length} users`);
+            
+            if (pendingUsers.length === 0) {
+                log('admin-output', '   No pending requests');
+            } else {
+                pendingUsers.forEach((user, index) => {
+                    log('admin-output', `   ${index + 1}. ${user.name} (${user.email}) - ${new Date(user.loginTime).toLocaleString()}`);
+                });
+            }
+            
+            log('admin-output', `✅ Approved Users: ${approvedUsers.length} users`);
+            if (approvedUsers.length > 0) {
+                approvedUsers.forEach((user, index) => {
+                    log('admin-output', `   ${index + 1}. ${user.name} (${user.email})`);
+                });
+            }
+        }
+
+        function testApproveUser() {
+            const pendingUsers = JSON.parse(localStorage.getItem(CONFIG.PENDING_USERS_KEY) || '[]');
+            
+            if (pendingUsers.length === 0) {
+                log('actions-output', '❌ No pending users to approve');
+                return;
+            }
+            
+            const userToApprove = pendingUsers[0];
+            log('actions-output', `✅ Approving user: ${userToApprove.name} (${userToApprove.email})`);
+            
+            // Move from pending to approved
+            const approvedUsers = JSON.parse(localStorage.getItem(CONFIG.APPROVED_USERS_KEY) || '[]');
+            approvedUsers.push(userToApprove);
+            
+            const remainingPending = pendingUsers.filter(u => u.email !== userToApprove.email);
+            
+            localStorage.setItem(CONFIG.APPROVED_USERS_KEY, JSON.stringify(approvedUsers));
+            localStorage.setItem(CONFIG.PENDING_USERS_KEY, JSON.stringify(remainingPending));
+            
+            log('actions-output', `📊 Approved users: ${approvedUsers.length}, Pending: ${remainingPending.length}`);
+            updatePendingCount();
+        }
+
+        function testRejectUser() {
+            const pendingUsers = JSON.parse(localStorage.getItem(CONFIG.PENDING_USERS_KEY) || '[]');
+            
+            if (pendingUsers.length === 0) {
+                log('actions-output', '❌ No pending users to reject');
+                return;
+            }
+            
+            const userToReject = pendingUsers[0];
+            log('actions-output', `❌ Rejecting user: ${userToReject.name} (${userToReject.email})`);
+            
+            const remainingPending = pendingUsers.filter(u => u.email !== userToReject.email);
+            localStorage.setItem(CONFIG.PENDING_USERS_KEY, JSON.stringify(remainingPending));
+            
+            log('actions-output', `📊 Pending users remaining: ${remainingPending.length}`);
+            updatePendingCount();
+        }
+
+        function updatePendingCount() {
+            const pendingUsers = JSON.parse(localStorage.getItem(CONFIG.PENDING_USERS_KEY) || '[]');
+            log('actions-output', `🔄 Updated pending count: ${pendingUsers.length}`);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            log('status-output', '🚀 User Approval Test Page Loaded');
+            log('status-output', 'Click "Check Status" to see current data');
+        });
+    </script>
+</body>
+</html>

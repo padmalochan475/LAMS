@@ -452,6 +452,76 @@
                         <canvas id="heatmapChart"></canvas>
                     </div>
                 </div>
+                
+                <!-- New Interactive Analytics -->
+                <div class="glass-card">
+                    <h3>📚 Subject-Faculty Assignment Analysis</h3>
+                    <div class="analytics-filters">
+                        <select id="subjectFilter" class="form-control" onchange="updateSubjectFacultyAnalysis()">
+                            <option value="">All Subjects</option>
+                        </select>
+                    </div>
+                    <div class="chart-container" style="position: relative; height: 300px;">
+                        <canvas id="subjectFacultyChart"></canvas>
+                    </div>
+                    <div class="analytics-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Average Faculty per Subject:</span>
+                            <span id="avgFacultyPerSubject" class="stat-value">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Most Popular Subject:</span>
+                            <span id="mostPopularSubject" class="stat-value">-</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass-card">
+                    <h3>📊 Weekly Workload Distribution</h3>
+                    <div class="analytics-filters">
+                        <label>
+                            <input type="checkbox" id="showTheoryOnly" onchange="updateWeeklyWorkload()"> Theory Only
+                        </label>
+                        <label>
+                            <input type="checkbox" id="showLabOnly" onchange="updateWeeklyWorkload()"> Lab Only
+                        </label>
+                    </div>
+                    <div class="chart-container" style="position: relative; height: 300px;">
+                        <canvas id="weeklyWorkloadChart"></canvas>
+                    </div>
+                    <div class="analytics-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Peak Day:</span>
+                            <span id="peakDay" class="stat-value">-</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Total Weekly Hours:</span>
+                            <span id="totalWeeklyHours" class="stat-value">0</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass-card">
+                    <h3>🏢 Department Resource Utilization</h3>
+                    <div class="analytics-filters">
+                        <select id="departmentFilter" class="form-control" onchange="updateDepartmentAnalysis()">
+                            <option value="">All Departments</option>
+                        </select>
+                    </div>
+                    <div class="chart-container" style="position: relative; height: 300px;">
+                        <canvas id="departmentResourceChart"></canvas>
+                    </div>
+                    <div class="analytics-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Lab Utilization:</span>
+                            <span id="labUtilization" class="stat-value">0%</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Faculty Efficiency:</span>
+                            <span id="facultyEfficiency" class="stat-value">0%</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 

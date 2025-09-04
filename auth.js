@@ -53,7 +53,7 @@ class AuthManager {
         });
     }
 
-    signIn(credential) {
+    async signIn(credential) {
         console.log('Processing sign-in...');
         try {
             const payload = JSON.parse(atob(credential.split('.')[1]));
@@ -87,23 +87,10 @@ class AuthManager {
                 return;
             }
             
-            const approvedUsers = JSON.parse(localStorage.getItem(CONFIG.APPROVED_USERS_KEY) || '[]');
-            console.log('🔍 Enhanced debugging for localStorage inspection');
-            console.log('✨ Checking approved users for:', user.email);
-            console.log('📊 Approved users list:', approvedUsers);
-            
-            // Enhanced debugging for localStorage inspection
-            const allKeys = Object.keys(localStorage);
-            console.log('🔍 All localStorage keys:', allKeys);
-            console.log('📊 CONFIG.PENDING_USERS_KEY value:', CONFIG.PENDING_USERS_KEY);
-            console.log('📊 CONFIG.APPROVED_USERS_KEY value:', CONFIG.APPROVED_USERS_KEY);
-            console.log('📋 Raw pending users from localStorage:', localStorage.getItem(CONFIG.PENDING_USERS_KEY));
-            console.log('📋 Raw approved users from localStorage:', localStorage.getItem(CONFIG.APPROVED_USERS_KEY));
-            
-            const isApproved = approvedUsers.some(u => u.email === user.email);
+            // Check if user is approved (100% cloud-based)
+            const isApproved = await this.checkUserApprovalFromCloud(user.email);
             console.log('🔍 Checking user approval status for:', user.email);
-            console.log('📋 Total approved users:', approvedUsers.length);
-            console.log('✅ User approved status:', isApproved);
+            console.log('✅ User approved status (from cloud):', isApproved);
             
             if (isApproved) {
                 this.currentUser = { ...user, isAdmin: false };
@@ -126,7 +113,7 @@ class AuthManager {
             }
             
             console.log('❌ User not approved, adding to pending list');
-            this.addToPendingUsers(user);
+            await this.addToPendingUsersCloud(user);
             showMessage('Access request sent to admin. You will be notified once approved.', 'info');
             console.log('Access request sent to admin.');
             
@@ -134,26 +121,55 @@ class AuthManager {
             console.error('Sign in error:', error);
         }
     }
-    
-    addToPendingUsers(user) {
-        console.log('🔍 Adding user to pending list:', user.email);
-        const pendingUsers = JSON.parse(localStorage.getItem(CONFIG.PENDING_USERS_KEY) || '[]');
-        console.log('📋 Current pending users before add:', pendingUsers.length);
-        
-        if (pendingUsers.some(u => u.email === user.email)) {
-            console.log('⚠️ User already in pending list:', user.email);
-            return;
+
+    // 100% Cloud-based user approval checking
+    async checkUserApprovalFromCloud(email) {
+        try {
+            if (!window.dataManager) {
+                console.warn('DataManager not available for cloud user check');
+                return false;
+            }
+            
+            // Get approved users from cloud data
+            const approvedUsers = window.dataManager.approvedUsers || [];
+            return approvedUsers.some(u => u.email === email);
+        } catch (error) {
+            console.error('Error checking user approval from cloud:', error);
+            return false;
         }
-        
-        pendingUsers.push(user);
-        localStorage.setItem(CONFIG.PENDING_USERS_KEY, JSON.stringify(pendingUsers));
-        console.log('✅ User added to pending list. Total pending:', pendingUsers.length);
-        console.log('💾 Stored in localStorage with key:', CONFIG.PENDING_USERS_KEY);
-        
-        // Update admin UI immediately if admin is logged in
-        if (window.authManager?.currentUser?.isAdmin) {
-            this.updatePendingUsersCount();
-            console.log('🔔 Updated admin pending count display');
+    }
+
+    // 100% Cloud-based pending user addition
+    async addToPendingUsersCloud(user) {
+        try {
+            console.log('☁️ Adding user to pending list in cloud:', user.email);
+            
+            if (!window.dataManager) {
+                throw new Error('DataManager not available');
+            }
+            
+            const pendingUsers = window.dataManager.pendingUsers || [];
+            
+            if (pendingUsers.some(u => u.email === user.email)) {
+                console.log('⚠️ User already in pending list:', user.email);
+                return;
+            }
+            
+            // Add to cloud data
+            pendingUsers.push(user);
+            window.dataManager.pendingUsers = pendingUsers;
+            
+            // Save to cloud immediately
+            const success = await window.dataManager.save();
+            if (success) {
+                console.log('✅ User added to pending list and synced to cloud:', pendingUsers.length);
+                this.updatePendingUsersCountFromCloud(pendingUsers.length);
+            } else {
+                throw new Error('Failed to sync pending user to cloud');
+            }
+        } catch (error) {
+            console.error('❌ Failed to add user to cloud pending list:', error);
+            showMessage('❌ Failed to process request. Please try again.', 'error');
         }
     }
 
@@ -241,16 +257,38 @@ class AuthManager {
             this.updatePendingUsersCount();
         }
     }
-    
+
+    // Cloud-based pending users count update
+    updatePendingUsersCountFromCloud(count) {
+        console.log('🔔 Updating pending users badge from cloud data:', count);
+        
+        const badge = document.querySelector('.pending-users-badge');
+        console.log('🎯 Badge element found:', !!badge);
+        
+        if (badge) {
+            if (count > 0) {
+                badge.textContent = count;
+                badge.style.display = 'inline';
+                console.log('✅ Badge updated with count:', count);
+            } else {
+                badge.style.display = 'none';
+                console.log('🔄 Badge hidden (no pending users)');
+            }
+        } else {
+            console.warn('⚠️ Pending users badge element not found in DOM');
+        }
+    }
+
     updatePendingUsersCount() {
-        const pendingUsers = JSON.parse(localStorage.getItem(CONFIG.PENDING_USERS_KEY) || '[]');
-        console.log('🔄 Updating pending users count. Found:', pendingUsers.length, 'pending users');
+        // Use cloud-based data instead of localStorage
+        const pendingCount = window.dataManager?.pendingUsers?.length || 0;
+        console.log('🔄 Updating pending users count from cloud data:', pendingCount);
         
         const countElement = document.getElementById('pendingUsersCount');
         if (countElement) {
-            countElement.textContent = pendingUsers.length;
-            countElement.style.display = pendingUsers.length > 0 ? 'inline' : 'none';
-            console.log('📊 Updated UI badge with count:', pendingUsers.length);
+            countElement.textContent = pendingCount;
+            countElement.style.display = pendingCount > 0 ? 'inline' : 'none';
+            console.log('📊 Updated UI badge with cloud count:', pendingCount);
         } else {
             console.warn('⚠️ Could not find pendingUsersCount element in DOM');
         }
@@ -651,7 +689,7 @@ class AuthManager {
         }
     }
 
-    checkExistingSession() {
+    async checkExistingSession() {
         const savedSession = localStorage.getItem('userSession');
         if (savedSession) {
             try {
@@ -682,13 +720,13 @@ class AuthManager {
                     return;
                 }
                 
-                const approvedUsers = JSON.parse(localStorage.getItem(CONFIG.APPROVED_USERS_KEY) || '[]');
-                const isStillApproved = approvedUsers.some(u => u.email === this.currentUser.email);
+                // Check user approval from cloud data
+                const isStillApproved = await this.checkUserApprovalFromCloud(this.currentUser.email);
                 
                 if (isStillApproved) {
                     this.currentUser.isAdmin = false;
                     this.isSignedIn = true;
-                    console.log('User session restored');
+                    console.log('User session restored from cloud');
                     this.updateUI();
                     
                     // Only try to start sync if we have a valid cached token (no API calls)
@@ -749,42 +787,112 @@ function signOut() {
 // Make functions globally available
 window.signOut = signOut;
 
-// User Management Functions
-function approveUser(email) {
-    const pendingUsers = JSON.parse(localStorage.getItem(CONFIG.PENDING_USERS_KEY) || '[]');
-    const approvedUsers = JSON.parse(localStorage.getItem(CONFIG.APPROVED_USERS_KEY) || '[]');
-    
-    const userIndex = pendingUsers.findIndex(u => u.email === email);
-    if (userIndex > -1) {
-        const user = pendingUsers[userIndex];
-        approvedUsers.push({ ...user, approvedAt: new Date().toISOString() });
-        pendingUsers.splice(userIndex, 1);
+// 100% Cloud-based User Management Functions
+async function approveUser(email) {
+    try {
+        console.log('☁️ Approving user in cloud:', email);
         
-        localStorage.setItem(CONFIG.PENDING_USERS_KEY, JSON.stringify(pendingUsers));
-        localStorage.setItem(CONFIG.APPROVED_USERS_KEY, JSON.stringify(approvedUsers));
+        if (!window.dataManager) {
+            throw new Error('DataManager not available');
+        }
         
-        if (window.authManager) window.authManager.updatePendingUsersCount();
+        const pendingUsers = window.dataManager.pendingUsers || [];
+        const approvedUsers = window.dataManager.approvedUsers || [];
+        
+        const userIndex = pendingUsers.findIndex(u => u.email === email);
+        if (userIndex > -1) {
+            const user = pendingUsers[userIndex];
+            approvedUsers.push({ ...user, approvedAt: new Date().toISOString() });
+            pendingUsers.splice(userIndex, 1);
+            
+            // Update cloud data
+            window.dataManager.pendingUsers = pendingUsers;
+            window.dataManager.approvedUsers = approvedUsers;
+            
+            // Save to cloud
+            const success = await window.dataManager.save();
+            if (success) {
+                console.log('✅ User approval synced to cloud');
+                if (window.authManager) {
+                    window.authManager.updatePendingUsersCountFromCloud(pendingUsers.length);
+                }
+                showMessage(`✅ ${user.name} approved and synced to cloud`, 'success');
+            } else {
+                throw new Error('Failed to sync approval to cloud');
+            }
+        }
+    } catch (error) {
+        console.error('❌ Failed to approve user:', error);
+        showMessage('❌ Failed to approve user. Please try again.', 'error');
     }
 }
 
-function rejectUser(email) {
-    const pendingUsers = JSON.parse(localStorage.getItem(CONFIG.PENDING_USERS_KEY) || '[]');
-    const userIndex = pendingUsers.findIndex(u => u.email === email);
-    
-    if (userIndex > -1) {
-        pendingUsers.splice(userIndex, 1);
-        localStorage.setItem(CONFIG.PENDING_USERS_KEY, JSON.stringify(pendingUsers));
-        if (window.authManager) window.authManager.updatePendingUsersCount();
+async function rejectUser(email) {
+    try {
+        console.log('☁️ Rejecting user in cloud:', email);
+        
+        if (!window.dataManager) {
+            throw new Error('DataManager not available');
+        }
+        
+        const pendingUsers = window.dataManager.pendingUsers || [];
+        const userIndex = pendingUsers.findIndex(u => u.email === email);
+        
+        if (userIndex > -1) {
+            const user = pendingUsers[userIndex];
+            pendingUsers.splice(userIndex, 1);
+            
+            // Update cloud data
+            window.dataManager.pendingUsers = pendingUsers;
+            
+            // Save to cloud
+            const success = await window.dataManager.save();
+            if (success) {
+                console.log('✅ User rejection synced to cloud');
+                if (window.authManager) {
+                    window.authManager.updatePendingUsersCountFromCloud(pendingUsers.length);
+                }
+                showMessage(`❌ ${user.name} rejected and synced to cloud`, 'info');
+            } else {
+                throw new Error('Failed to sync rejection to cloud');
+            }
+        }
+    } catch (error) {
+        console.error('❌ Failed to reject user:', error);
+        showMessage('❌ Failed to reject user. Please try again.', 'error');
     }
 }
 
-function removeApprovedUser(email) {
-    const approvedUsers = JSON.parse(localStorage.getItem(CONFIG.APPROVED_USERS_KEY) || '[]');
-    const userIndex = approvedUsers.findIndex(u => u.email === email);
-    
-    if (userIndex > -1) {
-        approvedUsers.splice(userIndex, 1);
-        localStorage.setItem(CONFIG.APPROVED_USERS_KEY, JSON.stringify(approvedUsers));
+async function removeApprovedUser(email) {
+    try {
+        console.log('☁️ Removing approved user from cloud:', email);
+        
+        if (!window.dataManager) {
+            throw new Error('DataManager not available');
+        }
+        
+        const approvedUsers = window.dataManager.approvedUsers || [];
+        const userIndex = approvedUsers.findIndex(u => u.email === email);
+        
+        if (userIndex > -1) {
+            const user = approvedUsers[userIndex];
+            approvedUsers.splice(userIndex, 1);
+            
+            // Update cloud data
+            window.dataManager.approvedUsers = approvedUsers;
+            
+            // Save to cloud
+            const success = await window.dataManager.save();
+            if (success) {
+                console.log('✅ User removal synced to cloud');
+                showMessage(`🗑️ ${user.name} removed and synced to cloud`, 'info');
+            } else {
+                throw new Error('Failed to sync removal to cloud');
+            }
+        }
+    } catch (error) {
+        console.error('❌ Failed to remove user:', error);
+        showMessage('❌ Failed to remove user. Please try again.', 'error');
     }
 }
 
@@ -797,7 +905,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     window.authManager = new AuthManager();
     
-    // Check existing session first
+    // Check existing session first (async)
     window.authManager.checkExistingSession();
     
     // Wait for Google library

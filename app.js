@@ -40,6 +40,11 @@ class DataManager {
         this.syncFailureCount = 0; // Track consecutive failures
         this.maxSyncFailures = 5; // Stop retrying after 5 failures
         this.waitingForPermission = false; // Prevent permission spam
+        
+        // 100% Cloud-based user management (NO localStorage)
+        this.pendingUsers = [];
+        this.approvedUsers = [];
+        
         this.init();
     }
 
@@ -63,95 +68,103 @@ class DataManager {
         });
     }
 
-    // Cloud-first loading with localStorage fallback
+    // 100% Cloud-based loading - NO LOCAL STORAGE
     async loadFromCloud() {
-        if (window.authManager && window.authManager.isSignedIn) {
-            try {
-                showMessage('🔄 Loading from cloud...', 'info');
-                // Don't trigger popups during initialization
-                const cloudData = await window.authManager.loadFromDrive(false);
-                if (cloudData) {
-                    // Merge cloud data with defaults
-                    this.data = { ...this.data, ...cloudData };
-                    this.version = cloudData.version || 0;
-                    this.lastSyncTime = new Date().toISOString();
-                    showMessage('✅ Data loaded from cloud', 'success');
-                    console.log('📥 Cloud data loaded successfully');
-                    return;
-                }
-            } catch (error) {
-                console.warn('Cloud load failed, using localStorage fallback:', error);
-                showMessage('⚠️ Cloud sync unavailable, using local data', 'warning');
-            }
+        if (!window.authManager || !window.authManager.isSignedIn) {
+            showMessage('🔐 Sign in required for cloud access', 'warning');
+            return;
         }
-        
-        // Fallback to localStorage only if cloud is unavailable
-        this.loadLocal();
-    }
 
-    // Local storage as fallback only
-    loadLocal() {
-        const saved = localStorage.getItem('labManagementData');
-        if (saved) {
-            try {
-                const parsed = JSON.parse(saved);
-                Object.keys(this.data).forEach(key => {
-                    if (parsed[key]) {
-                        this.data[key] = parsed[key];
+        try {
+            showMessage('☁️ Loading everything from Google Drive...', 'info');
+            
+            // Force cloud loading - no localStorage fallback
+            const cloudData = await window.authManager.loadFromDrive(false);
+            
+            if (cloudData) {
+                // Load main application data from cloud
+                this.data = { ...this.data, ...cloudData };
+                this.version = cloudData.version || 0;
+                this.lastSyncTime = new Date().toISOString();
+                
+                // Load user management data from cloud (NO localStorage)
+                if (cloudData.userManagement) {
+                    console.log('👥 Loading user management from Google Drive');
+                    this.pendingUsers = cloudData.userManagement.pendingUsers || [];
+                    this.approvedUsers = cloudData.userManagement.approvedUsers || [];
+                    console.log('📋 Cloud pending users:', this.pendingUsers.length);
+                    console.log('✅ Cloud approved users:', this.approvedUsers.length);
+                    
+                    // Update UI badge from cloud data
+                    if (window.authManager) {
+                        window.authManager.updatePendingUsersCountFromCloud(this.pendingUsers.length);
                     }
-                });
-                console.log('📱 Local fallback data loaded');
-            } catch (e) {
-                console.error('Error loading local data:', e);
+                } else {
+                    // Initialize empty user management in cloud
+                    this.pendingUsers = [];
+                    this.approvedUsers = [];
+                }
+                
+                showMessage('✅ All data loaded from Google Drive', 'success');
+                console.log('☁️ 100% Cloud-based data loaded successfully');
+                return;
+            } else {
+                // No cloud data exists - initialize new cloud data
+                console.log('🆕 No cloud data found, initializing new cloud storage');
+                this.pendingUsers = [];
+                this.approvedUsers = [];
+                await this.save(); // Create initial cloud data
+                showMessage('🆕 New cloud storage initialized', 'success');
             }
+        } catch (error) {
+            console.error('❌ Cloud loading failed:', error);
+            showMessage('❌ Failed to load from Google Drive. Please check internet connection.', 'error');
+            // NO fallback - everything must be cloud-based
+            this.pendingUsers = [];
+            this.approvedUsers = [];
         }
     }
 
-    // Cloud-first saving with real-time sync
+    // 100% Cloud-based saving - NO LOCAL STORAGE
     async save() {
+        if (!window.authManager || !window.authManager.isSignedIn) {
+            showMessage('� Sign in required to save to Google Drive', 'warning');
+            return false;
+        }
+
         try {
             this.data.lastModified = new Date().toISOString();
             this.data.version = (this.data.version || 0) + 1;
             
-            // Save to cloud immediately
-            if (window.authManager && window.authManager.isSignedIn) {
-                console.log('☁️ Attempting immediate cloud save...');
-                const success = await window.authManager.saveToGoogleDrive(this.data, true); // Allow popups for user actions
-                if (success) {
-                    this.lastSyncTime = new Date().toISOString();
-                    this.syncFailureCount = 0; // Reset failure count on success
-                    showMessage('☁️ Synced to cloud', 'success');
-                    console.log('☁️ Data saved to cloud successfully');
-                } else {
-                    throw new Error('Cloud save failed');
+            // Include user management data in cloud sync (NO localStorage)
+            const dataToSync = {
+                ...this.data,
+                userManagement: {
+                    pendingUsers: this.pendingUsers || [],
+                    approvedUsers: this.approvedUsers || [],
+                    lastUpdated: new Date().toISOString()
                 }
+            };
+            
+            console.log('☁️ Saving everything to Google Drive:', {
+                pendingCount: (this.pendingUsers || []).length,
+                approvedCount: (this.approvedUsers || []).length
+            });
+            
+            const success = await window.authManager.saveToGoogleDrive(dataToSync, true);
+            if (success) {
+                this.lastSyncTime = new Date().toISOString();
+                this.syncFailureCount = 0;
+                showMessage('✅ All data saved to Google Drive', 'success');
+                return true;
             } else {
-                throw new Error('Not signed in');
+                throw new Error('Cloud save failed');
             }
-            
-            // Keep local copy as backup
-            localStorage.setItem('labManagementData', JSON.stringify(this.data));
-            
-            this.validateMasterDataIntegrity();
-            this.refreshAllComponents();
-            
         } catch (error) {
-            console.error('Save error:', error);
-            this.syncFailureCount++;
-            
-            // Fallback to local save only
-            localStorage.setItem('labManagementData', JSON.stringify(this.data));
-            showMessage('⚠️ Saved locally, cloud sync will retry', 'warning');
-            this.validateMasterDataIntegrity();
-            this.refreshAllComponents();
-            
-            // Only retry if we haven't exceeded max failures
-            if (this.syncFailureCount < this.maxSyncFailures && window.authManager && window.authManager.isSignedIn) {
-                setTimeout(() => this.syncWithCloud(), 2000);
-            } else if (this.syncFailureCount >= this.maxSyncFailures) {
-                console.warn('⚠️ Too many sync failures, stopping auto-retry');
-                showMessage('⚠️ Cloud sync disabled due to repeated failures. Check connection.', 'error');
-            }
+            console.error('❌ Failed to save to Google Drive:', error);
+            showMessage('❌ Failed to save to Google Drive', 'error');
+            this.syncFailureCount = (this.syncFailureCount || 0) + 1;
+            return false;
         }
     }
 
@@ -685,15 +698,15 @@ function showEnhancedConflictNotification(message, conflicts) {
 }
 
 function editAcademicYear() {
-    const currentYear = dataManager.data.academicYear;
+    const currentYear = window.dataManager.data.academicYear;
     const newYear = prompt("Enter academic year (e.g., 2024-25):", currentYear);
     if (newYear && newYear !== currentYear) {
-        dataManager.setAcademicYear(newYear);
+        window.dataManager.setAcademicYear(newYear);
     }
 }
 
 function toggleScheduleOrientation() {
-    const newOrientation = dataManager.toggleScheduleOrientation();
+    const newOrientation = window.dataManager.toggleScheduleOrientation();
     const orientationText = newOrientation === "daysHorizontal" 
         ? "Days as Columns" 
         : "Times as Columns";
@@ -701,26 +714,26 @@ function toggleScheduleOrientation() {
 }
 
 function refreshDropdowns() {
-    if (!dataManager) return;
+    if (!window.dataManager) return;
     
     const dropdownConfigs = [
-        { id: 'assignmentTimeSlot', data: dataManager.data.timeSlots },
-        { id: 'assignmentDepartment', data: dataManager.data.departments },
-        { id: 'assignmentSemester', data: dataManager.data.semesters },
-        { id: 'assignmentGroup', data: dataManager.data.groups },
-        { id: 'assignmentSubGroup', data: dataManager.data.subGroups },
-        { id: 'assignmentSubject', data: dataManager.data.subjects },
-        { id: 'assignmentLabRoom', data: dataManager.data.labRooms },
-        { id: 'assignmentTheoryFaculty', data: dataManager.getFacultyDisplayNames('theory') },
-        { id: 'assignmentLabFaculty', data: dataManager.getFacultyDisplayNames('lab') },
-        { id: 'scheduleFilter', data: dataManager.data.departments },
-        { id: 'scheduleSemesterFilter', data: dataManager.data.semesters },
-        { id: 'scheduleGroupFilter', data: dataManager.data.groups },
-        { id: 'printDepartmentFilter', data: dataManager.data.departments },
-        { id: 'printSemesterFilter', data: dataManager.data.semesters },
-        { id: 'printGroupFilter', data: dataManager.data.groups },
-        { id: 'newTheoryFacultyDept', data: dataManager.data.departments },
-        { id: 'newLabFacultyDept', data: dataManager.data.departments }
+        { id: 'assignmentTimeSlot', data: window.dataManager.data.timeSlots },
+        { id: 'assignmentDepartment', data: window.dataManager.data.departments },
+        { id: 'assignmentSemester', data: window.dataManager.data.semesters },
+        { id: 'assignmentGroup', data: window.dataManager.data.groups },
+        { id: 'assignmentSubGroup', data: window.dataManager.data.subGroups },
+        { id: 'assignmentSubject', data: window.dataManager.data.subjects },
+        { id: 'assignmentLabRoom', data: window.dataManager.data.labRooms },
+        { id: 'assignmentTheoryFaculty', data: window.dataManager.getFacultyDisplayNames('theory') },
+        { id: 'assignmentLabFaculty', data: window.dataManager.getFacultyDisplayNames('lab') },
+        { id: 'scheduleFilter', data: window.dataManager.data.departments },
+        { id: 'scheduleSemesterFilter', data: window.dataManager.data.semesters },
+        { id: 'scheduleGroupFilter', data: window.dataManager.data.groups },
+        { id: 'printDepartmentFilter', data: window.dataManager.data.departments },
+        { id: 'printSemesterFilter', data: window.dataManager.data.semesters },
+        { id: 'printGroupFilter', data: window.dataManager.data.groups },
+        { id: 'newTheoryFacultyDept', data: window.dataManager.data.departments },
+        { id: 'newLabFacultydept', data: window.dataManager.data.departments }
     ];
 
     dropdownConfigs.forEach(config => {
@@ -757,18 +770,18 @@ function refreshDropdowns() {
 }
 
 function updateCountBadges() {
-    if (!dataManager) return;
+    if (!window.dataManager) return;
     
     const counts = {
-        departmentsCount: dataManager.data.departments.length,
-        semestersCount: dataManager.data.semesters.length,
-        groupsCount: dataManager.data.groups.length,
-        subGroupsCount: dataManager.data.subGroups.length,
-        timeSlotsCount: dataManager.data.timeSlots.length,
-        subjectsCount: dataManager.data.subjects.length,
-        labRoomsCount: dataManager.data.labRooms.length,
-        theoryFacultyCount: dataManager.data.theoryFaculty.length,
-        labFacultyCount: dataManager.data.labFaculty.length
+        departmentsCount: window.dataManager.data.departments.length,
+        semestersCount: window.dataManager.data.semesters.length,
+        groupsCount: window.dataManager.data.groups.length,
+        subGroupsCount: window.dataManager.data.subGroups.length,
+        timeSlotsCount: window.dataManager.data.timeSlots.length,
+        subjectsCount: window.dataManager.data.subjects.length,
+        labRoomsCount: window.dataManager.data.labRooms.length,
+        theoryFacultyCount: window.dataManager.data.theoryFaculty.length,
+        labFacultyCount: window.dataManager.data.labFaculty.length
     };
 
     Object.entries(counts).forEach(([id, count]) => {
@@ -1006,7 +1019,7 @@ function renderFacultyList(type) {
 }
 
 function renderAnalytics() {
-    if (!dataManager) return;
+    if (!window.dataManager) return;
     
     try {
         renderFacultyWorkloadChart();
@@ -1015,6 +1028,12 @@ function renderAnalytics() {
         renderDepartmentOverviewChart();
         renderTimeSlotChart();
         renderHeatmapChart();
+        
+        // Enhanced Interactive Analytics
+        renderSubjectFacultyChart();
+        renderWeeklyWorkloadChart();
+        renderDepartmentResourceChart();
+        updateAnalyticsFilters();
     } catch (e) {
         console.error('Error rendering analytics:', e);
     }
@@ -1022,11 +1041,11 @@ function renderAnalytics() {
 
 function renderFacultyWorkloadChart() {
     const ctx = document.getElementById('facultyWorkloadChart');
-    if (!ctx || !dataManager) return;
+    if (!ctx || !window.dataManager) return;
 
     const facultyWorkload = {};
     
-    dataManager.data.assignments.forEach(assignment => {
+    window.dataManager.data.assignments.forEach(assignment => {
         facultyWorkload[assignment.theoryFaculty] = (facultyWorkload[assignment.theoryFaculty] || 0) + 1;
         facultyWorkload[assignment.labFaculty] = (facultyWorkload[assignment.labFaculty] || 0) + 1;
     });
@@ -1055,10 +1074,10 @@ function renderFacultyWorkloadChart() {
 
 function renderSubjectDistributionChart() {
     const ctx = document.getElementById('subjectDistributionChart');
-    if (!ctx || !dataManager) return;
+    if (!ctx || !window.dataManager) return;
 
     const subjectCount = {};
-    dataManager.data.assignments.forEach(assignment => {
+    window.dataManager.data.assignments.forEach(assignment => {
         subjectCount[assignment.subject] = (subjectCount[assignment.subject] || 0) + 1;
     });
 
@@ -1082,10 +1101,10 @@ function renderSubjectDistributionChart() {
 
 function renderRoomUtilizationChart() {
     const ctx = document.getElementById('roomUtilizationChart');
-    if (!ctx || !dataManager) return;
+    if (!ctx || !window.dataManager) return;
 
     const roomCount = {};
-    dataManager.data.assignments.forEach(assignment => {
+    window.dataManager.data.assignments.forEach(assignment => {
         roomCount[assignment.labRoom] = (roomCount[assignment.labRoom] || 0) + 1;
     });
 
@@ -1109,10 +1128,10 @@ function renderRoomUtilizationChart() {
 
 function renderDepartmentOverviewChart() {
     const ctx = document.getElementById('departmentOverviewChart');
-    if (!ctx || !dataManager) return;
+    if (!ctx || !window.dataManager) return;
 
     const deptCount = {};
-    dataManager.data.assignments.forEach(assignment => {
+    window.dataManager.data.assignments.forEach(assignment => {
         deptCount[assignment.department] = (deptCount[assignment.department] || 0) + 1;
     });
 
@@ -1140,10 +1159,10 @@ function renderDepartmentOverviewChart() {
 
 function renderTimeSlotChart() {
     const ctx = document.getElementById('timeSlotChart');
-    if (!ctx || !dataManager) return;
+    if (!ctx || !window.dataManager) return;
 
     const timeSlotCount = {};
-    dataManager.data.assignments.forEach(assignment => {
+    window.dataManager.data.assignments.forEach(assignment => {
         timeSlotCount[assignment.timeSlot] = (timeSlotCount[assignment.timeSlot] || 0) + 1;
     });
 
@@ -1174,17 +1193,17 @@ function renderTimeSlotChart() {
 
 function renderHeatmapChart() {
     const ctx = document.getElementById('heatmapChart');
-    if (!ctx || !dataManager) return;
+    if (!ctx || !window.dataManager) return;
 
     const heatmapData = {};
-    dataManager.data.days.forEach(day => {
+    window.dataManager.data.days.forEach(day => {
         heatmapData[day] = {};
-        dataManager.data.timeSlots.forEach(timeSlot => {
+        window.dataManager.data.timeSlots.forEach(timeSlot => {
             heatmapData[day][timeSlot] = 0;
         });
     });
 
-    dataManager.data.assignments.forEach(assignment => {
+    window.dataManager.data.assignments.forEach(assignment => {
         if (heatmapData[assignment.day] && heatmapData[assignment.day][assignment.timeSlot] !== undefined) {
             heatmapData[assignment.day][assignment.timeSlot]++;
         }
@@ -1217,8 +1236,249 @@ function renderHeatmapChart() {
     });
 }
 
+// Enhanced Interactive Analytics Functions
+
+function updateAnalyticsFilters() {
+    if (!window.dataManager) return;
+    
+    // Update subject filter
+    const subjectFilter = document.getElementById('subjectFilter');
+    if (subjectFilter) {
+        subjectFilter.innerHTML = '<option value="">All Subjects</option>';
+        window.dataManager.data.subjects.forEach(subject => {
+            const option = document.createElement('option');
+            option.value = subject;
+            option.textContent = subject;
+            subjectFilter.appendChild(option);
+        });
+    }
+    
+    // Update department filter
+    const departmentFilter = document.getElementById('departmentFilter');
+    if (departmentFilter) {
+        departmentFilter.innerHTML = '<option value="">All Departments</option>';
+        window.dataManager.data.departments.forEach(dept => {
+            const option = document.createElement('option');
+            option.value = dept;
+            option.textContent = dept;
+            departmentFilter.appendChild(option);
+        });
+    }
+}
+
+function renderSubjectFacultyChart() {
+    const ctx = document.getElementById('subjectFacultyChart');
+    if (!ctx || !window.dataManager) return;
+
+    const subjectFacultyData = {};
+    
+    // Analyze faculty assignments per subject
+    window.dataManager.data.assignments.forEach(assignment => {
+        if (!subjectFacultyData[assignment.subject]) {
+            subjectFacultyData[assignment.subject] = new Set();
+        }
+        subjectFacultyData[assignment.subject].add(assignment.theoryFaculty);
+        subjectFacultyData[assignment.subject].add(assignment.labFaculty);
+    });
+
+    // Convert to counts
+    const subjects = Object.keys(subjectFacultyData);
+    const facultyCounts = subjects.map(subject => subjectFacultyData[subject].size);
+    
+    // Update statistics
+    const avgFaculty = facultyCounts.reduce((a, b) => a + b, 0) / facultyCounts.length || 0;
+    const mostPopular = subjects[facultyCounts.indexOf(Math.max(...facultyCounts))] || '-';
+    
+    document.getElementById('avgFacultyPerSubject').textContent = avgFaculty.toFixed(1);
+    document.getElementById('mostPopularSubject').textContent = mostPopular;
+
+    if (ctx.chart) ctx.chart.destroy();
+
+    ctx.chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: subjects,
+            datasets: [{
+                label: 'Faculty Count per Subject',
+                data: facultyCounts,
+                backgroundColor: '#1FB8CD',
+                borderColor: '#0EA5E9',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.parsed.y} faculty members assigned`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Number of Faculty'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Subjects'
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderWeeklyWorkloadChart() {
+    const ctx = document.getElementById('weeklyWorkloadChart');
+    if (!ctx || !window.dataManager) return;
+
+    const showTheoryOnly = document.getElementById('showTheoryOnly')?.checked;
+    const showLabOnly = document.getElementById('showLabOnly')?.checked;
+    
+    const dayWorkload = {};
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    
+    days.forEach(day => dayWorkload[day] = 0);
+    
+    window.dataManager.data.assignments.forEach(assignment => {
+        if (assignment.day && dayWorkload.hasOwnProperty(assignment.day)) {
+            let count = 1;
+            if (showTheoryOnly && assignment.theoryFaculty) count = 1;
+            else if (showLabOnly && assignment.labFaculty) count = 1;
+            else if (!showTheoryOnly && !showLabOnly) count = 1;
+            else count = 0;
+            
+            dayWorkload[assignment.day] += count;
+        }
+    });
+    
+    // Update statistics
+    const workloadValues = Object.values(dayWorkload);
+    const peakDay = days[workloadValues.indexOf(Math.max(...workloadValues))];
+    const totalHours = workloadValues.reduce((a, b) => a + b, 0);
+    
+    document.getElementById('peakDay').textContent = peakDay;
+    document.getElementById('totalWeeklyHours').textContent = totalHours;
+
+    if (ctx.chart) ctx.chart.destroy();
+
+    ctx.chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: days,
+            datasets: [{
+                label: 'Daily Workload',
+                data: Object.values(dayWorkload),
+                borderColor: '#FFC185',
+                backgroundColor: 'rgba(255, 193, 133, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Number of Sessions'
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderDepartmentResourceChart() {
+    const ctx = document.getElementById('departmentResourceChart');
+    if (!ctx || !window.dataManager) return;
+
+    const selectedDept = document.getElementById('departmentFilter')?.value;
+    
+    let assignments = window.dataManager.data.assignments;
+    if (selectedDept) {
+        assignments = assignments.filter(a => a.department === selectedDept);
+    }
+    
+    const labRooms = [...new Set(assignments.map(a => a.labRoom))].length;
+    const totalLabRooms = window.dataManager.data.labRooms.length;
+    const labUtilization = totalLabRooms > 0 ? (labRooms / totalLabRooms * 100) : 0;
+    
+    const facultyCount = new Set([...assignments.map(a => a.theoryFaculty), ...assignments.map(a => a.labFaculty)]).size;
+    const totalFaculty = window.dataManager.data.theoryFaculty.length + window.dataManager.data.labFaculty.length;
+    const facultyEfficiency = totalFaculty > 0 ? (facultyCount / totalFaculty * 100) : 0;
+    
+    // Update statistics
+    document.getElementById('labUtilization').textContent = `${labUtilization.toFixed(1)}%`;
+    document.getElementById('facultyEfficiency').textContent = `${facultyEfficiency.toFixed(1)}%`;
+    
+    const resourceData = {
+        'Lab Utilization': labUtilization,
+        'Faculty Efficiency': facultyEfficiency,
+        'Room Occupancy': assignments.length > 0 ? (assignments.length / window.dataManager.data.timeSlots.length * 100) : 0
+    };
+
+    if (ctx.chart) ctx.chart.destroy();
+
+    ctx.chart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(resourceData),
+            datasets: [{
+                data: Object.values(resourceData),
+                backgroundColor: ['#B4413C', '#5D878F', '#DB4545'],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.label}: ${context.parsed.toFixed(1)}%`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function updateSubjectFacultyAnalysis() {
+    renderSubjectFacultyChart();
+}
+
+function updateWeeklyWorkload() {
+    renderWeeklyWorkloadChart();
+}
+
+function updateDepartmentAnalysis() {
+    renderDepartmentResourceChart();
+}
+
 function renderPrintSchedule() {
-    if (!dataManager) return;
+    if (!window.dataManager) return;
     
     const grid = document.getElementById('printGrid');
     if (!grid) return;
@@ -1442,8 +1702,11 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (loadingScreen) loadingScreen.style.display = 'none';
         
         // Initialize managers
-        notificationManager = new NotificationManager();
-        dataManager = new DataManager();
+        window.notificationManager = new NotificationManager();
+        window.dataManager = new DataManager();
+        
+        console.log('✅ DataManager initialized and assigned to window.dataManager');
+        console.log('🔍 DataManager properties:', Object.keys(window.dataManager));
     } catch (error) {
         console.error('Application initialization failed:', error);
         return;
@@ -1505,8 +1768,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     // Add window beforeunload handler
     window.addEventListener('beforeunload', (e) => {
-        if (dataManager) {
-            dataManager.save();
+        if (window.dataManager) {
+            window.dataManager.save();
         }
     });
 
@@ -1613,8 +1876,8 @@ function importData() {
                     const isValid = requiredFields.every(field => Array.isArray(data[field]));
                     
                     if (isValid) {
-                        dataManager.data = { ...dataManager.data, ...data };
-                        dataManager.save();
+                        window.dataManager.data = { ...window.dataManager.data, ...data };
+                        window.dataManager.save();
                         notificationManager?.show('Data imported successfully!', 'success');
                         debugManager?.log('Data imported', 'success', data);
                     } else {
@@ -1774,14 +2037,14 @@ function bulkAssignFaculty(assignments, theoryFaculty, labFaculty) {
         }
     });
     
-    dataManager.save();
-    dataManager.refreshAllComponents();
+    window.dataManager.save();
+    window.dataManager.refreshAllComponents();
     return true;
 }
 
 // Generate semester-wise reports
 function generateSemesterReport(semester) {
-    if (!dataManager) return null;
+    if (!window.dataManager) return null;
     
     const semesterAssignments = dataManager.data.assignments.filter(a => a.semester === semester);
     const departments = [...new Set(semesterAssignments.map(a => a.department))];
@@ -1805,12 +2068,13 @@ function showUserManagement() {
         return;
     }
     
-    const pendingUsers = JSON.parse(localStorage.getItem(CONFIG.PENDING_USERS_KEY) || '[]');
-    const approvedUsers = JSON.parse(localStorage.getItem(CONFIG.APPROVED_USERS_KEY) || '[]');
+    // Get user data from cloud (100% cloud-based)
+    const pendingUsers = window.dataManager?.pendingUsers || [];
+    const approvedUsers = window.dataManager?.approvedUsers || [];
     
-    console.log('🔍 User Management Panel opened');
-    console.log('📋 Pending users:', pendingUsers.length);
-    console.log('✅ Approved users:', approvedUsers.length);
+    console.log('� Admin Panel - Loading from Google Drive');
+    console.log('📋 Pending users from cloud:', pendingUsers.length);
+    console.log('✅ Approved users from cloud:', approvedUsers.length);
     console.log('📊 Pending users data:', pendingUsers);
     
     const modal = document.createElement('div');
@@ -1837,8 +2101,8 @@ function showUserManagement() {
                                     </div>
                                 </div>
                                 <div class="user-actions">
-                                    <button class="btn btn--sm btn--success" onclick="approveUser('${user.email}'); this.closest('.user-management-modal').remove(); showUserManagement();">Approve</button>
-                                    <button class="btn btn--sm btn--danger" onclick="rejectUser('${user.email}'); this.closest('.user-management-modal').remove(); showUserManagement();">Reject</button>
+                                    <button class="btn btn--sm btn--success" onclick="approveUser('${user.email}').then(() => { this.closest('.user-management-modal').remove(); showUserManagement(); })">Approve</button>
+                                    <button class="btn btn--sm btn--danger" onclick="rejectUser('${user.email}').then(() => { this.closest('.user-management-modal').remove(); showUserManagement(); })">Reject</button>
                                 </div>
                             </div>
                           `).join('')}
@@ -1876,8 +2140,9 @@ function showUserManagement() {
 function updateAdminStats() {
     if (!window.authManager?.currentUser?.isAdmin) return;
     
-    const pendingUsers = JSON.parse(localStorage.getItem(CONFIG.PENDING_USERS_KEY) || '[]');
-    const approvedUsers = JSON.parse(localStorage.getItem(CONFIG.APPROVED_USERS_KEY) || '[]');
+    // Use 100% cloud-based data instead of localStorage
+    const pendingUsers = window.dataManager?.pendingUsers || [];
+    const approvedUsers = window.dataManager?.approvedUsers || [];
     
     const approvedCount = document.getElementById('approvedUsersCount');
     const pendingCount = document.getElementById('pendingRequestsCount');
@@ -1911,8 +2176,8 @@ function clearAllData() {
                     academicYear: "2024-25",
                     scheduleOrientation: "daysHorizontal"
                 };
-                dataManager.save();
-                dataManager.refreshAllComponents();
+                window.dataManager.save();
+                window.dataManager.refreshAllComponents();
             }
             showMessage('All data cleared successfully', 'success');
         }
@@ -1971,8 +2236,8 @@ function importData() {
                     const isValid = requiredFields.every(field => Array.isArray(data[field]));
                     
                     if (isValid) {
-                        dataManager.data = { ...dataManager.data, ...data };
-                        dataManager.save();
+                        window.dataManager.data = { ...window.dataManager.data, ...data };
+                        window.dataManager.save();
                         showMessage('Data imported successfully!', 'success');
                     } else {
                         throw new Error('Invalid data format');

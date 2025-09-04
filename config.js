@@ -45,10 +45,8 @@ const CONFIG = {
     // Development mode (set to false for production)
     DEV_MODE: false,
     
-    // User Management System
-    USER_APPROVAL_REQUIRED: true,
-    PENDING_USERS_KEY: 'lams_pending_users',
-    APPROVED_USERS_KEY: 'lams_approved_users'
+    // User Management System - 100% Cloud-Based
+    USER_APPROVAL_REQUIRED: true
 };
 
 // Export for use in other modules
