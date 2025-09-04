@@ -18,11 +18,11 @@ A comprehensive web-based lab assignment management system designed for Trident 
 ### 1. Google OAuth Setup (Already Configured)
 
 **Current Configuration:**
-- **Client ID**: `YOUR_GOOGLE_CLIENT_ID`
-- **API Key**: `YOUR_GOOGLE_API_KEY`
-- **Admin Email**: `your.admin@email.com`
-- **Authorized Domain**: `your-username.github.io`
-- **Redirect URI**: `https://your-username.github.io/LAMS/`
+- **Client ID**: `485361990614-74vhnb9vqjulp17gno3janj8blugshpr.apps.googleusercontent.com`
+- **API Key**: `AIzaSyBxrTxVOKb9nIJJGy52GjSqhfbYixoqDVE`
+- **Admin Email**: `padmalochan.maharana@tat.ac.in`
+- **Authorized Domain**: `padmalochan475.github.io`
+- **Redirect URI**: `https://padmalochan475.github.io/LAMS/`
 
 **Manual Setup (if needed):**
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
@@ -35,9 +35,9 @@ A comprehensive web-based lab assignment management system designed for Trident 
 ### 2. GitHub Pages Deployment (Live)
 
 **Example Deployment:**
-- **Live URL**: https://your-username.github.io/LAMS/
-- **Repository**: https://github.com/your-username/LAMS
-- **Admin Access**: your.admin@email.com
+- **Live URL**: https://padmalochan475.github.io/LAMS/
+- **Repository**: https://github.com/padmalochan475/LAMS
+- **Admin Access**: padmalochan.maharana@tat.ac.in
 
 **For New Deployment:**
 1. Fork this repository
@@ -52,11 +52,11 @@ Edit `config.js` to customize:
 
 ```javascript
 const CONFIG = {
-    GOOGLE_CLIENT_ID: 'YOUR_GOOGLE_CLIENT_ID',
-    GOOGLE_API_KEY: 'YOUR_GOOGLE_API_KEY',
-    INSTITUTE_NAME: 'Your Institute Name',
-    ADMIN_EMAIL: 'your.admin@email.com',
-    OAUTH_REDIRECT_URI: 'https://your-username.github.io/LAMS/',
+    GOOGLE_CLIENT_ID: '485361990614-74vhnb9vqjulp17gno3janj8blugshpr.apps.googleusercontent.com',
+    GOOGLE_API_KEY: 'AIzaSyBxrTxVOKb9nIJJGy52GjSqhfbYixoqDVE',
+    INSTITUTE_NAME: 'Trident Academy of Technology',
+    ADMIN_EMAIL: 'padmalochan.maharana@tat.ac.in',
+    OAUTH_REDIRECT_URI: 'https://padmalochan475.github.io/LAMS/',
     // ... other settings
 };
 ```
@@ -107,8 +107,8 @@ const CONFIG = {
 
 ## 📞 Support
 
-**Admin Contact**: your.admin@email.com
-**Live System**: https://your-username.github.io/LAMS/
+**Admin Contact**: padmalochan.maharana@tat.ac.in
+**Live System**: https://padmalochan475.github.io/LAMS/
 
 For issues and feature requests, please create an issue in the GitHub repository.
 

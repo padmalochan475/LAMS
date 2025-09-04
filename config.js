@@ -13,8 +13,6 @@ const CONFIG = {
     // Admin Configuration
     ADMIN_EMAIL: 'padmalochan.maharana@tat.ac.in',
     
-
-    
     // Application Settings
     AUTO_SAVE_INTERVAL: 30000,
     REALTIME_SYNC_INTERVAL: 5000,
@@ -50,9 +48,7 @@ const CONFIG = {
     // User Management System
     USER_APPROVAL_REQUIRED: true,
     PENDING_USERS_KEY: 'lams_pending_users',
-    APPROVED_USERS_KEY: 'lams_approved_users',
-    
-
+    APPROVED_USERS_KEY: 'lams_approved_users'
 };
 
 // Export for use in other modules

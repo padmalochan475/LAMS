@@ -78,7 +78,7 @@
             log('CONFIG object loaded successfully', 'success');
 
             // Check Client ID
-            if (CONFIG.GOOGLE_CLIENT_ID && CONFIG.GOOGLE_CLIENT_ID !== 'YOUR_GOOGLE_CLIENT_ID') {
+            if (CONFIG.GOOGLE_CLIENT_ID && CONFIG.GOOGLE_CLIENT_ID.length > 0) {
                 clientIdStatus.innerHTML = '<span class="success">✅ Present</span>';
                 log('Client ID: ' + CONFIG.GOOGLE_CLIENT_ID.substring(0, 20) + '...', 'success');
             } else {

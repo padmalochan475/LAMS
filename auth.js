@@ -11,12 +11,12 @@ class AuthManager {
             console.log('API_KEY:', CONFIG.GOOGLE_API_KEY ? 'Present' : 'Missing');
         }
         
-        this.CLIENT_ID = CONFIG?.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID';
-        this.API_KEY = CONFIG?.GOOGLE_API_KEY || 'YOUR_GOOGLE_API_KEY';
+        this.CLIENT_ID = CONFIG?.GOOGLE_CLIENT_ID || '';
+        this.API_KEY = CONFIG?.GOOGLE_API_KEY || '';
     }
 
     async init() {
-        if (this.CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID') {
+        if (!this.CLIENT_ID || this.CLIENT_ID === '') {
             console.warn('Google Client ID not configured');
             return;
         }
@@ -212,7 +212,7 @@ class AuthManager {
     }
 
     initializeSignInButton() {
-        if (this.CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID') {
+        if (!this.CLIENT_ID || this.CLIENT_ID === '') {
             console.error('Client ID not configured properly');
             return;
         }
@@ -365,7 +365,16 @@ class AuthManager {
                     }
                 });
                 
-                tokenClient.requestAccessToken({ prompt: '' });
+                // Try to request token with user interaction hint to help with popup blockers
+                try {
+                    tokenClient.requestAccessToken({ 
+                        prompt: 'consent',
+                        hint: this.currentUser?.email || ''
+                    });
+                } catch (popupError) {
+                    console.log('⚠️ Popup blocked, falling back to consent flow');
+                    tokenClient.requestAccessToken({ prompt: 'consent' });
+                }
             });
         } catch (error) {
             console.log('❌ Token request error:', error);
@@ -451,6 +460,11 @@ class AuthManager {
             const accessToken = await this.getAccessToken();
             if (!accessToken) {
                 console.log('❌ No access token, skipping load');
+                // Only show popup warning for manual sync attempts
+                const isManualAttempt = new Error().stack.includes('manualLoadFromDrive');
+                if (isManualAttempt && typeof showMessage === 'function') {
+                    showMessage('Please allow popups for Google Drive sync. Check browser popup settings.', 'warning');
+                }
                 return null;
             }
             
@@ -687,12 +701,30 @@ async function manualLoadFromDrive() {
     }
     
     showMessage('Loading from Google Drive...', 'info');
-    const data = await window.authManager.loadFromDrive();
     
-    if (data) {
-        showMessage('✅ Loaded from Google Drive!', 'success');
-    } else {
-        showMessage('ℹ️ No data found in Drive or load failed.', 'info');
+    try {
+        const data = await window.authManager.loadFromDrive();
+        
+        if (data && window.dataManager) {
+            window.dataManager.data = { ...window.dataManager.data, ...data };
+            window.dataManager.save();
+            window.dataManager.refreshAllComponents();
+            showMessage('✅ Loaded from Google Drive!', 'success');
+        } else {
+            // Check if it's a popup issue
+            if (typeof google !== 'undefined' && google.accounts) {
+                showMessage('ℹ️ No data found in Google Drive or sync cancelled.', 'info');
+            } else {
+                showMessage('⚠️ Google services not ready. Please allow popups and try again.', 'warning');
+            }
+        }
+    } catch (error) {
+        if (error.message && error.message.includes('popup')) {
+            showMessage('⚠️ Popup blocked. Please allow popups for this site and try again.', 'warning');
+        } else {
+            showMessage('❌ Load failed. Check your internet connection.', 'error');
+        }
+        console.error('Manual load error:', error);
     }
 }
 

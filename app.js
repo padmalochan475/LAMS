@@ -90,8 +90,10 @@ class DataManager {
                 try {
                     await window.authManager.loadFromDrive();
                 } catch (error) {
-                    // Silent error handling for background sync
-                    console.log('Background sync skipped:', error.message);
+                    // Silent error handling for background sync to avoid popup spam
+                    if (error.message && !error.message.includes('popup')) {
+                        console.log('Background sync skipped:', error.message);
+                    }
                 }
             }
         }, 30000);
@@ -477,7 +479,7 @@ function showEnhancedConflictNotification(message, conflicts) {
             </div>
             <div class="conflict-actions">
                 <button class="btn btn--secondary" onclick="this.closest('.enhanced-conflict-modal').remove()">Cancel</button>
-                <button class="btn btn--primary" onclick="switchTab('schedule'); this.closest('.enhanced-conflict-modal').remove();">View Schedule</button>
+                <button class="btn btn--primary" onclick="showTab('schedule'); this.closest('.enhanced-conflict-modal').remove();">View Schedule</button>
             </div>
         </div>
     `;
@@ -1249,12 +1251,9 @@ function toggleTheme() {
 // Initialize Application for production
 document.addEventListener('DOMContentLoaded', async function() {
     try {
-
         // Hide loading screen
         const loadingScreen = document.getElementById('loadingScreen');
         if (loadingScreen) loadingScreen.style.display = 'none';
-        
-
         
         // Initialize managers
         notificationManager = new NotificationManager();
@@ -1276,7 +1275,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     document.querySelectorAll('.nav-tab').forEach(tab => {
         tab.addEventListener('click', (e) => {
             const tabId = e.currentTarget.getAttribute('data-tab');
-            switchTab(tabId);
+            showTab(tabId);
         });
     });
 
