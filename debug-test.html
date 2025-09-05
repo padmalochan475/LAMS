@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LAMS Debug Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f0f0f0; }
+        .test-box { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .error { color: red; }
+        .success { color: green; }
+        .warning { color: orange; }
+        button { padding: 10px 20px; margin: 5px; background: #007cba; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #005a87; }
+        #log { background: #000; color: #0f0; padding: 15px; border-radius: 4px; font-family: monospace; max-height: 400px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔧 LAMS Debug Test</h1>
+    
+    <div class="test-box">
+        <h3>Quick System Check</h3>
+        <button onclick="checkSystem()">Check System Status</button>
+        <button onclick="testAssignmentCreation()">Test Assignment Creation</button>
+        <button onclick="addSampleData()">Add Sample Data</button>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+    
+    <div class="test-box">
+        <h3>Console Output</h3>
+        <div id="log"></div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+    
+    <script>
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#ff4444' : type === 'success' ? '#44ff44' : type === 'warning' ? '#ffaa44' : '#0f0';
+            logDiv.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+        
+        function checkSystem() {
+            log('🔍 Checking system status...', 'info');
+            
+            try {
+                if (!window.dataManager) {
+                    log('❌ DataManager not found', 'error');
+                    return;
+                }
+                
+                log('✅ DataManager found', 'success');
+                
+                const data = window.dataManager.data;
+                log(`Time Slots: ${data.timeSlots.length}`, 'info');
+                log(`Subjects: ${data.subjects.length}`, 'info');
+                log(`Lab Rooms: ${data.labRooms.length}`, 'info');
+                log(`Theory Faculty: ${data.theoryFaculty.length}`, 'info');
+                log(`Lab Faculty: ${data.labFaculty.length}`, 'info');
+                log(`Assignments: ${data.assignments.length}`, 'info');
+                
+                if (data.timeSlots.length === 0) log('⚠️ No time slots - add some first', 'warning');
+                if (data.subjects.length === 0) log('⚠️ No subjects - add some first', 'warning');
+                if (data.labRooms.length === 0) log('⚠️ No lab rooms - add some first', 'warning');
+                if (data.theoryFaculty.length === 0) log('⚠️ No theory faculty - add some first', 'warning');
+                if (data.labFaculty.length === 0) log('⚠️ No lab faculty - add some first', 'warning');
+                
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+        
+        function addSampleData() {
+            log('📊 Adding sample data...', 'info');
+            
+            try {
+                if (!window.dataManager) {
+                    log('❌ DataManager not available', 'error');
+                    return;
+                }
+                
+                // Add basic data
+                const dm = window.dataManager;
+                
+                if (dm.data.timeSlots.length === 0) {
+                    dm.data.timeSlots = ['9:00-10:00', '10:00-11:00', '11:00-12:00'];
+                    log('✅ Added time slots', 'success');
+                }
+                
+                if (dm.data.subjects.length === 0) {
+                    dm.data.subjects = ['Computer Lab', 'Physics Lab', 'Chemistry Lab'];
+                    log('✅ Added subjects', 'success');
+                }
+                
+                if (dm.data.labRooms.length === 0) {
+                    dm.data.labRooms = ['Lab 1', 'Lab 2', 'Lab 3'];
+                    log('✅ Added lab rooms', 'success');
+                }
+                
+                if (dm.data.theoryFaculty.length === 0) {
+                    dm.data.theoryFaculty = ['Dr. Smith', 'Dr. Brown', 'Dr. Wilson'];
+                    log('✅ Added theory faculty', 'success');
+                }
+                
+                if (dm.data.labFaculty.length === 0) {
+                    dm.data.labFaculty = ['Prof. Johnson', 'Prof. Davis', 'Prof. Miller'];
+                    log('✅ Added lab faculty', 'success');
+                }
+                
+                dm.refreshAllComponents();
+                log('✅ Sample data added successfully', 'success');
+                
+            } catch (error) {
+                log(`❌ Error adding sample data: ${error.message}`, 'error');
+            }
+        }
+        
+        function testAssignmentCreation() {
+            log('🧪 Testing assignment creation...', 'info');
+            
+            try {
+                if (!window.dataManager) {
+                    log('❌ DataManager not available', 'error');
+                    return;
+                }
+                
+                const testAssignment = {
+                    day: 'Monday',
+                    timeSlot: '9:00-10:00',
+                    department: 'Computer Science',
+                    semester: '1st Semester',
+                    group: 'Group A',
+                    subGroup: 'Sub Group 1',
+                    subject: 'Computer Lab',
+                    labRoom: 'Lab 1',
+                    theoryFaculty: 'Dr. Smith',
+                    labFaculty: 'Prof. Johnson'
+                };
+                
+                log('📝 Test assignment data:', 'info');
+                log(JSON.stringify(testAssignment, null, 2), 'info');
+                
+                const result = window.dataManager.addAssignment(testAssignment);
+                
+                if (result) {
+                    log('✅ Assignment created successfully!', 'success');
+                } else {
+                    log('❌ Assignment creation failed', 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Error testing assignment: ${error.message}`, 'error');
+            }
+        }
+        
+        // Wait for system to load
+        setTimeout(() => {
+            log('🚀 Debug test ready', 'info');
+            log('Click "Check System Status" to start', 'info');
+        }, 1000);
+    </script>
+</body>
+</html>

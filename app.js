@@ -738,6 +738,19 @@ class DataManager {
     }
 
     addAssignment(assignment) {
+        // Validate all required fields
+        const requiredFields = ['day', 'timeSlot', 'department', 'semester', 'group', 'subGroup', 'subject', 'labRoom', 'theoryFaculty', 'labFaculty'];
+        const missingFields = requiredFields.filter(field => !assignment[field] || assignment[field].trim() === '');
+        
+        if (missingFields.length > 0) {
+            const errorMsg = `Missing required fields: ${missingFields.join(', ')}`;
+            alert(errorMsg);
+            console.log('❌ Assignment validation failed - missing fields:', missingFields);
+            return false;
+        }
+
+        console.log('📝 Creating assignment:', assignment);
+
         const roomConflict = this.data.assignments.find(existing => 
             existing.day === assignment.day &&
             existing.timeSlot === assignment.timeSlot &&
@@ -769,10 +782,13 @@ class DataManager {
             
             conflictMessage += conflicts.join(', ');
             showMessage(conflictMessage, 'error');
+            console.log('❌ Assignment conflict detected:', conflicts);
             return false;
         }
 
+        // Add assignment to data
         this.data.assignments.push(assignment);
+        console.log('✅ Assignment added to data. Total assignments:', this.data.assignments.length);
         
         // Immediately update UI before saving/syncing
         this.assignments = this.data.assignments; // Update local reference
@@ -781,7 +797,7 @@ class DataManager {
         this.save();
         this.triggerImmediateSync(); // Sync immediately after adding assignment
         
-        showMessage('Assignment created successfully!', 'success');
+        showMessage('✅ Assignment created successfully!', 'success');
         console.log('✅ Assignment added and UI refreshed immediately');
         return true;
     }
@@ -2305,6 +2321,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (assignmentForm) {
         assignmentForm.addEventListener('submit', function(e) {
             e.preventDefault();
+            console.log('📝 Form submitted - creating assignment...');
             
             const assignment = {
                 day: document.getElementById('assignmentDay').value,
@@ -2319,16 +2336,34 @@ document.addEventListener('DOMContentLoaded', async function() {
                 labFaculty: document.getElementById('assignmentLabFaculty').value
             };
 
-            if (dataManager && dataManager.addAssignment(assignment)) {
-                e.target.reset();
-                // Refresh UI without touching dropdowns to preserve user selections
-                setTimeout(() => {
-                    renderAssignmentsList();
-                    renderSchedule();
-                    renderDashboard();
-                    updateCountBadges();
-                    console.log('🔄 UI updated after assignment creation (dropdowns preserved)');
-                }, 50);
+            console.log('📋 Assignment data collected:', assignment);
+
+            if (!dataManager) {
+                console.error('❌ DataManager not available');
+                alert('System error - DataManager not found. Please refresh the page.');
+                return;
+            }
+
+            try {
+                if (dataManager.addAssignment(assignment)) {
+                    console.log('✅ Assignment created successfully, clearing form...');
+                    e.target.reset();
+                    alert('Assignment created successfully!');
+                    // Refresh UI
+                    setTimeout(() => {
+                        if (typeof renderAssignmentsList === 'function') renderAssignmentsList();
+                        if (typeof renderSchedule === 'function') renderSchedule();
+                        if (typeof renderDashboard === 'function') renderDashboard();
+                        if (typeof updateCountBadges === 'function') updateCountBadges();
+                        console.log('🔄 UI updated after assignment creation');
+                    }, 100);
+                } else {
+                    console.log('❌ Assignment creation failed');
+                    alert('Assignment creation failed. Check console for details.');
+                }
+            } catch (error) {
+                console.error('❌ Error creating assignment:', error);
+                alert('Error: ' + error.message);
             }
         });
     }
@@ -2433,6 +2468,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
     console.log('🏫 Institute Lab Management System Loaded!');
+    console.log('🔧 Debug: Type debugSystemStatus() in console to check system status');
 });
 
 
@@ -2922,6 +2958,39 @@ function exportSyncLogs() {
     showMessage('Sync logs exported', 'success');
 }
 
+// Debug function to check system status
+function debugSystemStatus() {
+    if (!window.dataManager) {
+        console.log('❌ DataManager not available');
+        return;
+    }
+    
+    console.log('🔍 System Status Debug:');
+    console.log('Time Slots:', window.dataManager.data.timeSlots);
+    console.log('Departments:', window.dataManager.data.departments);
+    console.log('Semesters:', window.dataManager.data.semesters);
+    console.log('Groups:', window.dataManager.data.groups);
+    console.log('Sub Groups:', window.dataManager.data.subGroups);
+    console.log('Subjects:', window.dataManager.data.subjects);
+    console.log('Lab Rooms:', window.dataManager.data.labRooms);
+    console.log('Theory Faculty:', window.dataManager.data.theoryFaculty);
+    console.log('Lab Faculty:', window.dataManager.data.labFaculty);
+    console.log('Current Assignments:', window.dataManager.data.assignments);
+    
+    // Check if basic data exists
+    const hasTimeSlots = window.dataManager.data.timeSlots.length > 0;
+    const hasSubjects = window.dataManager.data.subjects.length > 0;
+    const hasLabRooms = window.dataManager.data.labRooms.length > 0;
+    const hasFaculty = window.dataManager.data.theoryFaculty.length > 0 && window.dataManager.data.labFaculty.length > 0;
+    
+    console.log('✅ Ready to create assignments:', hasTimeSlots && hasSubjects && hasLabRooms && hasFaculty);
+    
+    if (!hasTimeSlots) console.log('⚠️ Missing: Time Slots - Go to Master Data tab and add time slots');
+    if (!hasSubjects) console.log('⚠️ Missing: Subjects - Go to Master Data tab and add subjects');
+    if (!hasLabRooms) console.log('⚠️ Missing: Lab Rooms - Go to Master Data tab and add lab rooms');
+    if (!hasFaculty) console.log('⚠️ Missing: Faculty - Go to Master Data tab and add theory and lab faculty');
+}
+
 // Export functions for global access
 window.dataManager = dataManager;
 window.notificationManager = notificationManager;
@@ -2943,3 +3012,4 @@ window.toggleScheduleOrientation = toggleScheduleOrientation;
 window.refreshSyncLogs = refreshSyncLogs;
 window.clearSyncLogs = clearSyncLogs;
 window.exportSyncLogs = exportSyncLogs;
+window.debugSystemStatus = debugSystemStatus;
