@@ -70,13 +70,13 @@ class DataManager {
 
     // Enhanced loading with Firebase sync
     async loadFromCloud() {
-        // Try GitHub first for free cross-device sync
-        if (window.githubSync) {
-            const githubData = await window.githubSync.loadData();
-            if (githubData && Object.keys(githubData).length > 1) {
-                this.data = { ...this.data, ...githubData };
+        // Try free sync first for cross-device sync
+        if (window.freeSync) {
+            const syncData = await window.freeSync.loadData();
+            if (syncData && Object.keys(syncData).length > 1) {
+                this.data = { ...this.data, ...syncData };
                 this.assignDataArrays();
-                console.log('🐈 Data loaded from GitHub');
+                console.log('🔄 Data loaded from free sync');
                 return;
             }
         }
@@ -1408,6 +1408,7 @@ function renderAnalytics() {
         renderSubjectFacultyChart();
         renderWeeklyWorkloadChart();
         renderDepartmentResourceChart();
+        renderFacultyWorkloadTable();
         updateAnalyticsFilters();
         
         showMessage('📊 Analytics loaded successfully!', 'success');
@@ -1870,6 +1871,133 @@ function updateWeeklyWorkload() {
 
 function updateDepartmentAnalysis() {
     renderDepartmentResourceChart();
+}
+
+function renderFacultyWorkloadTable() {
+    if (!window.dataManager) return;
+    
+    const tableContainer = document.getElementById('facultyWorkloadTable');
+    if (!tableContainer) return;
+    
+    const facultyWorkload = {};
+    const facultySubjects = {};
+    
+    // Collect all faculty and their assignments
+    window.dataManager.data.assignments.forEach(assignment => {
+        // Theory faculty
+        if (assignment.theoryFaculty) {
+            if (!facultyWorkload[assignment.theoryFaculty]) {
+                facultyWorkload[assignment.theoryFaculty] = { theory: 0, lab: 0, type: 'Theory' };
+                facultySubjects[assignment.theoryFaculty] = new Set();
+            }
+            facultyWorkload[assignment.theoryFaculty].theory++;
+            facultySubjects[assignment.theoryFaculty].add(assignment.subject);
+        }
+        
+        // Lab faculty
+        if (assignment.labFaculty) {
+            if (!facultyWorkload[assignment.labFaculty]) {
+                facultyWorkload[assignment.labFaculty] = { theory: 0, lab: 0, type: 'Lab' };
+                facultySubjects[assignment.labFaculty] = new Set();
+            }
+            facultyWorkload[assignment.labFaculty].lab++;
+            facultySubjects[assignment.labFaculty].add(assignment.subject);
+        }
+    });
+    
+    const maxLoad = Math.max(...Object.values(facultyWorkload).map(f => f.theory + f.lab), 1);
+    
+    let tableHTML = `
+        <table class="workload-table" style="width: 100%; border-collapse: collapse; background: rgba(255, 255, 255, 0.05); border-radius: 8px; overflow: hidden;">
+            <thead>
+                <tr>
+                    <th style="padding: 12px; background: rgba(255, 255, 255, 0.1); font-weight: bold;">Faculty</th>
+                    <th style="padding: 12px; background: rgba(255, 255, 255, 0.1); font-weight: bold;">Type</th>
+                    <th style="padding: 12px; background: rgba(255, 255, 255, 0.1); font-weight: bold;">Theory Load</th>
+                    <th style="padding: 12px; background: rgba(255, 255, 255, 0.1); font-weight: bold;">Lab Load</th>
+                    <th style="padding: 12px; background: rgba(255, 255, 255, 0.1); font-weight: bold;">Total Load</th>
+                    <th style="padding: 12px; background: rgba(255, 255, 255, 0.1); font-weight: bold;">Subjects</th>
+                    <th style="padding: 12px; background: rgba(255, 255, 255, 0.1); font-weight: bold;">Workload</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    Object.entries(facultyWorkload).forEach(([faculty, load]) => {
+        const totalLoad = load.theory + load.lab;
+        const workloadPercent = (totalLoad / maxLoad) * 100;
+        const subjects = Array.from(facultySubjects[faculty]);
+        
+        tableHTML += `
+            <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.1);" onmouseover="this.style.background='rgba(255, 255, 255, 0.05)'" onmouseout="this.style.background='transparent'">
+                <td style="padding: 12px; font-weight: bold;">${faculty}</td>
+                <td style="padding: 12px;">
+                    <span style="background: ${load.type === 'Theory' ? '#1FB8CD' : '#FFC185'}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem;">
+                        ${load.type}
+                    </span>
+                </td>
+                <td style="padding: 12px; text-align: center; font-weight: bold; color: #4CAF50;">${load.theory}</td>
+                <td style="padding: 12px; text-align: center; font-weight: bold; color: #FFC185;">${load.lab}</td>
+                <td style="padding: 12px; text-align: center; font-weight: bold; font-size: 1.1rem;">${totalLoad}</td>
+                <td style="padding: 12px;">
+                    <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+                        ${subjects.map(subject => 
+                            `<span style="background: linear-gradient(45deg, #1FB8CD, #0EA5E9); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; white-space: nowrap;">${subject}</span>`
+                        ).join('')}
+                    </div>
+                </td>
+                <td style="padding: 12px; width: 150px;">
+                    <div style="width: 100%; height: 20px; background: rgba(255, 255, 255, 0.1); border-radius: 10px; overflow: hidden; position: relative;">
+                        <div style="height: 100%; background: linear-gradient(90deg, #4CAF50, #45a049); border-radius: 10px; width: ${workloadPercent}%; transition: width 0.3s ease;"></div>
+                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.8rem; font-weight: bold; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">
+                            ${workloadPercent.toFixed(0)}%
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+    
+    tableHTML += '</tbody></table>';
+    
+    if (Object.keys(facultyWorkload).length === 0) {
+        tableContainer.innerHTML = '<p class="empty-state">No faculty assignments found. Create some assignments first.</p>';
+    } else {
+        tableContainer.innerHTML = tableHTML;
+    }
+}
+
+function updateFacultyWorkloadTable() {
+    if (!window.dataManager) return;
+    
+    const typeFilter = document.getElementById('facultyTypeFilter')?.value || 'all';
+    const searchFilter = document.getElementById('facultySearchFilter')?.value.toLowerCase() || '';
+    
+    renderFacultyWorkloadTable();
+    
+    // Apply filters
+    const table = document.querySelector('.workload-table');
+    if (!table) return;
+    
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        const facultyName = row.cells[0].textContent.toLowerCase();
+        const facultyType = row.cells[1].textContent.toLowerCase();
+        
+        let showRow = true;
+        
+        // Type filter
+        if (typeFilter !== 'all') {
+            showRow = showRow && facultyType.includes(typeFilter);
+        }
+        
+        // Search filter
+        if (searchFilter) {
+            showRow = showRow && facultyName.includes(searchFilter);
+        }
+        
+        row.style.display = showRow ? '' : 'none';
+    });
 }
 
 function renderPrintSchedule() {

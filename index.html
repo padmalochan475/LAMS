@@ -526,6 +526,22 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- Faculty Workload Table -->
+                <div class="glass-card" style="grid-column: 1 / -1;">
+                    <h3>👨‍🏫 Faculty Workload Analysis</h3>
+                    <div class="analytics-filters">
+                        <select id="facultyTypeFilter" class="form-control" onchange="updateFacultyWorkloadTable()">
+                            <option value="all">All Faculty</option>
+                            <option value="theory">Theory Faculty Only</option>
+                            <option value="lab">Lab Faculty Only</option>
+                        </select>
+                        <input type="text" id="facultySearchFilter" class="form-control" placeholder="Search faculty..." oninput="updateFacultyWorkloadTable()" style="flex: 1; min-width: 200px;">
+                    </div>
+                    <div id="facultyWorkloadTable" class="faculty-workload-table" style="overflow-x: auto; margin-top: 15px;">
+                        <p class="empty-state">Loading faculty workload data...</p>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -616,7 +632,7 @@
     <!-- Application Scripts -->
     <script src="config.js"></script>
     <script src="auth.js"></script>
-    <script src="github-sync.js"></script>
+    <script src="free-sync.js"></script>
     <script src="realtime-sync.js"></script>
     <script src="activity-tracker.js"></script>
     <script src="app.js"></script>
