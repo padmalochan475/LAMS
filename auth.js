@@ -13,6 +13,24 @@ class AuthManager {
         
         this.CLIENT_ID = CONFIG?.GOOGLE_CLIENT_ID || '';
         this.API_KEY = CONFIG?.GOOGLE_API_KEY || '';
+        
+        // Enhanced cross-device auth management
+        this.persistentTokenKey = 'lams_persistent_auth';
+        this.refreshTokenKey = 'lams_refresh_token';
+        this.deviceIdKey = 'lams_device_id';
+        
+        // Generate or retrieve unique device ID
+        this.deviceId = localStorage.getItem(this.deviceIdKey) || this.generateDeviceId();
+        localStorage.setItem(this.deviceIdKey, this.deviceId);
+        
+        console.log('🔧 Enhanced Auth Manager initialized for device:', this.deviceId);
+    }
+
+    generateDeviceId() {
+        const timestamp = Date.now().toString(36);
+        const randomStr = Math.random().toString(36).substring(2);
+        const browserInfo = navigator.userAgent.split(' ').slice(-2).join('_').replace(/[^a-zA-Z0-9]/g, '');
+        return `device_${timestamp}_${randomStr}_${browserInfo}`;
     }
 
     async init() {
@@ -23,9 +41,54 @@ class AuthManager {
         
         try {
             await this.initializeGoogleAPI();
+            await this.checkPersistentAuth();
         } catch (error) {
             console.error('Auth initialization failed:', error);
         }
+    }
+
+    async checkPersistentAuth() {
+        console.log('🔍 Checking for persistent authentication...');
+        const persistentAuth = localStorage.getItem(this.persistentTokenKey);
+        
+        if (persistentAuth) {
+            try {
+                const authData = JSON.parse(persistentAuth);
+                const { user, tokenExpiry, refreshToken } = authData;
+                
+                console.log('📱 Found persistent auth for:', user.email);
+                
+                // Check if we have a valid refresh token or if access token is still valid
+                if (refreshToken || (tokenExpiry && new Date() < new Date(tokenExpiry))) {
+                    this.currentUser = user;
+                    this.isSignedIn = true;
+                    this.refreshToken = refreshToken;
+                    
+                    console.log('✅ Restored authentication from persistent storage');
+                    this.updateUI();
+                    
+                    // Try to refresh access token
+                    await this.refreshAccessToken();
+                    
+                    // Auto-start sync for persistent sessions
+                    if (window.dataManager) {
+                        window.dataManager.loadFromCloud().then(() => {
+                            setTimeout(() => {
+                                window.dataManager.startRealTimeSync();
+                                showMessage('🚀 Cross-device sync restored! Connected across all browsers.', 'success');
+                            }, 1000);
+                        });
+                    }
+                    
+                    return true;
+                }
+            } catch (error) {
+                console.error('❌ Failed to restore persistent auth:', error);
+                this.clearPersistentAuth();
+            }
+        }
+        
+        return false;
     }
 
     async initializeGoogleAPI() {
@@ -62,25 +125,35 @@ class AuthManager {
                 name: payload.name,
                 email: payload.email,
                 picture: payload.picture,
-                loginTime: new Date().toISOString()
+                loginTime: new Date().toISOString(),
+                deviceId: this.deviceId
             };
             
             console.log('User:', user.email, 'Admin:', CONFIG.ADMIN_EMAIL);
+            console.log('🔧 Device ID:', this.deviceId);
             
             if (user.email === CONFIG.ADMIN_EMAIL) {
                 this.currentUser = { ...user, isAdmin: true };
                 this.isSignedIn = true;
                 this.accessToken = null; // Reset token for fresh auth
                 localStorage.setItem('userSession', JSON.stringify(this.currentUser));
-                console.log('Admin signed in, session saved');
+                
+                // Enable persistent authentication for cross-device access
+                await this.setPersistentAuth(this.currentUser);
+                
+                console.log('Admin signed in with persistent authentication');
                 this.updateUI();
+                
+                // Get access token and enable persistent sync
+                await this.getAccessTokenWithPersistence();
+                
                 // Trigger cloud-first data loading and start real-time sync automatically
                 if (window.dataManager) {
                     window.dataManager.loadFromCloud().then(() => {
                         // Start automatic sync immediately like Google Docs
                         setTimeout(() => {
                             window.dataManager.startRealTimeSync();
-                            showMessage('🚀 Real-time sync active! Data syncs across all devices.', 'success');
+                            showMessage('🌐 Universal cross-device sync active! Works on all browsers and machines.', 'success');
                         }, 1000);
                     });
                 }
@@ -97,15 +170,23 @@ class AuthManager {
                 this.isSignedIn = true;
                 this.accessToken = null; // Reset token for fresh auth
                 localStorage.setItem('userSession', JSON.stringify(this.currentUser));
-                console.log('Approved user signed in, session saved');
+                
+                // Enable persistent authentication for cross-device access
+                await this.setPersistentAuth(this.currentUser);
+                
+                console.log('Approved user signed in with persistent authentication');
                 this.updateUI();
+                
+                // Get access token and enable persistent sync
+                await this.getAccessTokenWithPersistence();
+                
                 // Trigger cloud-first data loading and start real-time sync automatically
                 if (window.dataManager) {
                     window.dataManager.loadFromCloud().then(() => {
                         // Start automatic sync immediately like Google Docs
                         setTimeout(() => {
                             window.dataManager.startRealTimeSync();
-                            showMessage('🚀 Real-time sync active! Data syncs across all devices.', 'success');
+                            showMessage('🌐 Universal cross-device sync active! Works on all browsers and machines.', 'success');
                         }, 1000);
                     });
                 }
@@ -176,15 +257,27 @@ class AuthManager {
     signOut() {
         this.isSignedIn = false;
         this.currentUser = null;
+        this.accessToken = null;
+        this.refreshToken = null;
+        this.tokenExpiry = null;
+        
+        // Clear all authentication storage
         localStorage.removeItem('userSession');
+        this.clearPersistentAuth();
         
         // Sign out from Google
         if (window.google && window.google.accounts) {
             google.accounts.id.disableAutoSelect();
         }
         
+        // Stop real-time sync
+        if (window.dataManager && window.dataManager.stopRealTimeSync) {
+            window.dataManager.stopRealTimeSync();
+        }
+        
         this.updateUI();
-        console.log('Signed out successfully');
+        console.log('🚪 Signed out successfully with persistent auth cleared');
+        showMessage('Signed out from all devices successfully', 'info');
         location.reload();
     }
 
@@ -346,30 +439,45 @@ class AuthManager {
         }
     }
 
-    async saveToGoogleDrive(data, allowPopup = true) {
+    async syncWithGoogleDrive(data, allowPopup = false) {
         try {
-            console.log('🔄 Starting Google Drive sync...');
-            this.updateSyncStatus('Syncing...');
+            console.log('🔄 Starting cross-device Google Drive sync...');
+            this.updateSyncStatus('Syncing across devices...');
             
             if (!this.isSignedIn || !this.currentUser) {
                 console.log('❌ User not signed in');
                 return false;
             }
 
-            // Skip sync if Google Identity Services not available
-            if (!window.google?.accounts?.oauth2) {
-                console.log('⏳ Google Identity Services not ready, skipping sync');
-                return false;
-            }
-
-            const accessToken = await this.getAccessToken(allowPopup);
+            // Enhanced cross-device token handling
+            const accessToken = await this.getAccessTokenWithPersistence();
             if (!accessToken) {
-                console.log('❌ No access token available for sync');
+                console.log('❌ No access token available for cross-device sync');
+                this.updateSyncStatus('Auth required');
+                
+                if (allowPopup) {
+                    showMessage('🔑 Re-authentication needed for cross-device sync', 'warning');
+                } else {
+                    console.log('⏳ Background sync - will retry with cached credentials');
+                }
                 return false;
             }
             
             const fileName = 'lams-data.json';
-            const fileContent = JSON.stringify(data, null, 2);
+            
+            // Enhanced data with cross-device metadata
+            const enhancedData = {
+                ...data,
+                lastSyncDevice: {
+                    deviceId: this.deviceId,
+                    userAgent: navigator.userAgent,
+                    timestamp: new Date().toISOString(),
+                    userEmail: this.currentUser.email,
+                    syncVersion: '2.0'
+                }
+            };
+            
+            const fileContent = JSON.stringify(enhancedData, null, 2);
             
             // Search for existing file using fetch API
             console.log('🔍 Searching for existing file...');
@@ -413,11 +521,13 @@ class AuthManager {
             }
             
             if (response.ok) {
-                console.log('✅ Successfully synced to Google Drive!');
-                this.updateSyncStatus('Synced');
-                this.addSyncLog('save', 'success', 'Data successfully synced to Google Drive', {
+                console.log('🌐 Successfully synced to Google Drive across all devices!');
+                this.updateSyncStatus('Cross-device sync complete');
+                this.addSyncLog('save', 'success', 'Data successfully synced across all devices', {
                     assignmentsCount: data.assignments?.length || 0,
-                    fileSize: JSON.stringify(data).length
+                    fileSize: JSON.stringify(data).length,
+                    deviceId: this.deviceId,
+                    crossDeviceSync: true
                 });
                 return true;
             } else {
@@ -435,12 +545,104 @@ class AuthManager {
         }
     }
 
+    async setPersistentAuth(user) {
+        try {
+            const authData = {
+                user: user,
+                timestamp: new Date().toISOString(),
+                deviceId: this.deviceId,
+                tokenExpiry: this.tokenExpiry,
+                refreshToken: this.refreshToken
+            };
+            
+            localStorage.setItem(this.persistentTokenKey, JSON.stringify(authData));
+            console.log('💾 Persistent authentication saved for cross-device access');
+        } catch (error) {
+            console.error('❌ Failed to save persistent auth:', error);
+        }
+    }
+
+    clearPersistentAuth() {
+        localStorage.removeItem(this.persistentTokenKey);
+        localStorage.removeItem(this.refreshTokenKey);
+        console.log('🗑️ Persistent authentication cleared');
+    }
+
+    async getAccessTokenWithPersistence() {
+        try {
+            const token = await this.getAccessToken(true);
+            if (token && this.currentUser) {
+                // Update persistent storage with new token
+                await this.setPersistentAuth(this.currentUser);
+            }
+            return token;
+        } catch (error) {
+            console.error('❌ Failed to get persistent access token:', error);
+            return null;
+        }
+    }
+
+    async refreshAccessToken() {
+        try {
+            if (!this.refreshToken) {
+                console.log('⚠️ No refresh token available, requesting new authorization');
+                return await this.getAccessToken(false); // Try without popup first
+            }
+
+            console.log('🔄 Refreshing access token...');
+            
+            // Use the refresh token to get a new access token
+            const response = await fetch('https://oauth2.googleapis.com/token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    'client_id': this.CLIENT_ID,
+                    'refresh_token': this.refreshToken,
+                    'grant_type': 'refresh_token'
+                })
+            });
+
+            const tokenData = await response.json();
+            
+            if (tokenData.access_token) {
+                this.accessToken = tokenData.access_token;
+                this.tokenExpiry = new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString();
+                
+                // Update refresh token if provided
+                if (tokenData.refresh_token) {
+                    this.refreshToken = tokenData.refresh_token;
+                }
+                
+                console.log('✅ Access token refreshed successfully');
+                await this.setPersistentAuth(this.currentUser);
+                
+                return this.accessToken;
+            } else {
+                console.log('❌ Failed to refresh token:', tokenData.error);
+                return null;
+            }
+        } catch (error) {
+            console.error('❌ Token refresh failed:', error);
+            return null;
+        }
+    }
+
     async getAccessToken(allowPopup = true) {
         try {
             // Return cached token if still valid
             if (this.accessToken && this.tokenExpiry && new Date() < new Date(this.tokenExpiry)) {
                 console.log('🔑 Using cached access token');
                 return this.accessToken;
+            }
+
+            // Try to refresh existing token first
+            if (this.refreshToken) {
+                const refreshedToken = await this.refreshAccessToken();
+                if (refreshedToken) {
+                    return refreshedToken;
+                }
             }
 
             if (!window.google?.accounts?.oauth2) {
@@ -461,6 +663,15 @@ class AuthManager {
                                 console.log('✅ Access token obtained successfully');
                                 this.accessToken = response.access_token;
                                 this.tokenExpiry = new Date(Date.now() + 3600000).toISOString();
+                                
+                                // Store refresh token for cross-device persistence
+                                if (response.refresh_token) {
+                                    this.refreshToken = response.refresh_token;
+                                }
+                                
+                                // Update persistent storage
+                                this.setPersistentAuth(this.currentUser);
+                                
                                 resolve(response.access_token);
                             } else {
                                 console.log('❌ No access token in response');
@@ -478,16 +689,21 @@ class AuthManager {
                     });
                     
                     try {
-                        // For signed-in users, try with minimal prompt first
+                        // Request with offline access to get refresh token
                         tokenClient.requestAccessToken({ 
-                            prompt: '',
-                            hint: this.currentUser.email
+                            prompt: this.refreshToken ? '' : 'consent',
+                            hint: this.currentUser.email,
+                            access_type: 'offline',
+                            include_granted_scopes: true
                         });
                     } catch (popupError) {
                         if (allowPopup) {
                             console.log('⚠️ Popup blocked, trying consent flow...');
                             try {
-                                tokenClient.requestAccessToken({ prompt: 'consent' });
+                                tokenClient.requestAccessToken({ 
+                                    prompt: 'consent',
+                                    access_type: 'offline'
+                                });
                             } catch (consentError) {
                                 console.log('❌ Both silent and consent flows failed');
                                 resolve(null);

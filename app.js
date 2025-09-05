@@ -68,8 +68,19 @@ class DataManager {
         });
     }
 
-    // 100% Cloud-based loading - NO LOCAL STORAGE
+    // Enhanced loading with Firebase sync
     async loadFromCloud() {
+        // Try GitHub first for free cross-device sync
+        if (window.githubSync) {
+            const githubData = await window.githubSync.loadData();
+            if (githubData && Object.keys(githubData).length > 1) {
+                this.data = { ...this.data, ...githubData };
+                this.assignDataArrays();
+                console.log('🐈 Data loaded from GitHub');
+                return;
+            }
+        }
+        
         if (!window.authManager || !window.authManager.isSignedIn) {
             console.log('🔐 User not signed in - loading default data structure');
             this.initializeDefaultData();
@@ -88,22 +99,7 @@ class DataManager {
                 this.version = cloudData.version || 0;
                 this.lastSyncTime = new Date().toISOString();
                 
-                // Properly assign data to individual arrays for CRUD operations
-                this.assignments = this.data.assignments || [];
-                this.subjects = this.data.subjects || [];
-                this.faculties = {
-                    theoryFaculty: this.data.theoryFaculty || [],
-                    labFaculty: this.data.labFaculty || []
-                };
-                this.periods = this.data.timeSlots || [];
-                this.branches = this.data.departments || [];
-                this.days = this.data.days || [];
-                this.timeSlots = this.data.timeSlots || [];
-                this.departments = this.data.departments || [];
-                this.semesters = this.data.semesters || [];
-                this.groups = this.data.groups || [];
-                this.subGroups = this.data.subGroups || [];
-                this.labRooms = this.data.labRooms || [];
+                this.assignDataArrays();
 
                 console.log('📊 Data arrays properly assigned:', {
                     assignments: this.assignments.length,
@@ -197,6 +193,7 @@ class DataManager {
         this.subGroups = this.data.subGroups || [];
         this.labRooms = this.data.labRooms || [];
 
+        this.assignDataArrays();
         console.log('🔄 Default data structure initialized with proper array assignments');
         
         // Force refresh after initialization
@@ -204,6 +201,25 @@ class DataManager {
             this.refreshAllComponents();
             console.log('🔄 Components refreshed after default data initialization');
         }, 200);
+    }
+    
+    assignDataArrays() {
+        // Properly assign data to individual arrays for CRUD operations
+        this.assignments = this.data.assignments || [];
+        this.subjects = this.data.subjects || [];
+        this.faculties = {
+            theoryFaculty: this.data.theoryFaculty || [],
+            labFaculty: this.data.labFaculty || []
+        };
+        this.periods = this.data.timeSlots || [];
+        this.branches = this.data.departments || [];
+        this.days = this.data.days || [];
+        this.timeSlots = this.data.timeSlots || [];
+        this.departments = this.data.departments || [];
+        this.semesters = this.data.semesters || [];
+        this.groups = this.data.groups || [];
+        this.subGroups = this.data.subGroups || [];
+        this.labRooms = this.data.labRooms || [];
     }
 
     // 100% Cloud-based saving - NO LOCAL STORAGE
@@ -366,19 +382,30 @@ class DataManager {
             return true;
         }
         
+        // Check if user is actively filling assignment form
+        const assignmentForm = document.getElementById('assignmentForm');
+        const isFillingForm = assignmentForm && Array.from(assignmentForm.elements).some(element => 
+            element === document.activeElement || element.value.trim() !== ''
+        );
+        
         // Skip if any of these conditions are true:
         const shouldSkip = (
-            timeSinceActivity < 2000 ||  // User active in last 2 seconds
+            timeSinceActivity < 3000 ||  // User active in last 3 seconds (increased)
             this.isSyncInProgress ||     // Sync already running
             document.activeElement?.tagName === 'SELECT' ||  // Select element focused
             document.activeElement?.tagName === 'INPUT' ||   // Input element focused
             document.querySelector('select:focus') ||        // Any select has focus
             document.querySelector('input:focus') ||         // Any input has focus
-            !!document.querySelector('.dropdown-open')      // Custom dropdown open
+            !!document.querySelector('.dropdown-open') ||   // Custom dropdown open
+            isFillingForm                                    // User filling assignment form
         );
         
-        if (shouldSkip && timeSinceActivity < 2000) {
-            this.updateSyncStatus('Paused - user active');
+        if (shouldSkip) {
+            if (isFillingForm) {
+                this.updateSyncStatus('Paused - creating assignment');
+            } else if (timeSinceActivity < 3000) {
+                this.updateSyncStatus('Paused - user active');
+            }
         }
         
         return shouldSkip;
@@ -820,7 +847,18 @@ class DataManager {
                 faculty: this.data.theoryFaculty.length + this.data.labFaculty.length
             });
             
-            refreshDropdowns();
+            // Skip refresh if user is actively interacting with forms
+            const activeElement = document.activeElement;
+            const isUserInteracting = activeElement && (
+                activeElement.tagName === 'SELECT' ||
+                activeElement.tagName === 'INPUT' ||
+                activeElement.closest('#assignmentForm')
+            );
+            
+            if (!isUserInteracting) {
+                refreshDropdowns();
+            }
+            
             updateCountBadges();
             renderDashboard();
             renderAssignmentsList();
@@ -997,6 +1035,16 @@ function toggleScheduleOrientation() {
 function refreshDropdowns() {
     if (!window.dataManager) return;
     
+    // Store all current form values before refresh
+    const formValues = {};
+    const assignmentForm = document.getElementById('assignmentForm');
+    if (assignmentForm) {
+        const formData = new FormData(assignmentForm);
+        for (let [key, value] of formData.entries()) {
+            formValues[key] = value;
+        }
+    }
+    
     const dropdownConfigs = [
         { id: 'assignmentTimeSlot', data: window.dataManager.data.timeSlots },
         { id: 'assignmentDepartment', data: window.dataManager.data.departments },
@@ -1022,6 +1070,11 @@ function refreshDropdowns() {
         if (select && config.data) {
             const currentValue = select.value;
             
+            // Skip refresh if user is actively using this dropdown
+            if (document.activeElement === select) {
+                return;
+            }
+            
             const firstOption = select.querySelector('option:first-child');
             const placeholder = firstOption ? firstOption.cloneNode(true) : null;
             
@@ -1043,11 +1096,24 @@ function refreshDropdowns() {
                 select.appendChild(option);
             });
             
-            if (config.data.includes(currentValue)) {
+            // Restore previous value
+            if (currentValue && config.data.some(item => 
+                (typeof item === 'object' ? item.value : item) === currentValue
+            )) {
                 select.value = currentValue;
             }
         }
     });
+    
+    // Restore all form values after dropdown refresh
+    setTimeout(() => {
+        Object.keys(formValues).forEach(key => {
+            const element = document.getElementById(key) || document.querySelector(`[name="${key}"]`);
+            if (element && element.value !== formValues[key]) {
+                element.value = formValues[key];
+            }
+        });
+    }, 50);
 }
 
 function updateCountBadges() {
@@ -2127,13 +2193,13 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             if (dataManager && dataManager.addAssignment(assignment)) {
                 e.target.reset();
-                // Force immediate UI refresh after assignment creation
+                // Refresh UI without touching dropdowns to preserve user selections
                 setTimeout(() => {
                     renderAssignmentsList();
                     renderSchedule();
                     renderDashboard();
                     updateCountBadges();
-                    console.log('🔄 UI updated immediately after assignment creation');
+                    console.log('🔄 UI updated after assignment creation (dropdowns preserved)');
                 }, 50);
             }
         });

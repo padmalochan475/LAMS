@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LAMS Cross-Device Sync Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f0f2f5; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .test-card { background: white; padding: 20px; margin: 15px 0; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .status { padding: 15px; border-radius: 6px; margin: 10px 0; font-weight: bold; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .btn { background: #007bff; color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; margin: 8px; font-size: 14px; }
+        .btn:hover { background: #0056b3; }
+        .btn-success { background: #28a745; }
+        .btn-danger { background: #dc3545; }
+        .sync-indicator { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
+        .online { background: #28a745; }
+        .offline { background: #dc3545; }
+        .test-data { background: #f8f9fa; padding: 10px; border-radius: 4px; margin: 10px 0; font-family: monospace; }
+        .device-info { background: #e9ecef; padding: 10px; border-radius: 4px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 LAMS Cross-Device Sync Test</h1>
+        <p>Test real-time synchronization across multiple devices and browsers</p>
+        
+        <div class="test-card">
+            <h3>🔥 Firebase Sync Status</h3>
+            <div id="firebaseStatus" class="status info">Checking Firebase connection...</div>
+            <div class="device-info">
+                <strong>Device ID:</strong> <span id="deviceId"></span><br>
+                <strong>Browser:</strong> <span id="browserInfo"></span><br>
+                <strong>Timestamp:</strong> <span id="currentTime"></span>
+            </div>
+        </div>
+        
+        <div class="test-card">
+            <h3>📊 Sync Test Controls</h3>
+            <button class="btn" onclick="createTestData()">Create Test Assignment</button>
+            <button class="btn btn-success" onclick="loadLatestData()">Load Latest Data</button>
+            <button class="btn btn-danger" onclick="clearTestData()">Clear Test Data</button>
+            <div id="testResults"></div>
+        </div>
+        
+        <div class="test-card">
+            <h3>📱 Multi-Device Instructions</h3>
+            <div class="status warning">
+                <strong>To test cross-device sync:</strong><br>
+                1. Open this URL on another device/browser: <code id="currentUrl"></code><br>
+                2. Click "Create Test Assignment" on one device<br>
+                3. Click "Load Latest Data" on the other device<br>
+                4. Verify the data appears on both devices instantly
+            </div>
+        </div>
+        
+        <div class="test-card">
+            <h3>🔄 Real-time Activity Feed</h3>
+            <div id="activityFeed" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 4px;">
+                <div class="status info">Waiting for sync activities...</div>
+            </div>
+        </div>
+        
+        <div class="test-card">
+            <h3>📈 Sync Statistics</h3>
+            <div id="syncStats">
+                <div><strong>Total Syncs:</strong> <span id="totalSyncs">0</span></div>
+                <div><strong>Last Sync:</strong> <span id="lastSync">Never</span></div>
+                <div><strong>Sync Errors:</strong> <span id="syncErrors">0</span></div>
+                <div><strong>Connection Status:</strong> <span class="sync-indicator" id="connectionIndicator"></span><span id="connectionStatus">Checking...</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="firebase-sync.js"></script>
+    
+    <script>
+        let deviceId = 'device_' + Math.random().toString(36).substr(2, 9);
+        let syncCount = 0;
+        let errorCount = 0;
+        
+        // Initialize device info
+        document.getElementById('deviceId').textContent = deviceId;
+        document.getElementById('browserInfo').textContent = navigator.userAgent.split(' ').slice(-2).join(' ');
+        document.getElementById('currentUrl').textContent = window.location.href;
+        
+        function updateTime() {
+            document.getElementById('currentTime').textContent = new Date().toLocaleString();
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+        
+        // Monitor Firebase connection
+        function checkFirebaseStatus() {
+            if (window.firebaseSync) {
+                if (window.firebaseSync.isConnected) {
+                    document.getElementById('firebaseStatus').className = 'status success';
+                    document.getElementById('firebaseStatus').textContent = '✅ Firebase connected and ready for cross-device sync';
+                    document.getElementById('connectionIndicator').className = 'sync-indicator online';
+                    document.getElementById('connectionStatus').textContent = 'Online';
+                } else {
+                    document.getElementById('firebaseStatus').className = 'status error';
+                    document.getElementById('firebaseStatus').textContent = '❌ Firebase connection failed - using local sync only';
+                    document.getElementById('connectionIndicator').className = 'sync-indicator offline';
+                    document.getElementById('connectionStatus').textContent = 'Offline';
+                }
+            } else {
+                document.getElementById('firebaseStatus').className = 'status warning';
+                document.getElementById('firebaseStatus').textContent = '⏳ Initializing Firebase connection...';
+                setTimeout(checkFirebaseStatus, 1000);
+            }
+        }
+        
+        // Start checking Firebase status
+        setTimeout(checkFirebaseStatus, 500);
+        
+        function addActivity(message, type = 'info') {
+            const feed = document.getElementById('activityFeed');
+            const activity = document.createElement('div');
+            activity.className = `status ${type}`;
+            activity.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong> [${deviceId}] ${message}`;
+            
+            if (feed.children.length > 10) {
+                feed.removeChild(feed.lastChild);
+            }
+            feed.insertBefore(activity, feed.firstChild);
+        }
+        
+        async function createTestData() {
+            const testAssignment = {
+                id: 'test_' + Date.now(),
+                subject: 'Cross-Device Test',
+                department: 'Testing',
+                day: 'Monday',
+                timeSlot: '10:00-11:00',
+                labRoom: 'Test Lab',
+                theoryFaculty: 'Test Faculty',
+                labFaculty: 'Test Lab Faculty',
+                createdBy: deviceId,
+                timestamp: Date.now()
+            };
+            
+            try {
+                if (window.firebaseSync && window.firebaseSync.isConnected) {
+                    await window.firebaseSync.syncData({ testAssignments: [testAssignment] }, 'create', `test assignment created by ${deviceId}`);
+                    addActivity('✅ Test assignment created and synced to Firebase', 'success');
+                    syncCount++;
+                } else {
+                    localStorage.setItem('lams-test-data', JSON.stringify(testAssignment));
+                    addActivity('⚠️ Test assignment created locally (Firebase not available)', 'warning');
+                }
+                
+                document.getElementById('testResults').innerHTML = `
+                    <div class="test-data">
+                        <strong>Created Test Assignment:</strong><br>
+                        ${JSON.stringify(testAssignment, null, 2)}
+                    </div>
+                `;
+                
+                updateSyncStats();
+            } catch (error) {
+                addActivity('❌ Failed to create test assignment: ' + error.message, 'error');
+                errorCount++;
+                updateSyncStats();
+            }
+        }
+        
+        async function loadLatestData() {
+            try {
+                let data = null;
+                
+                if (window.firebaseSync && window.firebaseSync.isConnected) {
+                    data = await window.firebaseSync.loadData();
+                    addActivity('📥 Loaded latest data from Firebase', 'success');
+                } else {
+                    const localData = localStorage.getItem('lams-test-data');
+                    if (localData) {
+                        data = { testAssignments: [JSON.parse(localData)] };
+                    }
+                    addActivity('📥 Loaded data from local storage', 'warning');
+                }
+                
+                if (data && data.testAssignments) {
+                    document.getElementById('testResults').innerHTML = `
+                        <div class="test-data">
+                            <strong>Latest Synced Data:</strong><br>
+                            ${JSON.stringify(data.testAssignments, null, 2)}
+                        </div>
+                    `;
+                    addActivity(`✅ Found ${data.testAssignments.length} test assignments`, 'success');
+                } else {
+                    document.getElementById('testResults').innerHTML = `
+                        <div class="status info">No test data found. Create some test data first.</div>
+                    `;
+                    addActivity('ℹ️ No test data found', 'info');
+                }
+                
+                syncCount++;
+                updateSyncStats();
+            } catch (error) {
+                addActivity('❌ Failed to load data: ' + error.message, 'error');
+                errorCount++;
+                updateSyncStats();
+            }
+        }
+        
+        function clearTestData() {
+            if (confirm('Clear all test data?')) {
+                localStorage.removeItem('lams-test-data');
+                document.getElementById('testResults').innerHTML = '';
+                addActivity('🧹 Test data cleared', 'info');
+            }
+        }
+        
+        function updateSyncStats() {
+            document.getElementById('totalSyncs').textContent = syncCount;
+            document.getElementById('lastSync').textContent = new Date().toLocaleString();
+            document.getElementById('syncErrors').textContent = errorCount;
+        }
+        
+        // Listen for Firebase updates
+        if (window.firebaseSync) {
+            // Override the loadDataFromFirebase method to show activity
+            const originalLoad = window.firebaseSync.loadDataFromFirebase;
+            window.firebaseSync.loadDataFromFirebase = function(syncData) {
+                addActivity('🔄 Received real-time update from another device', 'success');
+                return originalLoad.call(this, syncData);
+            };
+        }
+        
+        // Auto-refresh connection status
+        setInterval(checkFirebaseStatus, 5000);
+        
+        addActivity('🚀 Cross-device sync test initialized', 'info');
+    </script>
+</body>
+</html>
