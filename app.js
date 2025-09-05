@@ -2031,6 +2031,9 @@ function showTab(tabId, event = null) {
         case 'logs':
             setTimeout(refreshSyncLogs, 100);
             break;
+        case 'activity':
+            setTimeout(refreshActivityFeed, 100);
+            break;
     }
 }
 

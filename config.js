@@ -29,7 +29,8 @@ const CONFIG = {
     
     // Feature Flags
     FEATURES: {
-        GOOGLE_DRIVE_SYNC: true,
+        GOOGLE_DRIVE_SYNC: false, // Using localStorage sync instead
+        REALTIME_SYNC: true,
         BULK_OPERATIONS: true,
         ANALYTICS: true,
         EXPORT_IMPORT: true

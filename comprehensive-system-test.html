@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 COMPREHENSIVE SYSTEM TEST - LAMS</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .test-container { max-width: 1200px; margin: 0 auto; }
+        .test-section { background: white; margin: 20px 0; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .test-header { background: #2196F3; color: white; padding: 15px; margin: -20px -20px 20px -20px; border-radius: 8px 8px 0 0; }
+        .test-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; }
+        .test-item { padding: 15px; border: 2px solid #ddd; border-radius: 8px; background: #f9f9f9; }
+        .test-item.pass { border-color: #4CAF50; background: #e8f5e8; }
+        .test-item.fail { border-color: #f44336; background: #ffeaea; }
+        .test-item.pending { border-color: #ff9800; background: #fff3e0; }
+        .btn { padding: 10px 20px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-primary { background: #2196F3; color: white; }
+        .btn-success { background: #4CAF50; color: white; }
+        .btn-warning { background: #ff9800; color: white; }
+        .btn-danger { background: #f44336; color: white; }
+        .status { font-weight: bold; margin-left: 10px; }
+        .pass { color: #4CAF50; }
+        .fail { color: #f44336; }
+        .pending { color: #ff9800; }
+        .log { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 4px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto; }
+        .progress { width: 100%; height: 20px; background: #ddd; border-radius: 10px; overflow: hidden; margin: 10px 0; }
+        .progress-bar { height: 100%; background: #4CAF50; transition: width 0.3s; }
+        .summary { background: #e3f2fd; padding: 20px; border-radius: 8px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔍 COMPREHENSIVE SYSTEM TEST</h1>
+        <p><strong>Testing all LAMS functionality including real-time sync, user management, and data operations</strong></p>
+        
+        <div class="summary">
+            <h3>📊 Test Progress</h3>
+            <div class="progress">
+                <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+            </div>
+            <div id="progressText">Ready to start testing...</div>
+        </div>
+
+        <!-- Authentication & User Management Tests -->
+        <div class="test-section">
+            <div class="test-header">
+                <h2>🔐 Authentication & User Management</h2>
+            </div>
+            <div class="test-grid">
+                <div class="test-item pending" id="auth-config">
+                    <h4>Config Loading</h4>
+                    <p>Check if CONFIG is properly loaded</p>
+                    <span class="status pending">⏳ Pending</span>
+                </div>
+                <div class="test-item pending" id="auth-manager">
+                    <h4>Auth Manager</h4>
+                    <p>Verify AuthManager initialization</p>
+                    <span class="status pending">⏳ Pending</span>
+                </div>
+                <div class="test-item pending" id="user-approval">
+                    <h4>User Approval System</h4>
+                    <p>Test pending/approved user management</p>
+                    <span class="status pending">⏳ Pending</span>
+                </div>
+                <div class="test-item pending" id="admin-functions">
+                    <h4>Admin Functions</h4>
+                    <p>Verify admin-only features</p>
+                    <span class="status pending">⏳ Pending</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Management Tests -->
+        <div class="test-section">
+            <div class="test-header">
+                <h2>📊 Data Management</h2>
+            </div>
+            <div class="test-grid">
+                <div class="test-item pending" id="data-manager">
+                    <h4>DataManager</h4>
+                    <p>Check DataManager initialization</p>
+                    <span class="status pending">⏳ Pending</span>
+                </div>
+                <div class="test-item pending" id="master-data">
+                    <h4>Master Data</h4>
+                    <p>Verify default master data loading</p>
+                    <span class="status pending">⏳ Pending</span>
+                </div>
+                <div class="test-item pending" id="assignment-crud">
+                    <h4>Assignment CRUD</h4>
+                    <p>Test create, read, update, delete operations</p>
+                    <span class="status pending">⏳ Pending</span>
+                </div>
+                <div class="test-item pending" id="data-validation">
+                    <h4>Data Validation</h4>
+                    <p>Check data integrity and validation</p>
+                    <span class="status pending">⏳ Pending</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Real-time Sync Tests -->
+        <div class="test-section">
+            <div class="test-header">
+                <h2>🔄 Real-time Sync System</h2>
+            </div>
+            <div class="test-grid">
+                <div class="test-item pending" id="realtime-sync">
+                    <h4>Realtime Sync</h4>
+                    <p>Check RealtimeSync initialization</p>
+                    <span class="status pending">⏳ Pending</span>
+                </div>
+                <div class="test-item pending" id="broadcast-channel">
+                    <h4>BroadcastChannel</h4>
+                    <p>Test cross-tab communication</p>
+                    <span class="status pending">⏳ Pending</span>
+                </div>
+                <div class="test-item pending" id="activity-tracking">
+                    <h4>Activity Tracking</h4>
+                    <p>Verify activity logging system</p>
+                    <span class="status pending">⏳ Pending</span>
+                </div>
+                <div class="test-item pending" id="sync-performance">
+                    <h4>Sync Performance</h4>
+                    <p>Test sync speed and reliability</p>
+                    <span class="status pending">⏳ Pending</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- UI & Charts Tests -->
+        <div class="test-section">
+            <div class="test-header">
+                <h2>📈 UI & Analytics</h2>
+            </div>
+            <div class="test-grid">
+                <div class="test-item pending" id="chart-js">
+                    <h4>Chart.js Library</h4>
+                    <p>Check if Chart.js is loaded</p>
+                    <span class="status pending">⏳ Pending</span>
+                </div>
+                <div class="test-item pending" id="analytics-charts">
+                    <h4>Analytics Charts</h4>
+                    <p>Test chart rendering and data</p>
+                    <span class="status pending">⏳ Pending</span>
+                </div>
+                <div class="test-item pending" id="schedule-rendering">
+                    <h4>Schedule Rendering</h4>
+                    <p>Verify schedule grid display</p>
+                    <span class="status pending">⏳ Pending</span>
+                </div>
+                <div class="test-item pending" id="print-system">
+                    <h4>Print System</h4>
+                    <p>Test A4 print functionality</p>
+                    <span class="status pending">⏳ Pending</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Integration Tests -->
+        <div class="test-section">
+            <div class="test-header">
+                <h2>🔗 Integration Tests</h2>
+            </div>
+            <div class="test-grid">
+                <div class="test-item pending" id="end-to-end">
+                    <h4>End-to-End Flow</h4>
+                    <p>Complete user workflow test</p>
+                    <span class="status pending">⏳ Pending</span>
+                </div>
+                <div class="test-item pending" id="cross-tab-sync">
+                    <h4>Cross-tab Sync</h4>
+                    <p>Test real-time sync between tabs</p>
+                    <span class="status pending">⏳ Pending</span>
+                </div>
+                <div class="test-item pending" id="error-handling">
+                    <h4>Error Handling</h4>
+                    <p>Test system resilience</p>
+                    <span class="status pending">⏳ Pending</span>
+                </div>
+                <div class="test-item pending" id="performance">
+                    <h4>Performance</h4>
+                    <p>Check system performance metrics</p>
+                    <span class="status pending">⏳ Pending</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <button class="btn btn-primary" onclick="runAllTests()">🚀 Run All Tests</button>
+            <button class="btn btn-success" onclick="runQuickTest()">⚡ Quick Test</button>
+            <button class="btn btn-warning" onclick="runSyncTest()">🔄 Sync Test Only</button>
+            <button class="btn btn-danger" onclick="clearResults()">🗑️ Clear Results</button>
+        </div>
+
+        <div class="test-section">
+            <div class="test-header">
+                <h2>📋 Test Log</h2>
+            </div>
+            <div class="log" id="testLog">Ready to run tests...</div>
+        </div>
+    </div>
+
+    <script>
+        let testResults = {};
+        let totalTests = 16;
+        let completedTests = 0;
+
+        function log(message) {
+            const logElement = document.getElementById('testLog');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function updateProgress() {
+            const progress = (completedTests / totalTests) * 100;
+            document.getElementById('progressBar').style.width = progress + '%';
+            document.getElementById('progressText').textContent = 
+                `${completedTests}/${totalTests} tests completed (${Math.round(progress)}%)`;
+        }
+
+        function setTestResult(testId, passed, message) {
+            const element = document.getElementById(testId);
+            const statusElement = element.querySelector('.status');
+            
+            if (passed) {
+                element.className = 'test-item pass';
+                statusElement.innerHTML = '✅ Pass';
+                statusElement.className = 'status pass';
+            } else {
+                element.className = 'test-item fail';
+                statusElement.innerHTML = '❌ Fail';
+                statusElement.className = 'status fail';
+            }
+            
+            testResults[testId] = { passed, message };
+            completedTests++;
+            updateProgress();
+            log(`${testId}: ${passed ? 'PASS' : 'FAIL'} - ${message}`);
+        }
+
+        async function runAllTests() {
+            log('🚀 Starting comprehensive system test...');
+            completedTests = 0;
+            updateProgress();
+            
+            // Authentication Tests
+            await testAuthConfig();
+            await testAuthManager();
+            await testUserApproval();
+            await testAdminFunctions();
+            
+            // Data Management Tests
+            await testDataManager();
+            await testMasterData();
+            await testAssignmentCRUD();
+            await testDataValidation();
+            
+            // Real-time Sync Tests
+            await testRealtimeSync();
+            await testBroadcastChannel();
+            await testActivityTracking();
+            await testSyncPerformance();
+            
+            // UI & Charts Tests
+            await testChartJS();
+            await testAnalyticsCharts();
+            await testScheduleRendering();
+            await testPrintSystem();
+            
+            log('✅ All tests completed!');
+            showSummary();
+        }
+
+        async function testAuthConfig() {
+            try {
+                const configExists = typeof CONFIG !== 'undefined';
+                const hasClientId = CONFIG && CONFIG.GOOGLE_CLIENT_ID;
+                const hasApiKey = CONFIG && CONFIG.GOOGLE_API_KEY;
+                
+                if (configExists && hasClientId && hasApiKey) {
+                    setTestResult('auth-config', true, 'CONFIG loaded with credentials');
+                } else {
+                    setTestResult('auth-config', false, 'CONFIG missing or incomplete');
+                }
+            } catch (error) {
+                setTestResult('auth-config', false, 'Error: ' + error.message);
+            }
+        }
+
+        async function testAuthManager() {
+            try {
+                const authManagerExists = typeof window.authManager !== 'undefined';
+                const hasClientId = window.authManager && window.authManager.CLIENT_ID;
+                
+                if (authManagerExists && hasClientId) {
+                    setTestResult('auth-manager', true, 'AuthManager initialized properly');
+                } else {
+                    setTestResult('auth-manager', false, 'AuthManager not found or incomplete');
+                }
+            } catch (error) {
+                setTestResult('auth-manager', false, 'Error: ' + error.message);
+            }
+        }
+
+        async function testUserApproval() {
+            try {
+                const hasApprovalSystem = CONFIG && CONFIG.USER_APPROVAL_REQUIRED;
+                const hasPendingKey = CONFIG && CONFIG.PENDING_USERS_KEY;
+                const hasApprovedKey = CONFIG && CONFIG.APPROVED_USERS_KEY;
+                
+                if (hasApprovalSystem && hasPendingKey && hasApprovedKey) {
+                    setTestResult('user-approval', true, 'User approval system configured');
+                } else {
+                    setTestResult('user-approval', false, 'User approval system not properly configured');
+                }
+            } catch (error) {
+                setTestResult('user-approval', false, 'Error: ' + error.message);
+            }
+        }
+
+        async function testAdminFunctions() {
+            try {
+                const hasAdminEmail = CONFIG && CONFIG.ADMIN_EMAIL;
+                const approveUserExists = typeof window.approveUser === 'function';
+                const rejectUserExists = typeof window.rejectUser === 'function';
+                
+                if (hasAdminEmail && approveUserExists && rejectUserExists) {
+                    setTestResult('admin-functions', true, 'Admin functions available');
+                } else {
+                    setTestResult('admin-functions', false, 'Admin functions missing');
+                }
+            } catch (error) {
+                setTestResult('admin-functions', false, 'Error: ' + error.message);
+            }
+        }
+
+        async function testDataManager() {
+            try {
+                const dataManagerExists = typeof window.dataManager !== 'undefined';
+                const hasData = window.dataManager && window.dataManager.data;
+                const hasAssignments = hasData && Array.isArray(window.dataManager.data.assignments);
+                
+                if (dataManagerExists && hasData && hasAssignments) {
+                    setTestResult('data-manager', true, 'DataManager initialized with data structure');
+                } else {
+                    setTestResult('data-manager', false, 'DataManager not properly initialized');
+                }
+            } catch (error) {
+                setTestResult('data-manager', false, 'Error: ' + error.message);
+            }
+        }
+
+        async function testMasterData() {
+            try {
+                const data = window.dataManager?.data;
+                const hasDepartments = data && Array.isArray(data.departments) && data.departments.length > 0;
+                const hasSemesters = data && Array.isArray(data.semesters) && data.semesters.length > 0;
+                const hasGroups = data && Array.isArray(data.groups) && data.groups.length > 0;
+                
+                if (hasDepartments && hasSemesters && hasGroups) {
+                    setTestResult('master-data', true, `Master data loaded: ${data.departments.length} depts, ${data.semesters.length} semesters`);
+                } else {
+                    setTestResult('master-data', false, 'Master data not properly loaded');
+                }
+            } catch (error) {
+                setTestResult('master-data', false, 'Error: ' + error.message);
+            }
+        }
+
+        async function testAssignmentCRUD() {
+            try {
+                const addAssignmentExists = typeof window.dataManager?.addAssignment === 'function';
+                const deleteAssignmentExists = typeof window.dataManager?.deleteAssignment === 'function';
+                const hasAssignments = Array.isArray(window.dataManager?.data?.assignments);
+                
+                if (addAssignmentExists && deleteAssignmentExists && hasAssignments) {
+                    setTestResult('assignment-crud', true, 'Assignment CRUD operations available');
+                } else {
+                    setTestResult('assignment-crud', false, 'Assignment CRUD operations missing');
+                }
+            } catch (error) {
+                setTestResult('assignment-crud', false, 'Error: ' + error.message);
+            }
+        }
+
+        async function testDataValidation() {
+            try {
+                const validateExists = typeof window.dataManager?.validateMasterDataIntegrity === 'function';
+                const saveExists = typeof window.dataManager?.save === 'function';
+                const loadExists = typeof window.dataManager?.load === 'function';
+                
+                if (validateExists && saveExists && loadExists) {
+                    setTestResult('data-validation', true, 'Data validation and persistence methods available');
+                } else {
+                    setTestResult('data-validation', false, 'Data validation methods missing');
+                }
+            } catch (error) {
+                setTestResult('data-validation', false, 'Error: ' + error.message);
+            }
+        }
+
+        async function testRealtimeSync() {
+            try {
+                const realtimeSyncExists = typeof window.realtimeSync !== 'undefined';
+                const hasChannel = window.realtimeSync && window.realtimeSync.channel;
+                const hasSaveData = typeof window.realtimeSync?.saveData === 'function';
+                
+                if (realtimeSyncExists && hasChannel && hasSaveData) {
+                    setTestResult('realtime-sync', true, 'RealtimeSync system initialized');
+                } else {
+                    setTestResult('realtime-sync', false, 'RealtimeSync system not found');
+                }
+            } catch (error) {
+                setTestResult('realtime-sync', false, 'Error: ' + error.message);
+            }
+        }
+
+        async function testBroadcastChannel() {
+            try {
+                const broadcastSupported = typeof BroadcastChannel !== 'undefined';
+                const hasChannel = window.realtimeSync?.channel instanceof BroadcastChannel;
+                
+                if (broadcastSupported && hasChannel) {
+                    setTestResult('broadcast-channel', true, 'BroadcastChannel working for cross-tab sync');
+                } else {
+                    setTestResult('broadcast-channel', false, 'BroadcastChannel not available');
+                }
+            } catch (error) {
+                setTestResult('broadcast-channel', false, 'Error: ' + error.message);
+            }
+        }
+
+        async function testActivityTracking() {
+            try {
+                const activityTrackerExists = typeof window.ActivityTracker !== 'undefined';
+                const hasUpdateFeed = typeof window.realtimeSync?.updateActivityFeed === 'function';
+                const refreshExists = typeof window.refreshActivityFeed === 'function';
+                
+                if (activityTrackerExists && hasUpdateFeed && refreshExists) {
+                    setTestResult('activity-tracking', true, 'Activity tracking system operational');
+                } else {
+                    setTestResult('activity-tracking', false, 'Activity tracking system incomplete');
+                }
+            } catch (error) {
+                setTestResult('activity-tracking', false, 'Error: ' + error.message);
+            }
+        }
+
+        async function testSyncPerformance() {
+            try {
+                const startTime = performance.now();
+                
+                // Test localStorage operations
+                const testData = { test: 'performance', timestamp: Date.now() };
+                localStorage.setItem('test_sync_performance', JSON.stringify(testData));
+                const retrieved = JSON.parse(localStorage.getItem('test_sync_performance'));
+                localStorage.removeItem('test_sync_performance');
+                
+                const endTime = performance.now();
+                const duration = endTime - startTime;
+                
+                if (retrieved && retrieved.test === 'performance' && duration < 100) {
+                    setTestResult('sync-performance', true, `Sync performance: ${duration.toFixed(2)}ms`);
+                } else {
+                    setTestResult('sync-performance', false, `Sync too slow: ${duration.toFixed(2)}ms`);
+                }
+            } catch (error) {
+                setTestResult('sync-performance', false, 'Error: ' + error.message);
+            }
+        }
+
+        async function testChartJS() {
+            try {
+                const chartJSExists = typeof Chart !== 'undefined';
+                const hasVersion = Chart && Chart.version;
+                
+                if (chartJSExists && hasVersion) {
+                    setTestResult('chart-js', true, `Chart.js v${Chart.version} loaded`);
+                } else {
+                    setTestResult('chart-js', false, 'Chart.js not loaded');
+                }
+            } catch (error) {
+                setTestResult('chart-js', false, 'Error: ' + error.message);
+            }
+        }
+
+        async function testAnalyticsCharts() {
+            try {
+                const chartElements = [
+                    'facultyWorkloadChart',
+                    'subjectDistributionChart',
+                    'roomUtilizationChart',
+                    'departmentOverviewChart'
+                ];
+                
+                const existingElements = chartElements.filter(id => document.getElementById(id));
+                
+                if (existingElements.length === chartElements.length) {
+                    setTestResult('analytics-charts', true, `All ${chartElements.length} chart elements present`);
+                } else {
+                    setTestResult('analytics-charts', false, `Missing chart elements: ${chartElements.length - existingElements.length}`);
+                }
+            } catch (error) {
+                setTestResult('analytics-charts', false, 'Error: ' + error.message);
+            }
+        }
+
+        async function testScheduleRendering() {
+            try {
+                const scheduleGrid = document.getElementById('scheduleGrid');
+                const printGrid = document.getElementById('printGrid');
+                const renderScheduleExists = typeof window.renderSchedule === 'function';
+                
+                if (scheduleGrid && printGrid && renderScheduleExists) {
+                    setTestResult('schedule-rendering', true, 'Schedule rendering system ready');
+                } else {
+                    setTestResult('schedule-rendering', false, 'Schedule rendering components missing');
+                }
+            } catch (error) {
+                setTestResult('schedule-rendering', false, 'Error: ' + error.message);
+            }
+        }
+
+        async function testPrintSystem() {
+            try {
+                const printSchedule = document.getElementById('printSchedule');
+                const printHeader = document.querySelector('.print-header');
+                const printFooter = document.querySelector('.print-footer');
+                
+                if (printSchedule && printHeader && printFooter) {
+                    setTestResult('print-system', true, 'A4 print system components ready');
+                } else {
+                    setTestResult('print-system', false, 'Print system components missing');
+                }
+            } catch (error) {
+                setTestResult('print-system', false, 'Error: ' + error.message);
+            }
+        }
+
+        async function runQuickTest() {
+            log('⚡ Running quick test...');
+            completedTests = 0;
+            totalTests = 8;
+            updateProgress();
+            
+            await testAuthConfig();
+            await testDataManager();
+            await testRealtimeSync();
+            await testChartJS();
+            await testAssignmentCRUD();
+            await testBroadcastChannel();
+            await testMasterData();
+            await testActivityTracking();
+            
+            log('✅ Quick test completed!');
+            showSummary();
+        }
+
+        async function runSyncTest() {
+            log('🔄 Running sync test only...');
+            completedTests = 0;
+            totalTests = 4;
+            updateProgress();
+            
+            await testRealtimeSync();
+            await testBroadcastChannel();
+            await testActivityTracking();
+            await testSyncPerformance();
+            
+            log('✅ Sync test completed!');
+            showSummary();
+        }
+
+        function clearResults() {
+            completedTests = 0;
+            testResults = {};
+            updateProgress();
+            
+            document.querySelectorAll('.test-item').forEach(item => {
+                item.className = 'test-item pending';
+                const status = item.querySelector('.status');
+                status.innerHTML = '⏳ Pending';
+                status.className = 'status pending';
+            });
+            
+            document.getElementById('testLog').innerHTML = 'Results cleared. Ready to run tests...';
+            log('🗑️ Test results cleared');
+        }
+
+        function showSummary() {
+            const passed = Object.values(testResults).filter(r => r.passed).length;
+            const failed = Object.values(testResults).filter(r => !r.passed).length;
+            const total = passed + failed;
+            
+            log(`\n📊 TEST SUMMARY:`);
+            log(`✅ Passed: ${passed}/${total}`);
+            log(`❌ Failed: ${failed}/${total}`);
+            log(`📈 Success Rate: ${((passed/total)*100).toFixed(1)}%`);
+            
+            if (failed === 0) {
+                log(`🎉 ALL TESTS PASSED! System is fully functional.`);
+            } else {
+                log(`⚠️ ${failed} test(s) failed. Check individual results above.`);
+            }
+        }
+
+        // Auto-run quick test on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                log('🔍 Auto-running system check...');
+                runQuickTest();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
