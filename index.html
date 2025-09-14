@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Institute Lab Management System</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="modal-styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://apis.google.com/js/api.js"></script>
     <script src="https://accounts.google.com/gsi/client"></script>
@@ -30,7 +31,6 @@
                 </div>
                 <div id="login-section">
                     <div id="g_id_onload"
-                         data-client_id="485361990614-74vhnb9vqjulp17gno3janj8blugshpr.apps.googleusercontent.com"
                          data-callback="handleCredentialResponse"
                          data-auto_prompt="false">
                     </div>
@@ -161,7 +161,7 @@
         <div class="tab-content" id="assignment-tab">
             <div class="glass-card">
                 <h2>Create Lab Assignment</h2>
-                <form id="assignmentForm" class="assignment-form">
+                <form id="assignmentForm" class="assignment-form" novalidate>
                     <div class="form-section">
                         <h3>Schedule Information</h3>
                         <div class="form-row">
@@ -750,6 +750,7 @@
     
     <!-- Application Scripts -->
     <script src="config.js"></script>
+    <script src="utils.js"></script>
     <script src="auth.js"></script>
     <script src="app.js"></script>
 </body>

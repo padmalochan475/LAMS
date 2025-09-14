@@ -81,7 +81,8 @@ class DataManager {
         this.pendingUsers = this.pendingUsers || [];
         this.approvedUsers = this.approvedUsers || [];
         this.syncInterval = this.syncInterval || null;
-        this.syncIntervalMs = this.syncIntervalMs || 10000;
+        // Prefer configured interval, fallback to 10s
+        this.syncIntervalMs = this.syncIntervalMs || (window.CONFIG?.REALTIME_SYNC_INTERVAL) || 10000;
         this.unsyncedChanges = this.unsyncedChanges || false;
         this.syncFailureCount = this.syncFailureCount || 0;
         this.waitingForPermission = this.waitingForPermission || false;
@@ -89,9 +90,19 @@ class DataManager {
 
     // 100% Cloud-based saving - NO LOCAL STORAGE
     async save() {
-        if (!window.authManager || !window.authManager.isSignedIn) {
+        if (!window.authManager || !window.authManager.isSignedIn || !window.authManager.currentUser) {
             showMessage('⚠ Sign in required to save to Google Drive', 'warning');
             return false;
+        }
+        
+        // SECURITY: Verify user is still approved before allowing save
+        if (!window.authManager.currentUser.isAdmin) {
+            const isStillApproved = await window.authManager.checkUserApprovalFromCloud(window.authManager.currentUser.email);
+            if (!isStillApproved) {
+                showMessage('❌ Access revoked. Please contact admin.', 'error');
+                window.authManager.signOut();
+                return false;
+            }
         }
 
         try {
@@ -170,6 +181,14 @@ class DataManager {
                 this.stopRealTimeSync();
             }
         }, this.syncIntervalMs);
+
+        // Kick off an immediate attempt so UI reflects state right away
+        if (window.authManager && window.authManager.isSignedIn && !this.isSyncInProgress) {
+            this.isSyncInProgress = true;
+            this.syncWithCloud().finally(() => {
+                this.isSyncInProgress = false;
+            });
+        }
     }
 
     setupAdvancedInteractionTracking() {
@@ -309,6 +328,14 @@ class DataManager {
                 if (cloudData.userManagement) {
                     this.pendingUsers = cloudData.userManagement.pendingUsers || [];
                     this.approvedUsers = cloudData.userManagement.approvedUsers || [];
+                    console.log('📥 Loaded user data from cloud:', {
+                        pending: this.pendingUsers.length,
+                        approved: this.approvedUsers.length
+                    });
+                    // Update admin UI badge immediately
+                    if (window.authManager?.currentUser?.isAdmin) {
+                        window.authManager.updatePendingUsersCountFromCloud(this.pendingUsers.length);
+                    }
                 }
                 this.lastSyncTime = new Date().toISOString();
                 
@@ -348,6 +375,7 @@ class DataManager {
             return true;
 
         } catch (error) {
+            console.error('Cloud sync error:', error);
             showMessage('⚠️ Cloud sync failed - working offline', 'warning');
             return false;
         }
@@ -363,6 +391,14 @@ class DataManager {
             if (cloudData.userManagement) {
                 this.pendingUsers = cloudData.userManagement.pendingUsers || [];
                 this.approvedUsers = cloudData.userManagement.approvedUsers || [];
+                console.log('📥 Initial load - user data from cloud:', {
+                    pending: this.pendingUsers.length,
+                    approved: this.approvedUsers.length
+                });
+                // Update admin UI badge immediately
+                if (window.authManager?.currentUser?.isAdmin) {
+                    window.authManager.updatePendingUsersCountFromCloud(this.pendingUsers.length);
+                }
             }
             this.assignDataArrays();
             this.refreshAllComponents();
@@ -683,9 +719,12 @@ class DataManager {
         }
         this.data.academicYear = year.trim();
         
-        // Immediately update UI and sync
-        document.getElementById('currentAcademicYear').textContent = this.data.academicYear;
-        document.getElementById('printAcademicYear').textContent = this.data.academicYear;
+        // Immediately update UI and sync with null checks
+        const currentEl = document.getElementById('currentAcademicYear');
+        const printEl = document.getElementById('printAcademicYear');
+        if (currentEl) currentEl.textContent = this.data.academicYear;
+        if (printEl) printEl.textContent = this.data.academicYear;
+        
         this.save();
         this.triggerImmediateSync();
         
@@ -939,12 +978,41 @@ function showEnhancedConflictNotification(message, conflicts) {
     }, 10000);
 }
 
-function editAcademicYear() {
+async function editAcademicYear() {
     const currentYear = window.dataManager.data.academicYear;
-    const newYear = prompt("Enter academic year (e.g., 2024-25):", currentYear);
-    if (newYear && newYear !== currentYear) {
-        window.dataManager.setAcademicYear(newYear);
-    }
+    const modal = document.createElement('div');
+    modal.className = 'custom-modal-overlay';
+    modal.innerHTML = `
+        <div class="custom-modal">
+            <div class="custom-modal-header">
+                <span class="custom-modal-icon">📅</span>
+                <h3>Edit Academic Year</h3>
+            </div>
+            <div class="custom-modal-body">
+                <label class="form-label">Academic Year (e.g., 2024-25):</label>
+                <input type="text" class="form-control" id="academicYearInput" value="${InputSanitizer.sanitizeForAttribute(currentYear)}">
+            </div>
+            <div class="custom-modal-actions">
+                <button class="btn btn--secondary" data-action="cancel">Cancel</button>
+                <button class="btn btn--primary" data-action="save">Save</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    setTimeout(() => modal.classList.add('show'), 10);
+    
+    modal.addEventListener('click', (e) => {
+        if (e.target.dataset.action === 'save') {
+            const newYear = document.getElementById('academicYearInput').value.trim();
+            if (newYear && newYear !== currentYear) {
+                window.dataManager.setAcademicYear(newYear);
+            }
+            modal.remove();
+        } else if (e.target.dataset.action === 'cancel' || e.target === modal) {
+            modal.remove();
+        }
+    });
 }
 
 function toggleScheduleOrientation() {
@@ -1064,15 +1132,18 @@ function renderDashboard() {
     if (!window.dataManager) return;
     
     try {
-        const totalAssignments = document.getElementById('totalAssignments');
-        const totalFaculty = document.getElementById('totalFaculty');
-        const totalRooms = document.getElementById('totalRooms');
-        const totalSubjects = document.getElementById('totalSubjects');
+        // Cache DOM elements for better performance
+        const elements = {
+            totalAssignments: document.getElementById('totalAssignments'),
+            totalFaculty: document.getElementById('totalFaculty'),
+            totalRooms: document.getElementById('totalRooms'),
+            totalSubjects: document.getElementById('totalSubjects')
+        };
         
-        if (totalAssignments) totalAssignments.textContent = window.dataManager.data.assignments.length;
-        if (totalFaculty) totalFaculty.textContent = window.dataManager.data.theoryFaculty.length + window.dataManager.data.labFaculty.length;
-        if (totalRooms) totalRooms.textContent = window.dataManager.data.labRooms.length;
-        if (totalSubjects) totalSubjects.textContent = window.dataManager.data.subjects.length;
+        if (elements.totalAssignments) elements.totalAssignments.textContent = window.dataManager.data.assignments.length;
+        if (elements.totalFaculty) elements.totalFaculty.textContent = window.dataManager.data.theoryFaculty.length + window.dataManager.data.labFaculty.length;
+        if (elements.totalRooms) elements.totalRooms.textContent = window.dataManager.data.labRooms.length;
+        if (elements.totalSubjects) elements.totalSubjects.textContent = window.dataManager.data.subjects.length;
 
         const recentList = document.getElementById('recentAssignmentsList');
         if (recentList) {
@@ -1696,8 +1767,8 @@ function renderSubjectFacultyChart() {
         if (!subjectFacultyData[assignment.subject]) {
             subjectFacultyData[assignment.subject] = new Set();
         }
-        subjectFacultyData[assignment.subject].add(assignment.theoryFaculty);
-        subjectFacultyData[assignment.subject].add(assignment.labFaculty);
+        if (assignment.theoryFaculty) subjectFacultyData[assignment.subject].add(assignment.theoryFaculty);
+        if (assignment.labFaculty) subjectFacultyData[assignment.subject].add(assignment.labFaculty);
     });
 
     // Convert to counts
@@ -1928,7 +1999,8 @@ function renderFacultyWorkloadTable() {
         }
     });
     
-    const maxLoad = Math.max(...Object.values(facultyWorkload).map(f => f.theory + f.lab), 1);
+    const workloadValues = Object.values(facultyWorkload).map(f => f.theory + f.lab);
+    const maxLoad = workloadValues.length > 0 ? Math.max.apply(null, workloadValues.concat([1])) : 1;
     
     let tableHTML = `
         <table class="workload-table" style="width: 100%; border-collapse: collapse; background: rgba(255, 255, 255, 0.05); border-radius: 8px; overflow: hidden;">
@@ -2206,51 +2278,54 @@ function addFaculty(type) {
     }
 }
 
-function deleteMasterDataItem(type, value) {
+async function deleteMasterDataItem(type, value) {
     if (!window.dataManager) return;
     
-    if (confirm(`Are you sure you want to delete "${value}"?`)) {
+    const confirmed = confirm(`Are you sure you want to delete "${value}"?`);
+    if (confirmed) {
         if (window.dataManager.removeMasterDataItem(type, value)) {
-            // Force immediate UI refresh after deletion
-            setTimeout(() => {
-                renderMasterDataLists();
-                refreshDropdowns();
-                updateCountBadges();
-                console.log('🔄 UI updated immediately after master data deletion');
-            }, 50);
+            // Use performance-optimized batch updates
+            PerformanceUtils.batchDOMUpdates([
+                renderMasterDataLists,
+                refreshDropdowns,
+                updateCountBadges,
+                () => console.log('🔄 UI updated immediately after master data deletion')
+            ]);
         }
     }
 }
 
-function deleteFaculty(type, shortName) {
+async function deleteFaculty(type, shortName) {
     if (!window.dataManager) return;
     
-    if (confirm(`Are you sure you want to delete faculty "${shortName}"?`)) {
+    const confirmed = confirm(`Are you sure you want to delete faculty "${shortName}"?`);
+    if (confirmed) {
         if (window.dataManager.removeFaculty(type, shortName)) {
-            // Force immediate UI refresh after deletion
-            setTimeout(() => {
-                renderMasterDataLists();
-                refreshDropdowns();
-                updateCountBadges();
-                console.log('🔄 UI updated immediately after faculty deletion');
-            }, 50);
+            // Use performance-optimized batch updates
+            PerformanceUtils.batchDOMUpdates([
+                renderMasterDataLists,
+                refreshDropdowns,
+                updateCountBadges,
+                () => console.log('🔄 UI updated immediately after faculty deletion')
+            ]);
         }
     }
 }
 
-function deleteAssignment(index) {
+async function deleteAssignment(index) {
     if (!window.dataManager) return;
     
-    if (confirm('Are you sure you want to delete this assignment?')) {
+    const confirmed = confirm('Are you sure you want to delete this assignment?');
+    if (confirmed) {
         if (window.dataManager.removeAssignment(index)) {
-            // Force immediate UI refresh after deletion
-            setTimeout(() => {
-                renderAssignmentsList();
-                renderSchedule();
-                renderDashboard();
-                updateCountBadges();
-                console.log('🔄 UI updated immediately after assignment deletion');
-            }, 50);
+            // Use performance-optimized batch updates
+            PerformanceUtils.batchDOMUpdates([
+                renderAssignmentsList,
+                renderSchedule,
+                renderDashboard,
+                updateCountBadges,
+                () => console.log('🔄 UI updated immediately after assignment deletion')
+            ]);
         }
     }
 }
@@ -2324,8 +2399,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     try {
         console.log('🚀 LAMS Application Starting...');
         // Initialize managers
-        window.notificationManager = new NotificationManager();
-        window.dataManager = new DataManager();
+    window.notificationManager = new NotificationManager();
+    window.dataManager = new DataManager();
+    // Backward compatibility: some code paths reference global variables directly
+    // Keep these in sync with window-scoped instances
+    notificationManager = window.notificationManager;
+    dataManager = window.dataManager;
         console.log('✅ DataManager initialized and assigned to window.dataManager');
         console.log('🔍 DataManager properties:', Object.keys(window.dataManager));
 
@@ -2422,7 +2501,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
 
             try {
-                if (dataManager.addAssignment(assignment)) {
+                // Always use the window-scoped instance to avoid undefined references
+                if (window.dataManager && window.dataManager.addAssignment(assignment)) {
                     console.log('✅ Assignment created successfully, clearing form...');
                     e.target.reset();
                     alert('Assignment created successfully!');
@@ -2564,54 +2644,20 @@ function exportData() {
     
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `lams-data-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `lams-data-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+    } finally {
+        URL.revokeObjectURL(url);
+    }
     
     window.notificationManager?.show('Data exported successfully!', 'success');
     debugManager?.log('Data exported', 'info');
 }
 
-function importData() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    
-    input.onchange = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const data = JSON.parse(e.target.result);
-                
-                if (confirm('This will replace all current data. Are you sure?')) {
-                    // Validate data structure
-                    const requiredFields = ['departments', 'semesters', 'groups', 'subGroups', 'assignments'];
-                    const isValid = requiredFields.every(field => Array.isArray(data[field]));
-                    
-                    if (isValid) {
-                        window.dataManager.data = { ...window.dataManager.data, ...data };
-                        window.dataManager.save();
-                        window.notificationManager?.show('Data imported successfully!', 'success');
-                        debugManager?.log('Data imported', 'success', data);
-                    } else {
-                        throw new Error('Invalid data format');
-                    }
-                }
-            } catch (error) {
-                window.notificationManager?.show('Failed to import data: ' + error.message, 'error');
-                debugManager?.log('Import failed', 'error', error);
-            }
-        };
-        reader.readAsText(file);
-    };
-    
-    input.click();
-}
+// (Removed duplicate importData without admin checks; see enhanced admin-only version below)
 
 
 
@@ -2666,7 +2712,7 @@ function previewAssignment() {
             </div>
             <div class="preview-actions">
                 <button class="btn btn--secondary" onclick="this.closest('.assignment-preview-modal').remove()">Close</button>
-                <button class="btn btn--primary" onclick="document.getElementById('assignmentForm').dispatchEvent(new Event('submit')); this.closest('.assignment-preview-modal').remove();">Create Assignment</button>
+                <button class="btn btn--primary" onclick="(function(){ const form = document.getElementById('assignmentForm'); if(form){ form.focus(); const evt = new SubmitEvent('submit', {bubbles:true, cancelable:true}); form.dispatchEvent(evt);} })(); this.closest('.assignment-preview-modal').remove();">Create Assignment</button>
             </div>
         </div>
     `;
@@ -2700,29 +2746,40 @@ function updateSearchStats() {
 function renderInstituteAnalytics() {
     if (!window.dataManager) return;
     
-    // Lab utilization analysis
+    // Single pass through assignments for better performance
     const utilizationData = {};
+    const facultyWorkload = {};
+    const deptDistribution = {};
+    const timeSlotUsage = {};
+    
+    // Initialize lab rooms
     window.dataManager.data.labRooms.forEach(room => {
-        utilizationData[room] = window.dataManager.data.assignments.filter(a => a.labRoom === room).length;
+        utilizationData[room] = 0;
     });
     
-    // Faculty workload analysis
-    const facultyWorkload = {};
+    // Initialize time slots
+    window.dataManager.data.timeSlots.forEach(slot => {
+        timeSlotUsage[slot] = 0;
+    });
+    
+    // Single iteration through assignments
     window.dataManager.data.assignments.forEach(assignment => {
+        // Lab utilization
+        if (utilizationData.hasOwnProperty(assignment.labRoom)) {
+            utilizationData[assignment.labRoom]++;
+        }
+        
+        // Faculty workload
         facultyWorkload[assignment.theoryFaculty] = (facultyWorkload[assignment.theoryFaculty] || 0) + 1;
         facultyWorkload[assignment.labFaculty] = (facultyWorkload[assignment.labFaculty] || 0) + 1;
-    });
-    
-    // Department distribution
-    const deptDistribution = {};
-    window.dataManager.data.assignments.forEach(assignment => {
+        
+        // Department distribution
         deptDistribution[assignment.department] = (deptDistribution[assignment.department] || 0) + 1;
-    });
-    
-    // Time slot efficiency
-    const timeSlotUsage = {};
-    window.dataManager.data.timeSlots.forEach(slot => {
-        timeSlotUsage[slot] = window.dataManager.data.assignments.filter(a => a.timeSlot === slot).length;
+        
+        // Time slot usage
+        if (timeSlotUsage.hasOwnProperty(assignment.timeSlot)) {
+            timeSlotUsage[assignment.timeSlot]++;
+        }
     });
     
     return {
@@ -2785,16 +2842,11 @@ async function showUserManagement() {
         showMessage('Admin access required', 'error');
         return;
     }
-    // Ensure we have the latest data from cloud before rendering
-    try {
-        if (window.dataManager?.loadFromCloud) {
-            await window.dataManager.loadFromCloud(false);
-        }
-    } catch (e) {
-        console.warn('Could not refresh from cloud before opening User Management:', e);
-    }
-
-    // Get user data from cloud (100% cloud-based)
+    
+    // Auto-process any new notifications first
+    await window.authManager.processAdminNotifications();
+    
+    // Get user data from cloud
     const pendingUsers = window.dataManager?.pendingUsers || [];
     const approvedUsers = window.dataManager?.approvedUsers || [];
     
@@ -2880,14 +2932,16 @@ function updateAdminStats() {
 }
 
 
-function clearAllData() {
+async function clearAllData() {
     if (!window.authManager?.currentUser?.isAdmin) {
         showMessage('Admin access required', 'error');
         return;
     }
     
-    if (confirm('This will delete ALL lab data. Are you sure?')) {
-        if (confirm('This action cannot be undone. Continue?')) {
+    const firstConfirm = confirm('This will delete ALL lab data. Are you sure?');
+    if (firstConfirm) {
+        const finalConfirm = confirm('This action cannot be undone. Continue?');
+        if (finalConfirm) {
             localStorage.clear();
             if (window.dataManager) {
                 window.dataManager.data = {
@@ -3243,13 +3297,14 @@ function exportSystemReport() {
     const report = generateSystemReport();
     const blob = new Blob([report], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `lams-system-report-${new Date().toISOString().split('T')[0]}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    try {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `lams-system-report-${new Date().toISOString().split('T')[0]}.txt`;
+        a.click();
+    } finally {
+        URL.revokeObjectURL(url);
+    }
     
     showMessage('System report exported successfully', 'success');
 }
@@ -3334,13 +3389,14 @@ function testSyncSystem() {
 function collectSystemMetrics() {
     const metrics = {};
     
-    if (window.dataManager) {
-        metrics.assignments = window.dataManager.data.assignments.length;
-        metrics.masterData = window.dataManager.data.subjects.length + 
-                           window.dataManager.data.labRooms.length + 
-                           window.dataManager.data.timeSlots.length;
-        metrics.faculty = window.dataManager.data.theoryFaculty.length + 
-                         window.dataManager.data.labFaculty.length;
+    if (window.dataManager && window.dataManager.data) {
+        const data = window.dataManager.data;
+        metrics.assignments = data.assignments ? data.assignments.length : 0;
+        metrics.masterData = (data.subjects ? data.subjects.length : 0) + 
+                           (data.labRooms ? data.labRooms.length : 0) + 
+                           (data.timeSlots ? data.timeSlots.length : 0);
+        metrics.faculty = (data.theoryFaculty ? data.theoryFaculty.length : 0) + 
+                         (data.labFaculty ? data.labFaculty.length : 0);
         metrics.lastSync = window.dataManager.lastSyncTime || 'Never';
     }
     

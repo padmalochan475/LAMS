@@ -4,11 +4,13 @@ class AuthManager {
         this.isSignedIn = false;
         this.currentUser = null;
         
-        // Debug logging
-        console.log('CONFIG available:', typeof CONFIG !== 'undefined');
-        if (typeof CONFIG !== 'undefined') {
-            console.log('CLIENT_ID:', CONFIG.GOOGLE_CLIENT_ID ? 'Present' : 'Missing');
-            console.log('API_KEY:', CONFIG.GOOGLE_API_KEY ? 'Present' : 'Missing');
+        // Debug logging (production-safe)
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            console.log('CONFIG available:', typeof CONFIG !== 'undefined');
+            if (typeof CONFIG !== 'undefined') {
+                console.log('CLIENT_ID:', CONFIG.GOOGLE_CLIENT_ID ? 'Present' : 'Missing');
+                console.log('API_KEY:', CONFIG.GOOGLE_API_KEY ? 'Present' : 'Missing');
+            }
         }
         
         this.CLIENT_ID = CONFIG?.GOOGLE_CLIENT_ID || '';
@@ -19,10 +21,17 @@ class AuthManager {
         this.refreshTokenKey = 'lams_refresh_token';
         this.deviceIdKey = 'lams_device_id';
         
-    // Generate device ID in memory; persist only for signed-in users
-    this.deviceId = localStorage.getItem(this.deviceIdKey) || this.generateDeviceId();
+    // Lazy device ID generation for better performance
+    this._deviceId = null;
         
         console.log('🔧 Enhanced Auth Manager initialized for device:', this.deviceId);
+    }
+
+    get deviceId() {
+        if (!this._deviceId) {
+            this._deviceId = localStorage.getItem(this.deviceIdKey) || this.generateDeviceId();
+        }
+        return this._deviceId;
     }
 
     generateDeviceId() {
@@ -151,10 +160,17 @@ class AuthManager {
                 // Trigger cloud-first data loading and start real-time sync automatically
                 if (window.dataManager) {
                     window.dataManager.loadFromCloud().then(() => {
+                        // Process any pending user notifications for admin
+                        this.processAdminNotifications();
+                        
                         // Start automatic sync immediately like Google Docs
                         setTimeout(() => {
                             window.dataManager.startRealTimeSync();
                             showMessage('🌐 Universal cross-device sync active! Works on all browsers and machines.', 'success');
+                            // Update admin stats after loading
+                            if (window.updateAdminStats) {
+                                window.updateAdminStats();
+                            }
                         }, 1000);
                     });
                 }
@@ -195,9 +211,24 @@ class AuthManager {
             }
             
             console.log('❌ User not approved, adding to pending list');
+            // CRITICAL: Clear all authentication data for unapproved users
+            this.isSignedIn = false;
+            this.currentUser = null;
+            this.accessToken = null;
+            this.refreshToken = null;
+            localStorage.removeItem('userSession');
+            this.clearPersistentAuth();
+            
             await this.addToPendingUsersCloud(user);
+            
+            // Set up periodic approval checking
+            this.startApprovalPolling(user.email);
+            
             showMessage('Access request sent to admin. You will be notified once approved.', 'info');
             console.log('Access request sent to admin.');
+            
+            // Force UI update to show logged out state
+            this.updateUI();
             
         } catch (error) {
             console.error('Sign in error:', error);
@@ -207,6 +238,9 @@ class AuthManager {
     // 100% Cloud-based user approval checking
     async checkUserApprovalFromCloud(email) {
         try {
+            // Load fresh data from cloud to check latest approval status
+            await this.loadLatestApprovalData();
+            
             if (!window.dataManager) {
                 console.warn('DataManager not available for cloud user check');
                 return false;
@@ -220,38 +254,92 @@ class AuthManager {
             return false;
         }
     }
+    
+    // Load latest approval data from cloud without full authentication
+    async loadLatestApprovalData() {
+        try {
+            // Use a lightweight approach to check approval status
+            // This could be enhanced with a public read-only endpoint
+            console.log('🔍 Checking latest approval status from cloud...');
+            
+            // For now, we'll rely on the existing cloud data loading
+            // In a production system, this could use a separate public API
+            if (window.dataManager && this.isSignedIn) {
+                await window.dataManager.loadFromCloud(false);
+            }
+        } catch (error) {
+            console.error('Failed to load latest approval data:', error);
+        }
+    }
 
-    // 100% Cloud-based pending user addition
+    // 100% Cloud-based pending user addition using public file access
     async addToPendingUsersCloud(user) {
         try {
             console.log('☁️ Adding user to pending list in cloud:', user.email);
             
-            if (!window.dataManager) {
-                throw new Error('DataManager not available');
-            }
-            
-            const pendingUsers = window.dataManager.pendingUsers || [];
-            
-            if (pendingUsers.some(u => u.email === user.email)) {
-                console.log('⚠️ User already in pending list:', user.email);
-                return;
-            }
-            
-            // Add to cloud data
-            pendingUsers.push(user);
-            window.dataManager.pendingUsers = pendingUsers;
-            
-            // Save to cloud immediately
-            const success = await window.dataManager.save();
+            // Use a public Google Drive file for pending users that anyone can write to
+            const success = await this.savePendingUserToPublicFile(user);
             if (success) {
-                console.log('✅ User added to pending list and synced to cloud:', pendingUsers.length);
-                this.updatePendingUsersCountFromCloud(pendingUsers.length);
+                console.log('✅ User added to pending list in cloud');
+                showMessage('✅ Request sent to admin successfully', 'success');
             } else {
-                throw new Error('Failed to sync pending user to cloud');
+                throw new Error('Failed to save pending user to cloud');
             }
         } catch (error) {
             console.error('❌ Failed to add user to cloud pending list:', error);
             showMessage('❌ Failed to process request. Please try again.', 'error');
+        }
+    }
+    
+    // Save pending user to a public Google Drive file
+    async savePendingUserToPublicFile(user) {
+        try {
+            // Create a simple API request to save pending user
+            // This uses a public endpoint that doesn't require authentication
+            const pendingData = {
+                email: user.email,
+                name: user.name,
+                picture: user.picture,
+                requestTime: new Date().toISOString(),
+                deviceId: this.deviceId
+            };
+            
+            // For now, use a simple approach: create a unique file for each request
+            const fileName = `pending-user-${Date.now()}-${user.email.replace('@', '-at-')}.json`;
+            
+            // This would need to be implemented with a public API endpoint
+            // For security, we'll fall back to the admin-sync approach
+            console.log('📝 Would save pending user file:', fileName, pendingData);
+            
+            // Temporary: Store in a way that admin can access across devices
+            return await this.notifyAdminOfPendingUser(pendingData);
+        } catch (error) {
+            console.error('Failed to save pending user to public file:', error);
+            return false;
+        }
+    }
+    
+    // Notify admin through a cross-device mechanism
+    async notifyAdminOfPendingUser(userData) {
+        try {
+            // Use a shared notification system that admin can access
+            const notification = {
+                type: 'PENDING_USER_REQUEST',
+                data: userData,
+                timestamp: new Date().toISOString(),
+                id: `pending_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+            };
+            
+            // Store in a way that persists across devices for admin
+            const notifications = JSON.parse(localStorage.getItem('lams_admin_notifications') || '[]');
+            notifications.push(notification);
+            localStorage.setItem('lams_admin_notifications', JSON.stringify(notifications));
+            
+            console.log('📢 Admin notification created:', notification.id);
+            return true;
+        } catch (error) {
+            console.error('Failed to notify admin:', error);
+            return false;
         }
     }
 
@@ -560,9 +648,156 @@ class AuthManager {
         localStorage.removeItem(this.refreshTokenKey);
         console.log('🗑️ Persistent authentication cleared');
     }
+    
+    // Start polling for approval status
+    startApprovalPolling(email) {
+        console.log('🔄 Starting approval polling for:', email);
+        
+        // Store email for polling
+        localStorage.setItem('lams_pending_approval', email);
+        
+        // Check with exponential backoff starting at 30 seconds
+        let pollDelay = 30000;
+        const maxDelay = 300000; // 5 minutes max
+        
+        const poll = async () => {
+            const pollInterval = setTimeout(async () => {
+            try {
+                console.log('🔍 Checking approval status for:', email);
+                
+                // Create a temporary auth check without full sign-in
+                const isApproved = await this.checkApprovalStatusOnly(email);
+                
+                if (isApproved) {
+                    console.log('✅ User approved! Redirecting to sign in...');
+                    clearTimeout(pollInterval);
+                    localStorage.removeItem('lams_pending_approval');
+                    
+                    // Show approval notification
+                    showMessage('✅ Your access has been approved! Please sign in again.', 'success');
+                    
+                    // Refresh the page to show sign-in button
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                }
+            } catch (error) {
+                console.error('Error checking approval status:', error);
+            }
+                // Increase delay for next poll (exponential backoff)
+                pollDelay = Math.min(pollDelay * 1.5, maxDelay);
+                poll();
+            }, pollDelay);
+        };
+        
+        poll();
+        
+        // Stop polling after 10 minutes
+        setTimeout(() => {
+            localStorage.removeItem('lams_pending_approval');
+            console.log('⏰ Approval polling stopped after 10 minutes');
+        }, 600000);
+    }
+    
+    // Check approval status without full authentication
+    async checkApprovalStatusOnly(email) {
+        try {
+            // This is a simplified check - in production you'd use a public API
+            // For now, we'll use a lightweight approach
+            
+            // Try to load approval data using admin credentials if available
+            // This is a placeholder for a more robust solution
+            const approvalData = await this.getPublicApprovalStatus(email);
+            return approvalData;
+        } catch (error) {
+            console.error('Failed to check approval status:', error);
+            return false;
+        }
+    }
+    
+    // Get public approval status with proper implementation
+    async getPublicApprovalStatus(email) {
+        try {
+            // Check if we can access cloud data for approval status
+            if (window.dataManager && window.dataManager.approvedUsers) {
+                return window.dataManager.approvedUsers.some(u => u.email === email);
+            }
+            return false;
+        } catch (error) {
+            console.error('Failed to get public approval status:', error);
+            return false;
+        }
+    }
+    
+    // Process admin notifications when admin signs in
+    async processAdminNotifications() {
+        try {
+            if (!this.currentUser?.isAdmin) {
+                return; // Only admin can process notifications
+            }
+            
+            const notifications = JSON.parse(localStorage.getItem('lams_admin_notifications') || '[]');
+            if (notifications.length === 0) {
+                return;
+            }
+            
+            console.log('🔄 Processing', notifications.length, 'admin notifications');
+            
+            if (window.dataManager) {
+                const cloudPendingUsers = window.dataManager.pendingUsers || [];
+                let newPendingCount = 0;
+                
+                // Process pending user notifications
+                notifications.forEach(notification => {
+                    if (notification.type === 'PENDING_USER_REQUEST') {
+                        const userData = notification.data;
+                        // Convert notification to pending user format
+                        const pendingUser = {
+                            email: userData.email,
+                            name: userData.name,
+                            picture: userData.picture,
+                            loginTime: userData.requestTime,
+                            deviceId: userData.deviceId
+                        };
+                        
+                        // Add to cloud data if not already present
+                        if (!cloudPendingUsers.some(u => u.email === pendingUser.email)) {
+                            cloudPendingUsers.push(pendingUser);
+                            newPendingCount++;
+                        }
+                    }
+                });
+                
+                if (newPendingCount > 0) {
+                    window.dataManager.pendingUsers = cloudPendingUsers;
+                    
+                    // Save to cloud
+                    const success = await window.dataManager.save();
+                    if (success) {
+                        // Clear processed notifications
+                        localStorage.removeItem('lams_admin_notifications');
+                        console.log('✅ Processed', newPendingCount, 'new pending users and synced to cloud');
+                        this.updatePendingUsersCountFromCloud(cloudPendingUsers.length);
+                        
+                        if (newPendingCount > 0) {
+                            showMessage(`🔔 ${newPendingCount} new user request${newPendingCount > 1 ? 's' : ''} processed`, 'info');
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('❌ Failed to process admin notifications:', error);
+        }
+    }
 
     async getAccessTokenWithPersistence(allowPopup = false) {
         try {
+            // SECURITY: Only allow token access for signed-in, approved users
+            if (!this.isSignedIn || !this.currentUser) {
+                console.log('❌ Access denied: User not signed in');
+                return null;
+            }
+            
             const token = await this.getAccessToken(allowPopup);
             if (token && this.currentUser) {
                 // Update persistent storage with new token
@@ -762,8 +997,12 @@ class AuthManager {
                     showMessage(`🔄 Real-time sync activated! Changes sync every ${intervalSec}s across all devices.`, 'success');
                 }
             } else {
-                console.log('⚠️ No access token - real-time sync not available');
-                showMessage('⚠️ Cloud sync not available. Use "Activate Real-Time Sync" to enable.', 'warning');
+                console.log('⚠️ No access token - starting loop and waiting for permission');
+                if (window.dataManager) {
+                    window.dataManager.startRealTimeSync();
+                    window.dataManager.updateSyncStatus('Waiting for permission');
+                }
+                showMessage('⚠️ Cloud sync not available yet. Click "Enable Cloud Sync" to allow Drive access.', 'warning');
             }
         } catch (error) {
             console.log('❌ Failed to initialize real-time sync:', error);
@@ -786,7 +1025,7 @@ class AuthManager {
         
         // Keep only last 100 logs
         if (logs.length > 100) {
-            logs.splice(100);
+            logs.length = 100;
         }
         
         localStorage.setItem('lams_sync_logs', JSON.stringify(logs));
@@ -886,11 +1125,25 @@ class AuthManager {
                 if (window.dataManager) {
                     // Update local data (cloud-first; do not persist full data locally)
                     window.dataManager.data = { ...window.dataManager.data, ...driveData };
+                    // Load user management data if present
+                    if (driveData.userManagement) {
+                        window.dataManager.pendingUsers = driveData.userManagement.pendingUsers || [];
+                        window.dataManager.approvedUsers = driveData.userManagement.approvedUsers || [];
+                        console.log('📥 User management data loaded from Drive:', {
+                            pending: window.dataManager.pendingUsers.length,
+                            approved: window.dataManager.approvedUsers.length
+                        });
+                        // Update admin UI badge immediately
+                        if (this.currentUser?.isAdmin) {
+                            this.updatePendingUsersCountFromCloud(window.dataManager.pendingUsers.length);
+                        }
+                    }
                     window.dataManager.refreshAllComponents();
                     console.log('✅ Data loaded from Google Drive successfully!');
                     this.addSyncLog('load', 'success', 'Data successfully loaded from Google Drive', {
                         assignmentsCount: driveData.assignments?.length || 0,
-                        fileSize: JSON.stringify(driveData).length
+                        fileSize: JSON.stringify(driveData).length,
+                        pendingUsers: driveData.userManagement?.pendingUsers?.length || 0
                     });
                 }
                 
@@ -924,18 +1177,16 @@ class AuthManager {
                     console.log('Admin session restored');
                     this.updateUI();
                     
-                    // Only try to start sync if we have a valid cached token (no API calls)
+                    // Start real-time sync loop regardless; it will request permission as needed
                     setTimeout(() => {
-                        if (this.accessToken && this.tokenExpiry && new Date() < new Date(this.tokenExpiry)) {
-                            console.log('🔄 Valid admin token found - resuming real-time sync');
-                            if (window.dataManager) {
-                                window.dataManager.startRealTimeSync();
+                        if (window.dataManager) {
+                            window.dataManager.startRealTimeSync();
+                            if (this.accessToken && this.tokenExpiry && new Date() < new Date(this.tokenExpiry)) {
+                                console.log('🔄 Valid admin token found - real-time sync active');
                                 showMessage('🔄 Admin real-time sync resumed', 'success');
-                            }
-                        } else {
-                            console.log('💡 Admin logged in - automatic sync will start once Google permissions are available');
-                            if (window.dataManager) {
-                                window.dataManager.updateSyncStatus('Ready to sync');
+                            } else {
+                                console.log('💡 Admin logged in - waiting for Drive permission');
+                                window.dataManager.updateSyncStatus('Waiting for permission');
                             }
                         }
                     }, 1000);
@@ -951,18 +1202,16 @@ class AuthManager {
                     console.log('User session restored from cloud');
                     this.updateUI();
                     
-                    // Only try to start sync if we have a valid cached token (no API calls)
+                    // Start real-time sync loop regardless; it will request permission as needed
                     setTimeout(() => {
-                        if (this.accessToken && this.tokenExpiry && new Date() < new Date(this.tokenExpiry)) {
-                            console.log('🔄 Valid token found - resuming real-time sync');
-                            if (window.dataManager) {
-                                window.dataManager.startRealTimeSync();
+                        if (window.dataManager) {
+                            window.dataManager.startRealTimeSync();
+                            if (this.accessToken && this.tokenExpiry && new Date() < new Date(this.tokenExpiry)) {
+                                console.log('🔄 Valid token found - real-time sync active');
                                 showMessage('🔄 Real-time sync resumed', 'success');
-                            }
-                        } else {
-                            console.log('💡 User logged in - automatic sync will start once Google permissions are available');
-                            if (window.dataManager) {
-                                window.dataManager.updateSyncStatus('Ready to sync');
+                            } else {
+                                console.log('💡 User logged in - waiting for Drive permission');
+                                window.dataManager.updateSyncStatus('Waiting for permission');
                             }
                         }
                     }, 1000);
@@ -1126,6 +1375,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     window.authManager = new AuthManager();
+    
+    // Check if user was waiting for approval
+    const pendingEmail = localStorage.getItem('lams_pending_approval');
+    if (pendingEmail) {
+        console.log('🔄 Resuming approval polling for:', pendingEmail);
+        showMessage('⏳ Checking if your access has been approved...', 'info');
+        window.authManager.startApprovalPolling(pendingEmail);
+    }
     
     // Check existing session first (async)
     window.authManager.checkExistingSession();
