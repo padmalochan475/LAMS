@@ -368,21 +368,13 @@ class AuthManager {
     // Cloud-based pending users count update
     updatePendingUsersCountFromCloud(count) {
         console.log('🔔 Updating pending users badge from cloud data:', count);
-        
-        const badge = document.querySelector('.pending-users-badge');
-        console.log('🎯 Badge element found:', !!badge);
-        
-        if (badge) {
-            if (count > 0) {
-                badge.textContent = count;
-                badge.style.display = 'inline';
-                console.log('✅ Badge updated with count:', count);
-            } else {
-                badge.style.display = 'none';
-                console.log('🔄 Badge hidden (no pending users)');
-            }
+        const countElement = document.getElementById('pendingUsersCount');
+        if (countElement) {
+            countElement.textContent = count;
+            countElement.style.display = count > 0 ? 'inline' : 'none';
+            console.log('✅ Badge updated with count:', count);
         } else {
-            console.warn('⚠️ Pending users badge element not found in DOM');
+            console.warn('⚠️ Could not find pendingUsersCount element in DOM');
         }
     }
 
@@ -892,9 +884,8 @@ class AuthManager {
                 const driveData = JSON.parse(fileContent);
                 
                 if (window.dataManager) {
-                    // Update local data
+                    // Update local data (cloud-first; do not persist full data locally)
                     window.dataManager.data = { ...window.dataManager.data, ...driveData };
-                    localStorage.setItem('labManagementData', JSON.stringify(window.dataManager.data));
                     window.dataManager.refreshAllComponents();
                     console.log('✅ Data loaded from Google Drive successfully!');
                     this.addSyncLog('load', 'success', 'Data successfully loaded from Google Drive', {

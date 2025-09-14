@@ -2,156 +2,19 @@
 
 // Simple notification system for production
 class NotificationManager {
-    show(message, type = 'info', duration = 3000) {
-        const notification = document.createElement('div');
-        notification.className = `message message--${type}`;
-        notification.textContent = message;
-        
-        const container = document.querySelector('.container');
-        if (container) {
-            container.insertBefore(notification, container.firstChild);
-            setTimeout(() => notification.remove(), duration);
+    show(text, type = 'info') {
+        // Delegate to the global showMessage so styling stays consistent
+        try {
+            showMessage(text, type);
+        } catch (e) {
+            // Fallback
+            try { alert(text); } catch {}
         }
     }
 }
 
 class DataManager {
     constructor() {
-        async function showUserManagement() {
-            if (!window.authManager?.currentUser?.isAdmin) {
-                showMessage('Admin access required', 'error');
-                return;
-            }
-            // Always reload latest user data from cloud before showing panel
-            if (window.dataManager?.loadFromCloud) {
-                await window.dataManager.loadFromCloud();
-            }
-            const pendingUsers = window.dataManager?.pendingUsers || [];
-            const approvedUsers = window.dataManager?.approvedUsers || [];
-            console.log('� Admin Panel - Loading from Google Drive');
-            console.log('📋 Pending users from cloud:', pendingUsers.length);
-            console.log('✅ Approved users from cloud:', approvedUsers.length);
-            console.log('📊 Pending users data:', pendingUsers);
-            const modal = document.createElement('div');
-            modal.className = 'user-management-modal';
-            modal.innerHTML = `
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h3>User Management</h3>
-                        <button onclick="this.closest('.user-management-modal').remove()">&times;</button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="user-section">
-                            <h4>Pending Approval (${pendingUsers.length})</h4>
-                            <div class="user-list pending-list">
-                                ${pendingUsers.length === 0 ? '<p class="empty-state">No pending requests</p>' : 
-                                  pendingUsers.map(user => `
-                                    <div class="user-item pending-user">
-                                        <div class="user-info">
-                                            <img src="${user.picture}" class="user-avatar-small" alt="${user.name}">
-                                            <div>
-                                                <div class="user-name">${user.name}</div>
-                                                <div class="user-email">${user.email}</div>
-                                                <div class="user-time">Requested: ${new Date(user.loginTime).toLocaleString()}</div>
-                                            </div>
-                                        </div>
-                                        <div class="user-actions">
-                                            <button class="btn btn--sm btn--success" onclick="approveUser('${user.email}').then(() => { this.closest('.user-management-modal').remove(); showUserManagement(); })">Approve</button>
-                                            <button class="btn btn--sm btn--danger" onclick="rejectUser('${user.email}').then(() => { this.closest('.user-management-modal').remove(); showUserManagement(); })">Reject</button>
-                                        </div>
-                                    </div>
-                                  `).join('')}
-                            </div>
-                        </div>
-                        <div class="user-section">
-                            <h4>Approved Users (${approvedUsers.length})</h4>
-                            <div class="user-list approved-list">
-                                ${approvedUsers.length === 0 ? '<p class="empty-state">No approved users</p>' : 
-            const syncData = await window.freeSync.loadData();
-            if (syncData && Object.keys(syncData).length > 1) {
-                this.data = { ...this.data, ...syncData };
-                this.assignDataArrays();
-                console.log('🔄 Data loaded from free sync');
-                return;
-            }
-        }
-        
-        if (!window.authManager || !window.authManager.isSignedIn) {
-            console.log('🔐 User not signed in - loading default data structure');
-            this.initializeDefaultData();
-            return;
-        }
-
-        try {
-            showMessage('☁️ Loading data from Google Drive...', 'info');
-            
-            // Force cloud loading - no localStorage fallback
-            const cloudData = await window.authManager.loadFromDrive(false);
-            
-            if (cloudData && Object.keys(cloudData).length > 1) {
-                // Load main application data from cloud
-                this.data = { ...this.data, ...cloudData };
-                this.version = cloudData.version || 0;
-                this.lastSyncTime = new Date().toISOString();
-                
-                this.assignDataArrays();
-
-                console.log('📊 Data arrays properly assigned:', {
-                    assignments: this.assignments.length,
-                    subjects: this.subjects.length,
-                    periods: this.periods.length,
-                    branches: this.branches.length
-                });
-                
-                // Force refresh of all components to show loaded data
-                setTimeout(() => {
-                    this.refreshAllComponents();
-                    if (typeof renderSchedule === 'function') renderSchedule();
-                    if (typeof renderAssignmentList === 'function') renderAssignmentList();
-                    if (typeof populateFormDropdowns === 'function') populateFormDropdowns();
-                    console.log('🔄 All components refreshed with loaded data');
-                }, 500);
-                
-                // Load user management data from cloud (NO localStorage)
-                if (cloudData.userManagement) {
-                    console.log('👥 Loading user management from Google Drive');
-                    this.pendingUsers = cloudData.userManagement.pendingUsers || [];
-                    this.approvedUsers = cloudData.userManagement.approvedUsers || [];
-                    console.log('📋 Cloud pending users:', this.pendingUsers.length);
-                    console.log('✅ Cloud approved users:', this.approvedUsers.length);
-                    
-                    // Update UI badge from cloud data
-                    if (window.authManager) {
-                        window.authManager.updatePendingUsersCountFromCloud(this.pendingUsers.length);
-                    }
-                } else {
-                    // Initialize empty user management for new accounts
-                    this.pendingUsers = [];
-                    this.approvedUsers = [];
-                    console.log('🆕 New account - initializing empty user management');
-                }
-                
-                showMessage('✅ Data loaded from Google Drive successfully!', 'success');
-                console.log('☁️ Cloud data loaded successfully');
-            } else {
-                // No existing data in cloud - initialize with defaults for new account
-                console.log('🆕 No existing cloud data found - initializing new account');
-                this.initializeDefaultData();
-                // Save initial data structure to cloud
-                await this.save();
-                showMessage('🆕 New account initialized with default data', 'success');
-            }
-        } catch (error) {
-            console.error('❌ Cloud loading failed:', error);
-            showMessage('❌ Failed to load from Google Drive. Please check internet connection.', 'error');
-            // Initialize defaults for offline operation
-            this.initializeDefaultData();
-            this.pendingUsers = [];
-            this.approvedUsers = [];
-        }
-    }
-
-    initializeDefaultData() {
         // Initialize with basic data structure
         this.data = {
             days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
@@ -197,7 +60,6 @@ class DataManager {
             console.log('🔄 Components refreshed after default data initialization');
         }, 200);
     }
-    
     assignDataArrays() {
         // Properly assign data to individual arrays for CRUD operations
         this.assignments = this.data.assignments || [];
@@ -215,12 +77,20 @@ class DataManager {
         this.groups = this.data.groups || [];
         this.subGroups = this.data.subGroups || [];
         this.labRooms = this.data.labRooms || [];
+        // defaults
+        this.pendingUsers = this.pendingUsers || [];
+        this.approvedUsers = this.approvedUsers || [];
+        this.syncInterval = this.syncInterval || null;
+        this.syncIntervalMs = this.syncIntervalMs || 10000;
+        this.unsyncedChanges = this.unsyncedChanges || false;
+        this.syncFailureCount = this.syncFailureCount || 0;
+        this.waitingForPermission = this.waitingForPermission || false;
     }
 
     // 100% Cloud-based saving - NO LOCAL STORAGE
     async save() {
         if (!window.authManager || !window.authManager.isSignedIn) {
-            showMessage('� Sign in required to save to Google Drive', 'warning');
+            showMessage('⚠ Sign in required to save to Google Drive', 'warning');
             return false;
         }
 
@@ -241,12 +111,8 @@ class DataManager {
                 }
             };
             
-            console.log('☁️ Saving everything to Google Drive:', {
-                pendingCount: (this.pendingUsers || []).length,
-                approvedCount: (this.approvedUsers || []).length
-            });
-            
-            const success = await window.authManager.saveToGoogleDrive(dataToSync, false);
+            // Use AuthManager's Drive sync helper
+            const success = await window.authManager.syncWithGoogleDrive(dataToSync, false);
             if (success) {
                 this.lastSyncTime = new Date().toISOString();
                 this.syncFailureCount = 0;
@@ -270,8 +136,6 @@ class DataManager {
             clearInterval(this.syncInterval);
         }
         
-        console.log('▶️ Starting intelligent real-time sync...');
-        
         // Update status immediately
         this.updateSyncStatus('Smart sync active');
         
@@ -287,7 +151,6 @@ class DataManager {
             if (window.authManager && window.authManager.isSignedIn) {
                 // Skip sync if any interactive element is active
                 if (this.shouldSkipSync()) {
-                    console.log('⏸️ Sync paused - user interface active');
                     return;
                 }
                 
@@ -297,7 +160,6 @@ class DataManager {
                     this.isSyncInProgress = false;
                     
                     if (result) {
-                        console.log('✅ Background sync completed successfully');
                         this.updateSyncStatus('Synced ' + new Date().toLocaleTimeString());
                     }
                 } catch (error) {
@@ -308,8 +170,6 @@ class DataManager {
                 this.stopRealTimeSync();
             }
         }, this.syncIntervalMs);
-        
-        console.log('🎯 Smart sync active - detects dropdowns and form interactions');
     }
 
     setupAdvancedInteractionTracking() {
@@ -326,22 +186,18 @@ class DataManager {
         document.addEventListener('mousedown', (e) => {
             if (e.target.tagName === 'SELECT' || e.target.closest('select')) {
                 this.isDropdownOpen = true;
-                console.log('🎯 Dropdown opened - sync paused');
                 // Set a longer pause for dropdown interactions
                 setTimeout(() => {
                     this.isDropdownOpen = false;
-                    console.log('🎯 Dropdown timeout - sync can resume');
                 }, 3000); // 3 seconds for dropdown selection
             }
         }, true);
 
         document.addEventListener('change', (e) => {
             if (e.target.tagName === 'SELECT') {
-                console.log('🎯 Dropdown selection made');
                 // Give extra time after selection before resuming sync
                 setTimeout(() => {
                     this.isDropdownOpen = false;
-                    console.log('🎯 Dropdown closed - sync can resume');
                 }, 2000); // Wait 2 seconds after selection
             }
         }, true);
@@ -350,7 +206,6 @@ class DataManager {
         document.addEventListener('focusin', (e) => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') {
                 this.isFormActive = true;
-                console.log('📝 Form active - sync paused');
             }
         }, true);
 
@@ -358,7 +213,6 @@ class DataManager {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') {
                 setTimeout(() => {
                     this.isFormActive = false;
-                    console.log('📝 Form inactive - sync can resume');
                 }, 500);
             }
         }, true);
@@ -384,7 +238,7 @@ class DataManager {
         // Check if user is actively filling assignment form
         const assignmentForm = document.getElementById('assignmentForm');
         const isFillingForm = assignmentForm && Array.from(assignmentForm.elements).some(element => 
-            element === document.activeElement || element.value.trim() !== ''
+            element === document.activeElement || (typeof element.value === 'string' && element.value.trim() !== '')
         );
         
         // Skip if any of these conditions are true:
@@ -414,7 +268,6 @@ class DataManager {
         try {
             // Try to get access token (background request, no popup spam)
             if (!window.authManager || !window.authManager.isSignedIn) {
-                console.log('⏸️ User not signed in - skipping sync');
                 return false;
             }
 
@@ -424,7 +277,6 @@ class DataManager {
                 // Only show once then remain silent
                 if (!this.waitingForPermission) {
                     this.waitingForPermission = true;
-                    console.log('⏸️ Waiting for Google Drive permission (no popups). Use Enable Cloud Sync to grant access.');
                     this.updateSyncStatus('Waiting for permission');
                 }
                 return false;
@@ -434,15 +286,11 @@ class DataManager {
             if (this.waitingForPermission) {
                 this.waitingForPermission = false;
                 this.updateSyncStatus('Auto-sync active');
-                console.log('✅ Sync permissions now available - continuing with normal operation');
             }
 
-            console.log('🔄 Starting cloud sync...');
-            
             // Load cloud version using existing token (no popups for background sync)
             const cloudData = await window.authManager.loadFromDrive(false);
             if (!cloudData) {
-                console.log('📤 No cloud data found, saving current version');
                 await this.save();
                 return true;
             }
@@ -452,32 +300,20 @@ class DataManager {
             const cloudTime = new Date(cloudData.lastModified || 0);
             const localVersion = this.data.version || 0;
             const localTime = new Date(this.data.lastModified || 0);
-            
-            console.log(`📊 Version comparison - Cloud: ${cloudVersion} (${cloudTime.toLocaleString()}), Local: ${localVersion} (${localTime.toLocaleString()})`);
 
             // If cloud is newer, load it
             if (cloudVersion > localVersion || (cloudVersion === localVersion && cloudTime > localTime)) {
-                console.log('⬇️ Loading newer data from cloud');
-                
                 // Update local data with cloud data
                 this.data = { ...this.data, ...cloudData };
+                // Apply user management if present
+                if (cloudData.userManagement) {
+                    this.pendingUsers = cloudData.userManagement.pendingUsers || [];
+                    this.approvedUsers = cloudData.userManagement.approvedUsers || [];
+                }
                 this.lastSyncTime = new Date().toISOString();
                 
                 // Properly assign data to individual arrays for immediate access
-                this.assignments = this.data.assignments || [];
-                this.subjects = this.data.subjects || [];
-                this.faculties = {
-                    theoryFaculty: this.data.theoryFaculty || [],
-                    labFaculty: this.data.labFaculty || []
-                };
-                this.periods = this.data.timeSlots || [];
-                this.branches = this.data.departments || [];
-                
-                console.log('📊 Data updated from cloud:', {
-                    assignments: this.assignments.length,
-                    subjects: this.subjects.length,
-                    faculty: this.data.theoryFaculty.length + this.data.labFaculty.length
-                });
+                this.assignDataArrays();
                 
                 // Update UI to reflect changes
                 setTimeout(() => {
@@ -489,8 +325,16 @@ class DataManager {
 
             // If local is newer, save to cloud
             if (localVersion > cloudVersion || (localVersion === cloudVersion && localTime > cloudTime)) {
-                console.log('⬆️ Saving newer local data to cloud');
-                const success = await window.authManager.saveToGoogleDrive(this.data, false); // No popups for background sync
+                // Include user management when saving
+                const payload = {
+                    ...this.data,
+                    userManagement: {
+                        pendingUsers: this.pendingUsers || [],
+                        approvedUsers: this.approvedUsers || [],
+                        lastUpdated: new Date().toISOString()
+                    }
+                };
+                const success = await window.authManager.syncWithGoogleDrive(payload, false); // No popups for background sync
                 if (success) {
                     this.lastSyncTime = new Date().toISOString();
                     this.unsyncedChanges = false;
@@ -499,14 +343,33 @@ class DataManager {
                 return true;
             }
 
-            console.log('✅ Data already in sync');
             this.lastSyncTime = new Date().toISOString();
             this.updateSyncStatus('Auto-sync active');
             return true;
 
         } catch (error) {
-            console.log('❌ Cloud sync failed:', error);
             showMessage('⚠️ Cloud sync failed - working offline', 'warning');
+            return false;
+        }
+    }
+
+    // Explicit load from cloud for initial hydration or manual refresh
+    async loadFromCloud(allowPopup = false) {
+        try {
+            if (!window.authManager || !window.authManager.isSignedIn) return false;
+            const cloudData = await window.authManager.loadFromDrive(allowPopup);
+            if (!cloudData) return false;
+            this.data = { ...this.data, ...cloudData };
+            if (cloudData.userManagement) {
+                this.pendingUsers = cloudData.userManagement.pendingUsers || [];
+                this.approvedUsers = cloudData.userManagement.approvedUsers || [];
+            }
+            this.assignDataArrays();
+            this.refreshAllComponents();
+            this.updateSyncStatus('Loaded from cloud');
+            return true;
+        } catch (e) {
+            console.error('Load from cloud failed:', e);
             return false;
         }
     }
@@ -555,7 +418,6 @@ class DataManager {
             clearInterval(this.syncInterval);
             this.syncInterval = null;
             this.updateSyncStatus('Sync stopped');
-            console.log('🛑 Real-time sync stopped');
         }
     }
 
@@ -598,24 +460,18 @@ class DataManager {
 
     // Trigger immediate sync on any data change
     triggerImmediateSync() {
-        console.log('🚀 Triggering immediate sync after data change');
         this.unsyncedChanges = true;
         this.lastChangeAt = Date.now();
         
         if (window.authManager && window.authManager.isSignedIn) {
             // Sync to Google Drive immediately
             this.syncWithCloud().then(() => {
-                console.log('✅ Google Drive sync completed - changes visible to all users');
                 this.updateSyncStatus('✅ Synced to all devices');
                 showMessage('✅ Changes synced to Google Drive!', 'success');
-                
-                // GitHub sync removed/disabled
-            }).catch(error => {
-                console.log('⚠️ Google Drive sync failed:', error);
+            }).catch(() => {
                 showMessage('⚠️ Sync failed - try again', 'warning');
             });
         } else {
-            console.log('💡 Not signed in - changes saved locally only');
             showMessage('💡 Sign in to sync changes to all users', 'info');
         }
         
@@ -624,7 +480,7 @@ class DataManager {
             this.refreshAllComponents();
         }, 100);
 
-        // Cross-tab notifications to prompt immediate sync in other tabs
+        // Cross-tab notifications
         try {
             this.channel?.postMessage({ type: 'DATA_CHANGED', version: this.data.version, at: Date.now() });
         } catch (e) { /* ignore */ }
@@ -635,7 +491,7 @@ class DataManager {
         } catch (e) { /* ignore */ }
     }
 
-    // Override methods to trigger immediate sync
+    // Master data operations
     addMasterDataItem(type, value) {
         if (!value || value.trim() === '') {
             showMessage('Please enter a value!', 'error');
@@ -653,10 +509,9 @@ class DataManager {
         // Immediately update UI and sync
         this.refreshAllComponents();
         this.save();
-        this.triggerImmediateSync(); // Sync immediately after adding
+        this.triggerImmediateSync();
         
         showMessage('✅ Item added and synced to all users!', 'success');
-        console.log('✅ Master data item added and UI refreshed immediately');
         return true;
     }
 
@@ -679,10 +534,9 @@ class DataManager {
         // Immediately update UI and sync
         this.refreshAllComponents();
         this.save();
-        this.triggerImmediateSync(); // Sync immediately after adding faculty
+        this.triggerImmediateSync();
         
         showMessage('✅ Faculty added and synced to all users!', 'success');
-        console.log('✅ Faculty added and UI refreshed immediately');
         return true;
     }
 
@@ -699,10 +553,9 @@ class DataManager {
             // Immediately update UI and sync
             this.refreshAllComponents();
             this.save();
-            this.triggerImmediateSync(); // Sync immediately after master data deletion
+            this.triggerImmediateSync();
             
             showMessage('✅ Item deleted and synced to all users!', 'success');
-            console.log('✅ Master data item deleted and UI refreshed immediately');
             return true;
         }
         return false;
@@ -728,10 +581,9 @@ class DataManager {
             // Immediately update UI and sync
             this.refreshAllComponents();
             this.save();
-            this.triggerImmediateSync(); // Sync immediately after faculty deletion
+            this.triggerImmediateSync();
             
             showMessage('✅ Faculty deleted and synced to all users!', 'success');
-            console.log('✅ Faculty deleted and UI refreshed immediately');
             return true;
         }
         return false;
@@ -762,11 +614,8 @@ class DataManager {
         if (missingFields.length > 0) {
             const errorMsg = `Missing required fields: ${missingFields.join(', ')}`;
             alert(errorMsg);
-            console.log('❌ Assignment validation failed - missing fields:', missingFields);
             return false;
         }
-
-        console.log('📝 Creating assignment:', assignment);
 
         const roomConflict = this.data.assignments.find(existing => 
             existing.day === assignment.day &&
@@ -799,13 +648,11 @@ class DataManager {
             
             conflictMessage += conflicts.join(', ');
             showMessage(conflictMessage, 'error');
-            console.log('❌ Assignment conflict detected:', conflicts);
             return false;
         }
 
         // Add assignment to data
         this.data.assignments.push(assignment);
-        console.log('✅ Assignment added to data. Total assignments:', this.data.assignments.length);
         
         // Immediately update UI before saving/syncing
         this.assignments = this.data.assignments; // Update local reference
@@ -815,7 +662,6 @@ class DataManager {
         this.triggerImmediateSync(); // Sync immediately after adding assignment
         
         showMessage('✅ Assignment created successfully!', 'success');
-        console.log('✅ Assignment added and UI refreshed immediately');
         return true;
     }
 
@@ -823,7 +669,7 @@ class DataManager {
         if (index >= 0 && index < this.data.assignments.length) {
             this.data.assignments.splice(index, 1);
             this.save();
-            this.triggerImmediateSync(); // Sync immediately after removing assignment
+            this.triggerImmediateSync();
             showMessage('Assignment deleted successfully!', 'success');
             return true;
         }
@@ -841,10 +687,9 @@ class DataManager {
         document.getElementById('currentAcademicYear').textContent = this.data.academicYear;
         document.getElementById('printAcademicYear').textContent = this.data.academicYear;
         this.save();
-        this.triggerImmediateSync(); // Sync immediately after academic year change
+        this.triggerImmediateSync();
         
         showMessage('✅ Academic year updated and synced to all users!', 'success');
-        console.log('✅ Academic year updated and synced immediately');
         return true;
     }
 
@@ -855,17 +700,15 @@ class DataManager {
         
         // Immediately update UI and sync
         this.save();
-        this.triggerImmediateSync(); // Sync immediately after orientation change
+        this.triggerImmediateSync();
         this.refreshAllComponents();
         
-        console.log('✅ Schedule orientation changed and synced immediately');
         return this.data.scheduleOrientation;
     }
 
     refreshAllComponents() {
         // Ensure we don't refresh before DataManager is fully initialized
         if (!this.data || !this.data.assignments) {
-            console.log('⏸️ Skipping refresh - DataManager not fully initialized');
             return;
         }
         
@@ -882,12 +725,6 @@ class DataManager {
 
     doRefresh() {
         try {
-            console.log('🔄 Refreshing all components with current data:', {
-                assignments: this.data.assignments.length,
-                subjects: this.data.subjects.length,
-                faculty: this.data.theoryFaculty.length + this.data.labFaculty.length
-            });
-            
             // Skip refresh if user is actively interacting with forms
             const activeElement = document.activeElement;
             const isUserInteracting = activeElement && (
@@ -897,20 +734,20 @@ class DataManager {
             );
             
             const refreshFunctions = [
-                { name: 'refreshDropdowns', fn: () => !isUserInteracting && refreshDropdowns() },
-                { name: 'updateCountBadges', fn: updateCountBadges },
-                { name: 'renderDashboard', fn: renderDashboard },
-                { name: 'renderAssignmentsList', fn: renderAssignmentsList },
-                { name: 'renderSchedule', fn: renderSchedule },
-                { name: 'renderMasterDataLists', fn: renderMasterDataLists },
-                { name: 'renderPrintSchedule', fn: renderPrintSchedule }
+                { name: 'refreshDropdowns', fn: () => !isUserInteracting && window.refreshDropdowns?.() },
+                { name: 'updateCountBadges', fn: window.updateCountBadges },
+                { name: 'renderDashboard', fn: window.renderDashboard },
+                { name: 'renderAssignmentsList', fn: window.renderAssignmentsList },
+                { name: 'renderSchedule', fn: window.renderSchedule },
+                { name: 'renderMasterDataLists', fn: window.renderMasterDataLists },
+                { name: 'renderPrintSchedule', fn: window.renderPrintSchedule }
             ];
             
             let failedComponents = [];
             
             refreshFunctions.forEach(({ name, fn }) => {
                 try {
-                    if (fn) fn();
+                    if (typeof fn === 'function') fn();
                 } catch (error) {
                     console.error(`❌ Failed to refresh ${name}:`, error);
                     failedComponents.push(name);
@@ -921,9 +758,7 @@ class DataManager {
             const activeTab = document.querySelector('.nav-tab.active');
             if (activeTab && activeTab.textContent.trim().includes('Analytics')) {
                 setTimeout(() => {
-                    try {
-                        renderAnalytics();
-                    } catch (error) {
+                    try { window.renderAnalytics?.(); } catch (error) {
                         console.error('❌ Failed to refresh analytics:', error);
                         failedComponents.push('renderAnalytics');
                     }
@@ -933,15 +768,12 @@ class DataManager {
             if (failedComponents.length > 0) {
                 console.warn('⚠️ Some components failed to refresh:', failedComponents);
                 showMessage(`⚠️ Some components failed to refresh: ${failedComponents.join(', ')}`, 'warning');
-            } else {
-                console.log('✅ All components refreshed successfully');
             }
         } catch (e) {
             console.error('Error refreshing components:', e);
             showMessage('⚠️ Some components failed to refresh', 'warning');
         }
     }
-
 
     getAssignmentDisplay(assignment) {
         return `${assignment.department}-${assignment.group}-${assignment.subGroup}-${assignment.subject}-[${assignment.theoryFaculty},${assignment.labFaculty}]-${assignment.labRoom} [${assignment.semester} SEM]`;
@@ -1153,7 +985,7 @@ function refreshDropdowns() {
         { id: 'printSemesterFilter', data: window.dataManager.data.semesters },
         { id: 'printGroupFilter', data: window.dataManager.data.groups },
         { id: 'newTheoryFacultyDept', data: window.dataManager.data.departments },
-        { id: 'newLabFacultydept', data: window.dataManager.data.departments }
+        { id: 'newLabFacultyDept', data: window.dataManager.data.departments }
     ];
 
     dropdownConfigs.forEach(config => {
@@ -2491,18 +2323,34 @@ function toggleTheme() {
 document.addEventListener('DOMContentLoaded', async function() {
     try {
         console.log('🚀 LAMS Application Starting...');
-        
-        // Hide loading screen
-        const loadingScreen = document.getElementById('loadingScreen');
-        if (loadingScreen) loadingScreen.style.display = 'none';
-        
         // Initialize managers
         window.notificationManager = new NotificationManager();
         window.dataManager = new DataManager();
-        
         console.log('✅ DataManager initialized and assigned to window.dataManager');
         console.log('🔍 DataManager properties:', Object.keys(window.dataManager));
-        
+
+        // Wait for DataManager to finish initial data load and UI refresh
+        // Use a MutationObserver or polling to detect when the dashboard is ready
+        const waitForReady = async () => {
+            // Wait until assignments and faculty are loaded (basic readiness check)
+            let maxWait = 10000; // 10s timeout
+            let waited = 0;
+            while (
+                (!window.dataManager.data || !window.dataManager.data.assignments || window.dataManager.data.assignments.length === undefined)
+                && waited < maxWait
+            ) {
+                await new Promise(res => setTimeout(res, 100));
+                waited += 100;
+            }
+            // Wait a bit more for UI refresh
+            await new Promise(res => setTimeout(res, 300));
+        };
+        await waitForReady();
+
+        // Hide loading screen only when ready
+        const loadingScreen = document.getElementById('loadingScreen');
+        if (loadingScreen) loadingScreen.style.display = 'none';
+
         // Check Chart.js availability
         let chartCheckCount = 0;
         const checkChartJS = () => {
@@ -2510,7 +2358,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                 console.log('✅ Chart.js loaded successfully');
                 return;
             }
-            
             chartCheckCount++;
             if (chartCheckCount < 10) {
                 console.log(`⏳ Waiting for Chart.js... (attempt ${chartCheckCount})`);
@@ -2520,9 +2367,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 showMessage('📊 Analytics charts may not display correctly', 'warning');
             }
         };
-        
         setTimeout(checkChartJS, 1000);
-        
     } catch (error) {
         console.error('❌ Application initialization failed:', error);
         showMessage('Failed to initialize application. Please refresh the page.', 'error');
@@ -2725,7 +2570,7 @@ function exportData() {
     a.click();
     URL.revokeObjectURL(url);
     
-    notificationManager?.show('Data exported successfully!', 'success');
+    window.notificationManager?.show('Data exported successfully!', 'success');
     debugManager?.log('Data exported', 'info');
 }
 
@@ -2751,14 +2596,14 @@ function importData() {
                     if (isValid) {
                         window.dataManager.data = { ...window.dataManager.data, ...data };
                         window.dataManager.save();
-                        notificationManager?.show('Data imported successfully!', 'success');
+                        window.notificationManager?.show('Data imported successfully!', 'success');
                         debugManager?.log('Data imported', 'success', data);
                     } else {
                         throw new Error('Invalid data format');
                     }
                 }
             } catch (error) {
-                notificationManager?.show('Failed to import data: ' + error.message, 'error');
+                window.notificationManager?.show('Failed to import data: ' + error.message, 'error');
                 debugManager?.log('Import failed', 'error', error);
             }
         };
@@ -2935,12 +2780,20 @@ function generateSemesterReport(semester) {
 }
 
 // Admin functions
-function showUserManagement() {
+async function showUserManagement() {
     if (!window.authManager?.currentUser?.isAdmin) {
         showMessage('Admin access required', 'error');
         return;
     }
-    
+    // Ensure we have the latest data from cloud before rendering
+    try {
+        if (window.dataManager?.loadFromCloud) {
+            await window.dataManager.loadFromCloud(false);
+        }
+    } catch (e) {
+        console.warn('Could not refresh from cloud before opening User Management:', e);
+    }
+
     // Get user data from cloud (100% cloud-based)
     const pendingUsers = window.dataManager?.pendingUsers || [];
     const approvedUsers = window.dataManager?.approvedUsers || [];
@@ -3018,156 +2871,14 @@ function updateAdminStats() {
     const approvedUsers = window.dataManager?.approvedUsers || [];
     
     const approvedCount = document.getElementById('approvedUsersCount');
-    const pendingCount = document.getElementById('pendingRequestsCount');
+    const pendingBadge = document.getElementById('pendingUsersCount');
+    const pendingStat = document.getElementById('pendingRequestsCount');
     
     if (approvedCount) approvedCount.textContent = approvedUsers.length;
-    if (pendingCount) pendingCount.textContent = pendingUsers.length;
+    if (pendingBadge) pendingBadge.textContent = pendingUsers.length;
+    if (pendingStat) pendingStat.textContent = pendingUsers.length;
 }
 
-// User approval functions for admin
-async function approveUser(email) {
-    if (!window.authManager?.currentUser?.isAdmin) {
-        showMessage('Admin access required', 'error');
-        return false;
-    }
-    
-    try {
-        const pendingUsers = window.dataManager?.pendingUsers || [];
-        const approvedUsers = window.dataManager?.approvedUsers || [];
-        
-        // Find the user in pending list
-        const userIndex = pendingUsers.findIndex(u => u.email === email);
-        if (userIndex === -1) {
-            showMessage('User not found in pending list', 'error');
-            return false;
-        }
-        
-        const user = pendingUsers[userIndex];
-        
-        // Add approval timestamp
-        user.approvedAt = new Date().toISOString();
-        user.approvedBy = window.authManager.currentUser.email;
-        
-        // Move from pending to approved
-        pendingUsers.splice(userIndex, 1);
-        approvedUsers.push(user);
-        
-        // Update data manager
-        window.dataManager.pendingUsers = pendingUsers;
-        window.dataManager.approvedUsers = approvedUsers;
-        
-        // Save to cloud immediately
-        const success = await window.dataManager.save();
-        if (success) {
-            console.log('✅ User approved and synced to cloud:', user.email);
-            showMessage(`User ${user.name} has been approved!`, 'success');
-            
-            // Update admin stats
-            updateAdminStats();
-            
-            // Trigger immediate sync
-            window.dataManager.triggerImmediateSync();
-            
-            return true;
-        } else {
-            throw new Error('Failed to sync approval to cloud');
-        }
-    } catch (error) {
-        console.error('Error approving user:', error);
-        showMessage(`Failed to approve user: ${error.message}`, 'error');
-        return false;
-    }
-}
-
-async function rejectUser(email) {
-    if (!window.authManager?.currentUser?.isAdmin) {
-        showMessage('Admin access required', 'error');
-        return false;
-    }
-    
-    try {
-        const pendingUsers = window.dataManager?.pendingUsers || [];
-        
-        // Find and remove the user from pending list
-        const userIndex = pendingUsers.findIndex(u => u.email === email);
-        if (userIndex === -1) {
-            showMessage('User not found in pending list', 'error');
-            return false;
-        }
-        
-        const user = pendingUsers[userIndex];
-        pendingUsers.splice(userIndex, 1);
-        
-        // Update data manager
-        window.dataManager.pendingUsers = pendingUsers;
-        
-        // Save to cloud immediately
-        const success = await window.dataManager.save();
-        if (success) {
-            console.log('❌ User rejected and removed from cloud:', user.email);
-            showMessage(`User ${user.name} has been rejected and removed.`, 'info');
-            
-            // Update admin stats
-            updateAdminStats();
-            
-            // Trigger immediate sync
-            window.dataManager.triggerImmediateSync();
-            
-            return true;
-        } else {
-            throw new Error('Failed to sync rejection to cloud');
-        }
-    } catch (error) {
-        console.error('Error rejecting user:', error);
-        showMessage(`Failed to reject user: ${error.message}`, 'error');
-        return false;
-    }
-}
-
-async function removeApprovedUser(email) {
-    if (!window.authManager?.currentUser?.isAdmin) {
-        showMessage('Admin access required', 'error');
-        return false;
-    }
-    
-    try {
-        const approvedUsers = window.dataManager?.approvedUsers || [];
-        
-        // Find and remove the user from approved list
-        const userIndex = approvedUsers.findIndex(u => u.email === email);
-        if (userIndex === -1) {
-            showMessage('User not found in approved list', 'error');
-            return false;
-        }
-        
-        const user = approvedUsers[userIndex];
-        approvedUsers.splice(userIndex, 1);
-        
-        // Update data manager
-        window.dataManager.approvedUsers = approvedUsers;
-        
-        // Save to cloud immediately
-        const success = await window.dataManager.save();
-        if (success) {
-            console.log('🗑️ Approved user removed from cloud:', user.email);
-            showMessage(`User ${user.name} has been removed from approved users.`, 'info');
-            
-            // Update admin stats
-            updateAdminStats();
-            
-            // Trigger immediate sync
-            window.dataManager.triggerImmediateSync();
-            
-            return true;
-        } else {
-            throw new Error('Failed to sync removal to cloud');
-        }
-    } catch (error) {
-        console.error('Error removing approved user:', error);
-        showMessage(`Failed to remove user: ${error.message}`, 'error');
-        return false;
-    }
-}
 
 function clearAllData() {
     if (!window.authManager?.currentUser?.isAdmin) {
@@ -3333,6 +3044,57 @@ function exportSyncLogs() {
     a.click();
     URL.revokeObjectURL(url);
     showMessage('Sync logs exported', 'success');
+}
+
+// Activity Feed Functions
+function refreshActivityFeed() {
+    const feed = document.getElementById('activityFeed');
+    const countEl = document.getElementById('activityCount');
+    if (!feed) return;
+
+    // Use sync logs as the activity source
+    const logs = JSON.parse(localStorage.getItem('lams_sync_logs') || '[]');
+    const clearedAt = parseInt(localStorage.getItem('lams_activity_clear_time') || '0', 10);
+    const items = logs
+        .filter(l => {
+            const t = Date.parse(l.timestamp || '');
+            return isFinite(t) ? t > clearedAt : true;
+        })
+        .slice(0, 50);
+
+    if (items.length === 0) {
+        feed.innerHTML = '<p class="empty-state">No recent activities.</p>';
+        if (countEl) countEl.textContent = '0 activities';
+        return;
+    }
+
+    const html = items.map(entry => {
+        const time = entry.timestamp ? new Date(entry.timestamp).toLocaleString() : '';
+        const type = entry.type || 'info';
+        const status = entry.status || 'info';
+        const msg = entry.message || '';
+        const user = entry.user || '';
+        return `
+            <div class="activity-item">
+                <div class="activity-meta">
+                    <span class="activity-time">${time}</span>
+                    <span class="activity-type">${type}</span>
+                    <span class="activity-status ${status}">${status}</span>
+                </div>
+                <div class="activity-message">${msg}${user ? ` <span class="activity-user">(${user})</span>` : ''}</div>
+            </div>
+        `;
+    }).join('');
+
+    feed.innerHTML = html;
+    if (countEl) countEl.textContent = `${items.length} activities`;
+}
+
+function clearActivityFeed() {
+    // Do not clear sync logs; just set a cutoff so feed appears cleared
+    localStorage.setItem('lams_activity_clear_time', Date.now().toString());
+    refreshActivityFeed();
+    showMessage('Activity feed cleared', 'success');
 }
 
 // Debug function to check system status
@@ -3704,8 +3466,6 @@ function updateGitHubStatus() {
 }
 
 // Export functions for global access
-window.dataManager = dataManager;
-window.notificationManager = notificationManager;
 window.exportData = exportData;
 window.importData = importData;
 window.previewAssignment = previewAssignment;
@@ -3714,9 +3474,7 @@ window.showTab = showTab;
 window.showUserManagement = showUserManagement;
 window.clearAllData = clearAllData;
 window.updateAdminStats = updateAdminStats;
-window.approveUser = approveUser;
-window.rejectUser = rejectUser;
-window.removeApprovedUser = removeApprovedUser;
+// approveUser/rejectUser/removeApprovedUser are defined in auth.js and exported there
 window.addMasterDataItem = addMasterDataItem;
 window.addFaculty = addFaculty;
 window.deleteMasterDataItem = deleteMasterDataItem;
