@@ -19,9 +19,8 @@ class AuthManager {
         this.refreshTokenKey = 'lams_refresh_token';
         this.deviceIdKey = 'lams_device_id';
         
-        // Generate or retrieve unique device ID
-        this.deviceId = localStorage.getItem(this.deviceIdKey) || this.generateDeviceId();
-        localStorage.setItem(this.deviceIdKey, this.deviceId);
+    // Generate device ID in memory; persist only for signed-in users
+    this.deviceId = localStorage.getItem(this.deviceIdKey) || this.generateDeviceId();
         
         console.log('🔧 Enhanced Auth Manager initialized for device:', this.deviceId);
     }
@@ -66,6 +65,7 @@ class AuthManager {
                     
                     console.log('✅ Restored authentication from persistent storage');
                     this.updateUI();
+                    try { localStorage.setItem(this.deviceIdKey, this.deviceId); } catch {}
                     
                     // Try to refresh access token
                     await this.refreshAccessToken();
@@ -137,6 +137,7 @@ class AuthManager {
                 this.isSignedIn = true;
                 this.accessToken = null; // Reset token for fresh auth
                 localStorage.setItem('userSession', JSON.stringify(this.currentUser));
+                try { localStorage.setItem(this.deviceIdKey, this.deviceId); } catch {}
                 
                 // Enable persistent authentication for cross-device access
                 await this.setPersistentAuth(this.currentUser);
@@ -568,9 +569,9 @@ class AuthManager {
         console.log('🗑️ Persistent authentication cleared');
     }
 
-    async getAccessTokenWithPersistence() {
+    async getAccessTokenWithPersistence(allowPopup = false) {
         try {
-            const token = await this.getAccessToken(true);
+            const token = await this.getAccessToken(allowPopup);
             if (token && this.currentUser) {
                 // Update persistent storage with new token
                 await this.setPersistentAuth(this.currentUser);
@@ -765,7 +766,8 @@ class AuthManager {
                 // Start real-time sync now that we have permission
                 if (window.dataManager) {
                     window.dataManager.startRealTimeSync();
-                    showMessage('🔄 Real-time sync activated! Changes sync every 3 seconds across all devices.', 'success');
+                    const intervalSec = Math.round(((window.CONFIG && CONFIG.REALTIME_SYNC_INTERVAL) || 5000) / 1000);
+                    showMessage(`🔄 Real-time sync activated! Changes sync every ${intervalSec}s across all devices.`, 'success');
                 }
             } else {
                 console.log('⚠️ No access token - real-time sync not available');

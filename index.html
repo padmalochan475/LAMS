@@ -94,6 +94,9 @@
                     <div class="sync-status" id="syncStatus" style="display: inline-block;">
                         <span class="nav-icon">☁️</span> <span id="syncStatusText">Loading...</span>
                     </div>
+                    <button class="btn btn--outline" id="enableCloudSyncBtn" style="display:none;" onclick="enableCloudSync()" title="Grant Google Drive access for background sync">
+                        <span class="nav-icon">🔑</span> Enable Cloud Sync
+                    </button>
                     <button class="btn btn--secondary" onclick="exportData()" title="Export Data">
                         <span class="nav-icon">📥</span> Export
                     </button>
@@ -146,15 +149,9 @@
                         <span class="stat-label">Pending Requests</span>
                         <span class="stat-value" id="pendingRequestsCount">0</span>
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-label">GitHub Sync</span>
-                        <span class="stat-value" id="github-sync-status">Not Configured</span>
-                    </div>
                 </div>
                 <div class="admin-actions">
                     <button class="btn btn--primary" onclick="showUserManagement()">Manage Users</button>
-                    <button class="btn btn--outline" onclick="configureGitHubSync()">Configure GitHub</button>
-                    <button class="btn btn--secondary" onclick="syncToGitHub()">Sync to GitHub</button>
                     <button class="btn btn--outline" onclick="clearAllData()">Clear All Data</button>
                 </div>
             </div>
@@ -588,6 +585,14 @@
                             <span class="nav-icon">📅</span> Edit Academic Year
                         </button>
                     </div>
+                    <label class="form-group" style="display:flex; align-items:center; gap:8px;">
+                        <input type="checkbox" id="forceCondensedMode" onchange="renderPrintSchedule()">
+                        <span>Force Condensed Mode</span>
+                    </label>
+                    <label class="form-group" style="display:flex; align-items:center; gap:8px;">
+                        <input type="checkbox" id="fitOnePage" onchange="renderPrintSchedule()">
+                        <span>Fit to One Page</span>
+                    </label>
                     <button class="btn btn--primary" onclick="window.print()">🖨️ Print Schedule</button>
                 </div>
             </div>
@@ -596,6 +601,7 @@
                 <div class="print-header">
                     <div class="institute-header">
                         <h1>INSTITUTE LAB SCHEDULE</h1>
+                        <p class="institute-name">Trident Academy of Technology</p>
                         <div class="institute-details">
                             <p>Academic Year: <span id="printAcademicYear">2024-25</span></p>
                             <p id="printDepartmentTitle">All Departments</p>
@@ -745,7 +751,6 @@
     <!-- Application Scripts -->
     <script src="config.js"></script>
     <script src="auth.js"></script>
-    <script src="github-sync.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

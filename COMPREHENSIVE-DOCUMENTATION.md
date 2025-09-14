@@ -9,7 +9,6 @@ A comprehensive cloud-first web-based lab assignment management system designed 
 - ✅ **Cross-Device Sync**: Works across all browsers and devices globally  
 - ✅ **Real-Time Updates**: Immediate synchronization on all CRUD operations
 - ✅ **User Management**: Complete admin approval workflow for new users
-- ✅ **GitHub Integration**: Repository backup and version control
 - ✅ **Responsive Design**: Mobile-first design with A4 print optimization
 - ✅ **Conflict Detection**: Automatic scheduling conflict resolution
 - ✅ **Analytics Dashboard**: Comprehensive charts and statistics
@@ -48,7 +47,6 @@ DataManager.startRealTimeSync()
 - **Authentication**: Google OAuth 2.0
 - **Storage**: Google Drive API (Primary), localStorage (Cache)
 - **Hosting**: GitHub Pages (Static hosting)
-- **Backup**: GitHub API integration
 
 ### **File Structure**
 ```
@@ -56,7 +54,6 @@ LAMS/
 ├── app.js           # Main application logic (3278+ lines)
 ├── auth.js          # Authentication & user management (1156 lines)  
 ├── config.js        # Institute configuration (68 lines)
-├── github-sync.js   # GitHub repository integration
 ├── style.css        # Responsive styling (2900+ lines)
 ├── index.html       # Main application interface (647 lines)
 └── .github/         # Copilot instructions & workflows
@@ -84,13 +81,6 @@ INSTITUTE_NAME: "Your Institute Name",
 INSTITUTE_SHORT_NAME: "YIN", 
 ADMIN_EMAIL: "admin@yourinstitute.edu",
 INSTITUTE_ADDRESS: "Your Address",
-```
-
-### **GitHub Integration** (Optional)
-```javascript
-// For repository backup
-GITHUB_TOKEN: "your-github-token",
-GITHUB_REPO: "username/repository-name"
 ```
 
 ---
@@ -279,7 +269,6 @@ cd LAMS
 - **Print Testing**: A4 layout verification
 
 ### **Version Control**
-- **GitHub Integration**: Automatic repository backup
 - **Branch Strategy**: Main branch for production
 - **Issue Tracking**: GitHub Issues for bug reports
 

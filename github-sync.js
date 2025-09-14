@@ -1,3 +1,14 @@
+// Deprecated: GitHub sync is disabled in this build. This file is a no-op stub.
+if (!window.CONFIG || !window.CONFIG.FEATURES || window.CONFIG.FEATURES.GITHUB_SYNC === false) {
+    window.githubSync = {
+        isConfigured: () => false,
+        setGitHubToken: () => false,
+        loadFromGitHub: async () => null,
+        syncToGitHub: async () => false,
+        getRepositoryUrl: () => '',
+        getDataFileUrl: () => ''
+    };
+} else {
 // GitHub API Integration for LAMS Data Synchronization
 class GitHubSync {
     constructor() {
@@ -208,4 +219,5 @@ let githubSync = null;
 if (CONFIG.FEATURES?.GITHUB_SYNC) {
     githubSync = new GitHubSync();
     window.githubSync = githubSync;
+}
 }

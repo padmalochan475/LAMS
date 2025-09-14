@@ -1326,7 +1326,6 @@ body {
   border-radius: var(--radius-sm);
 }
 
-/* GitHub sync status variants */
 .stat-value.success {
   background: rgba(34, 197, 94, 0.1);
   color: var(--color-success);
@@ -1395,6 +1394,11 @@ body {
   print-color-adjust: exact !important;
   }
   
+  /* Show only the Print tab content when printing */
+  .tab-content { display: none !important; }
+  #print-tab { display: block !important; }
+  
+  
   body {
     background: white !important;
     color: black !important;
@@ -1435,11 +1439,17 @@ body {
   }
   
   .institute-header h1 {
-    font-size: 20px !important;
+    font-size: 24px !important;
     font-weight: bold !important;
     margin: 0 0 8px 0 !important;
     color: #000 !important;
     letter-spacing: 1px;
+  }
+  .institute-header .institute-name {
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    margin: 0 0 6px 0 !important;
+    color: #000 !important;
   }
   
   .institute-details p {
@@ -1471,7 +1481,7 @@ body {
     padding: 8px 4px !important;
     text-align: center !important;
     font-weight: bold !important;
-    font-size: 12px !important;
+    font-size: 13px !important;
     color: #000 !important;
   }
   
@@ -1494,7 +1504,7 @@ body {
     text-align: center !important;
     vertical-align: middle !important;
     font-weight: bold !important;
-    font-size: 10px !important;
+    font-size: 11px !important;
     color: #000 !important;
   }
   
@@ -1504,6 +1514,57 @@ body {
     vertical-align: top !important;
     text-align: left !important;
     overflow: hidden !important;
+  }
+  
+  /* Condensed mode for high-density schedules */
+  .print-table.condensed .print-header-row th {
+    padding: 6px 3px !important;
+    font-size: 12px !important;
+  }
+  .print-table.condensed .time-cell {
+    padding: 4px 3px !important;
+    font-size: 10px !important;
+  }
+  .print-table.condensed .schedule-cell {
+    padding: 3px 2px !important;
+  }
+  .print-table.condensed .lab-entry {
+    margin-bottom: 2px !important;
+    padding: 1px 2px !important;
+    line-height: 1.05 !important;
+  }
+  .print-table.condensed .lab-display {
+    font-size: 0.95em !important;
+    letter-spacing: 0.1px !important;
+  }
+
+  /* One-page fit tweaks */
+  .print-table.one-page .print-header-row th {
+    padding: 5px 3px !important;
+    font-size: 11px !important;
+  }
+  .print-table.one-page .time-cell {
+    padding: 4px 2px !important;
+    font-size: 9.5px !important;
+  }
+  .print-table.one-page .schedule-cell {
+    padding: 2px 2px !important;
+  }
+  .print-table.one-page .lab-entry {
+    margin-bottom: 1px !important;
+    padding: 1px 2px !important;
+    line-height: 1.02 !important;
+  }
+  .print-table.one-page .lab-display {
+    font-size: 0.9em !important;
+  }
+  
+  /* Style the assignment display line for readability without changing content */
+  .lab-display {
+    font-weight: 600 !important;
+    font-size: 1em !important;
+    color: #000 !important;
+    letter-spacing: 0.2px !important;
   }
   
   .no-lab {
@@ -1573,6 +1634,12 @@ body {
   /* Ensure proper page breaks */
   .print-table {
     page-break-inside: auto !important;
+  }
+  .print-table thead { 
+    display: table-header-group !important; 
+  }
+  .print-table tfoot { 
+    display: table-footer-group !important; 
   }
   
   .time-row {

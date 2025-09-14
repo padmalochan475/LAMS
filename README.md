@@ -16,7 +16,6 @@ For comprehensive documentation, setup instructions, features, and technical det
 - ✅ Real-time sync across all devices (5-second intervals)
 - ✅ Google Drive cloud storage with offline fallback  
 - ✅ Cross-device authentication with user approval workflow
-- ✅ GitHub repository integration for version control
 - ✅ Responsive design with A4 print optimization
 - ✅ Zero-popup background synchronization
 - ✅ Automatic conflict detection and resolution
@@ -26,7 +25,6 @@ For comprehensive documentation, setup instructions, features, and technical det
 - **Authentication**: Google OAuth 2.0
 - **Storage**: Google Drive API (Primary), localStorage (Cache)  
 - **Hosting**: GitHub Pages (Static)
-- **Backup**: GitHub API integration
 
 ## 📁 **Core Files**
 ```
@@ -34,7 +32,6 @@ LAMS/
 ├── app.js                           # Main application (3278+ lines)
 ├── auth.js                          # Authentication (1156 lines)
 ├── config.js                        # Configuration (68 lines)
-├── github-sync.js                   # GitHub integration
 ├── style.css                        # Responsive styling (2900+ lines)
 ├── index.html                       # Main interface (647 lines)
 ├── README.md                        # This file
@@ -46,9 +43,10 @@ LAMS/
 **✅ DEPLOYMENT READY** - All features fully implemented and tested:
 - Real-time sync verified across multiple devices globally
 - User approval workflow working with cloud synchronization  
-- GitHub backup integration functional
 - Print optimization tested for A4 landscape format
 - Cross-browser compatibility confirmed
+
+Note: GitHub repository backup/sync has been removed from this build. Data is stored in Google Drive only.
 
 ---
 

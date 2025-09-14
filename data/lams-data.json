@@ -1,7 +1,7 @@
 {
   "message": "LAMS data will be automatically synced here",
-  "description": "This file will be automatically updated whenever changes are made in the LAMS application and GitHub sync is configured.",
+  "description": "Reserved for future use. GitHub sync is disabled in this build.",
   "lastUpdate": "Initial setup",
   "repository": "https://github.com/padmalochan475/LAMS",
-  "syncStatus": "Ready for first sync"
+  "syncStatus": "GitHub sync disabled"
 }

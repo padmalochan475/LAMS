@@ -30,7 +30,7 @@ const CONFIG = {
     // Feature Flags
     FEATURES: {
         GOOGLE_DRIVE_SYNC: true, // Re-enable for cross-device sync
-        GITHUB_SYNC: true, // Enable GitHub repository sync
+    GITHUB_SYNC: false, // Disable GitHub repository sync
         REALTIME_SYNC: true,
         BULK_OPERATIONS: true,
         ANALYTICS: true,

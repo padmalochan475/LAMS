@@ -17,78 +17,56 @@ class NotificationManager {
 
 class DataManager {
     constructor() {
-        this.data = {
-            days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-            timeSlots: [],
-            departments: ["CSE", "ECE", "EEE", "MECH", "CIVIL"],
-            semesters: ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"],
-            groups: ["A", "B", "C", "D"],
-            subGroups: ["1", "2", "3"],
-            subjects: [],
-            labRooms: [],
-            theoryFaculty: [],
-            labFaculty: [],
-            assignments: [],
-            academicYear: "2024-25",
-            scheduleOrientation: "daysHorizontal", // or "timesHorizontal"
-            lastModified: new Date().toISOString(),
-            version: 1
-        };
-        this.isCloudMode = true; // Cloud-first mode
-        this.syncInterval = null;
-        this.lastSyncTime = null;
-        this.syncFailureCount = 0; // Track consecutive failures
-        this.maxSyncFailures = 5; // Stop retrying after 5 failures
-        this.waitingForPermission = false; // Prevent permission spam
-        
-        // 100% Cloud-based user management (NO localStorage)
-        this.pendingUsers = [];
-        this.approvedUsers = [];
-        
-        this.init();
-    }
-
-    init() {
-        // Load from cloud first, fallback to localStorage only for offline scenarios
-        this.loadFromCloud().then(() => {
-            this.validateMasterDataIntegrity();
-            this.refreshAllComponents();
-            
-            // Auto-start real-time sync immediately like all modern apps
-            setTimeout(() => {
-                if (window.authManager && window.authManager.isSignedIn) {
-                    console.log('� Auto-starting real-time sync - no user action required');
-                    this.startRealTimeSync();
-                    showMessage('✅ Real-time sync active across all devices', 'success');
-                } else {
-                    console.log('💡 LAMS ready. Sign in to enable automatic sync.');
-                    this.updateSyncStatus('Sign in to sync');
-                }
-            }, 1000);
-        });
-    }
-
-    // Enhanced loading with multiple sync sources
-    async loadFromCloud() {
-        // Try GitHub sync first if configured
-        if (window.githubSync && window.githubSync.isConfigured() && CONFIG.FEATURES.GITHUB_SYNC) {
-            try {
-                console.log('🐙 Attempting to load from GitHub...');
-                const githubData = await window.githubSync.loadFromGitHub();
-                if (githubData && Object.keys(githubData).length > 1) {
-                    this.data = { ...this.data, ...githubData };
-                    this.assignDataArrays();
-                    console.log('🐙 Data loaded from GitHub successfully');
-                    showMessage('✅ Data loaded from GitHub repository', 'success');
-                    return;
-                }
-            } catch (error) {
-                console.log('⚠️ GitHub load failed, trying other sources:', error.message);
+        async function showUserManagement() {
+            if (!window.authManager?.currentUser?.isAdmin) {
+                showMessage('Admin access required', 'error');
+                return;
             }
-        }
-        
-        // Try free sync as backup
-        if (window.freeSync) {
+            // Always reload latest user data from cloud before showing panel
+            if (window.dataManager?.loadFromCloud) {
+                await window.dataManager.loadFromCloud();
+            }
+            const pendingUsers = window.dataManager?.pendingUsers || [];
+            const approvedUsers = window.dataManager?.approvedUsers || [];
+            console.log('� Admin Panel - Loading from Google Drive');
+            console.log('📋 Pending users from cloud:', pendingUsers.length);
+            console.log('✅ Approved users from cloud:', approvedUsers.length);
+            console.log('📊 Pending users data:', pendingUsers);
+            const modal = document.createElement('div');
+            modal.className = 'user-management-modal';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>User Management</h3>
+                        <button onclick="this.closest('.user-management-modal').remove()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="user-section">
+                            <h4>Pending Approval (${pendingUsers.length})</h4>
+                            <div class="user-list pending-list">
+                                ${pendingUsers.length === 0 ? '<p class="empty-state">No pending requests</p>' : 
+                                  pendingUsers.map(user => `
+                                    <div class="user-item pending-user">
+                                        <div class="user-info">
+                                            <img src="${user.picture}" class="user-avatar-small" alt="${user.name}">
+                                            <div>
+                                                <div class="user-name">${user.name}</div>
+                                                <div class="user-email">${user.email}</div>
+                                                <div class="user-time">Requested: ${new Date(user.loginTime).toLocaleString()}</div>
+                                            </div>
+                                        </div>
+                                        <div class="user-actions">
+                                            <button class="btn btn--sm btn--success" onclick="approveUser('${user.email}').then(() => { this.closest('.user-management-modal').remove(); showUserManagement(); })">Approve</button>
+                                            <button class="btn btn--sm btn--danger" onclick="rejectUser('${user.email}').then(() => { this.closest('.user-management-modal').remove(); showUserManagement(); })">Reject</button>
+                                        </div>
+                                    </div>
+                                  `).join('')}
+                            </div>
+                        </div>
+                        <div class="user-section">
+                            <h4>Approved Users (${approvedUsers.length})</h4>
+                            <div class="user-list approved-list">
+                                ${approvedUsers.length === 0 ? '<p class="empty-state">No approved users</p>' : 
             const syncData = await window.freeSync.loadData();
             if (syncData && Object.keys(syncData).length > 1) {
                 this.data = { ...this.data, ...syncData };
@@ -247,6 +225,9 @@ class DataManager {
         }
 
         try {
+            // mark unsynced before attempting save
+            this.unsyncedChanges = true;
+            this.lastChangeAt = Date.now();
             this.data.lastModified = new Date().toISOString();
             this.data.version = (this.data.version || 0) + 1;
             
@@ -265,10 +246,11 @@ class DataManager {
                 approvedCount: (this.approvedUsers || []).length
             });
             
-            const success = await window.authManager.saveToGoogleDrive(dataToSync, true);
+            const success = await window.authManager.saveToGoogleDrive(dataToSync, false);
             if (success) {
                 this.lastSyncTime = new Date().toISOString();
                 this.syncFailureCount = 0;
+                this.unsyncedChanges = false;
                 showMessage('✅ All data saved to Google Drive', 'success');
                 return true;
             } else {
@@ -300,7 +282,7 @@ class DataManager {
         this.isSyncInProgress = false;
         this.setupAdvancedInteractionTracking();
         
-        // Intelligent sync every 5 seconds - much faster for real-time feel
+        // Intelligent periodic sync using configurable interval
         this.syncInterval = setInterval(async () => {
             if (window.authManager && window.authManager.isSignedIn) {
                 // Skip sync if any interactive element is active
@@ -325,7 +307,7 @@ class DataManager {
             } else {
                 this.stopRealTimeSync();
             }
-        }, 5000); // 5 second intervals for real-time sync
+        }, this.syncIntervalMs);
         
         console.log('🎯 Smart sync active - detects dropdowns and form interactions');
     }
@@ -439,25 +421,11 @@ class DataManager {
             // Try to get or refresh access token
             const token = await window.authManager.getAccessToken(false);
             if (!token) {
-                // Only show the first time, then wait silently
+                // Only show once then remain silent
                 if (!this.waitingForPermission) {
                     this.waitingForPermission = true;
-                    console.log('⏸️ Waiting for Google Drive permissions - sync will start automatically once granted');
+                    console.log('⏸️ Waiting for Google Drive permission (no popups). Use Enable Cloud Sync to grant access.');
                     this.updateSyncStatus('Waiting for permission');
-                    
-                    // Try to get permission with popup (one time only)
-                    setTimeout(async () => {
-                        try {
-                            const popupToken = await window.authManager.getAccessToken(true);
-                            if (popupToken) {
-                                this.waitingForPermission = false;
-                                this.updateSyncStatus('Auto-sync active');
-                                console.log('✅ Permissions granted - sync now active');
-                            }
-                        } catch (error) {
-                            console.log('💡 User can enable sync by interacting with any Google Drive feature');
-                        }
-                    }, 2000);
                 }
                 return false;
             }
@@ -525,6 +493,7 @@ class DataManager {
                 const success = await window.authManager.saveToGoogleDrive(this.data, false); // No popups for background sync
                 if (success) {
                     this.lastSyncTime = new Date().toISOString();
+                    this.unsyncedChanges = false;
                     showMessage('☁️ Local changes synced to cloud', 'success');
                 }
                 return true;
@@ -545,21 +514,38 @@ class DataManager {
     updateSyncStatus(status) {
         const syncStatusText = document.getElementById('syncStatusText');
         const syncIcon = document.querySelector('#syncStatus .nav-icon');
+        const enableBtn = document.getElementById('enableCloudSyncBtn');
         
         if (syncStatusText) {
             syncStatusText.textContent = status;
         }
         
-        // Update icon based on status
+        // Update icon based on status (case-insensitive)
         if (syncIcon) {
-            if (status.includes('Syncing')) {
+            const s = (status || '').toLowerCase();
+            if (this.unsyncedChanges && !(s.includes('waiting') || s.includes('permission'))) {
+                syncIcon.textContent = '🟡';
+            } else if (s.includes('syncing')) {
                 syncIcon.textContent = '🔄';
-            } else if (status.includes('Synced') || status.includes('Active')) {
+            } else if (s.includes('synced') || s.includes('active')) {
                 syncIcon.textContent = '✅';
-            } else if (status.includes('Ready') || status.includes('Available')) {
+            } else if (s.includes('ready') || s.includes('available')) {
                 syncIcon.textContent = '☁️';
+            } else if (s.includes('waiting') || s.includes('permission')) {
+                syncIcon.textContent = '⏳';
             } else {
                 syncIcon.textContent = '🔄';
+            }
+        }
+
+        // Toggle visibility of the "Enable Cloud Sync" button
+        if (enableBtn) {
+            const s = (status || '').toLowerCase();
+            // Show when we are waiting for Drive permission/token; hide otherwise
+            if (s.includes('waiting') || s.includes('permission')) {
+                enableBtn.style.display = 'inline-flex';
+            } else {
+                enableBtn.style.display = 'none';
             }
         }
     }
@@ -613,6 +599,8 @@ class DataManager {
     // Trigger immediate sync on any data change
     triggerImmediateSync() {
         console.log('🚀 Triggering immediate sync after data change');
+        this.unsyncedChanges = true;
+        this.lastChangeAt = Date.now();
         
         if (window.authManager && window.authManager.isSignedIn) {
             // Sync to Google Drive immediately
@@ -621,17 +609,7 @@ class DataManager {
                 this.updateSyncStatus('✅ Synced to all devices');
                 showMessage('✅ Changes synced to Google Drive!', 'success');
                 
-                // Also sync to GitHub if configured
-                if (window.githubSync && window.githubSync.isConfigured() && CONFIG.FEATURES.GITHUB_SYNC) {
-                    window.githubSync.syncToGitHub(this.data).then(success => {
-                        if (success) {
-                            console.log('🐙 GitHub sync completed successfully');
-                            showMessage('🐙 Changes also synced to GitHub!', 'success');
-                        }
-                    }).catch(error => {
-                        console.log('⚠️ GitHub sync failed:', error);
-                    });
-                }
+                // GitHub sync removed/disabled
             }).catch(error => {
                 console.log('⚠️ Google Drive sync failed:', error);
                 showMessage('⚠️ Sync failed - try again', 'warning');
@@ -645,6 +623,16 @@ class DataManager {
         setTimeout(() => {
             this.refreshAllComponents();
         }, 100);
+
+        // Cross-tab notifications to prompt immediate sync in other tabs
+        try {
+            this.channel?.postMessage({ type: 'DATA_CHANGED', version: this.data.version, at: Date.now() });
+        } catch (e) { /* ignore */ }
+        try {
+            if (window.authManager && window.authManager.isSignedIn) {
+                localStorage.setItem('lams_sync_tick', String(Date.now()));
+            }
+        } catch (e) { /* ignore */ }
     }
 
     // Override methods to trigger immediate sync
@@ -1002,6 +990,31 @@ function showMessage(text, type = 'info') {
                 message.remove();
             }
         }, 5000);
+    }
+}
+
+// User-initiated consent to enable background cloud sync
+async function enableCloudSync() {
+    try {
+        if (!window.authManager || !window.authManager.isSignedIn) {
+            showMessage('Please sign in first to enable cloud sync', 'warning');
+            return;
+        }
+        const token = await window.authManager.getAccessTokenWithPersistence(true);
+        if (token) {
+            const btn = document.getElementById('enableCloudSyncBtn');
+            if (btn) btn.style.display = 'none';
+            if (window.dataManager && !window.dataManager.syncInterval) {
+                window.dataManager.startRealTimeSync();
+            }
+            window.dataManager?.updateSyncStatus('Auto-sync active');
+            showMessage('✅ Cloud sync enabled', 'success');
+        } else {
+            showMessage('Popup blocked or permission denied. Please allow popups for this site.', 'warning');
+        }
+    } catch (e) {
+        console.error('Enable Cloud Sync failed:', e);
+        showMessage('Failed to enable cloud sync', 'error');
     }
 }
 
@@ -1557,18 +1570,17 @@ function toggleFeatureVisibility() {
             analyticsNavBtn.style.display = window.CONFIG?.FEATURES?.ANALYTICS ? '' : 'none';
         }
 
-        // GitHub admin buttons
-        const githubButtons = [
-            ...document.querySelectorAll('button[onclick="configureGitHubSync()"]'),
-            ...document.querySelectorAll('button[onclick="syncToGitHub()"]')
-        ];
+        // GitHub admin UI removed; keep defensive checks in case forks retain it
         const enableGitHub = !!window.CONFIG?.FEATURES?.GITHUB_SYNC;
-        githubButtons.forEach(btn => btn.style.display = enableGitHub ? '' : 'none');
-
+        try {
+            const githubButtons = [
+                ...document.querySelectorAll('button[onclick="configureGitHubSync()"]'),
+                ...document.querySelectorAll('button[onclick="syncToGitHub()"]')
+            ];
+            githubButtons.forEach(btn => btn.style.display = enableGitHub ? '' : 'none');
+        } catch {}
         const ghStatus = document.getElementById('github-sync-status');
-        if (ghStatus) {
-            ghStatus.textContent = enableGitHub ? (window.githubSync?.isConfigured() ? 'Configured' : 'Not Configured') : 'Disabled';
-        }
+        if (ghStatus) ghStatus.textContent = enableGitHub ? (window.githubSync?.isConfigured?.() ? 'Configured' : 'Not Configured') : 'Disabled';
     } catch (err) {
         console.warn('Feature toggle visibility error:', err);
     }
@@ -1577,7 +1589,7 @@ function toggleFeatureVisibility() {
 // Runtime safe mode toggle handling
 function applySafeModeFromStorage() {
     try {
-        const stored = localStorage.getItem('analyticsSafeMode');
+        const stored = (window.authManager && window.authManager.isSignedIn) ? localStorage.getItem('analyticsSafeMode') : null;
         if (stored !== null) {
             const val = stored === 'true';
             if (window.CONFIG?.FEATURES) window.CONFIG.FEATURES.ANALYTICS_SAFE_MODE = val;
@@ -1593,7 +1605,7 @@ function toggleSafeModeRuntime() {
     const checkbox = document.getElementById('toggleSafeMode');
     const enabled = !!checkbox?.checked;
     if (window.CONFIG?.FEATURES) window.CONFIG.FEATURES.ANALYTICS_SAFE_MODE = enabled;
-    try { localStorage.setItem('analyticsSafeMode', String(enabled)); } catch {}
+    try { if (window.authManager && window.authManager.isSignedIn) localStorage.setItem('analyticsSafeMode', String(enabled)); } catch {}
     // If Analytics tab is visible, re-render it to reflect the change
     try { renderAnalytics(); } catch {}
 }
@@ -2224,25 +2236,61 @@ function renderPrintSchedule() {
         });
     });
 
-    // Dynamic font sizing based on content density
-    let fontSize, cellHeight;
+    // Dynamic sizing based on content density
+    let fontSize, cellHeight, condensed = false, onePage = false;
     if (maxAssignmentsPerCell <= 2) {
-        fontSize = '11px';
-        cellHeight = '80px';
+        fontSize = '12px';
+        cellHeight = '90px';
     } else if (maxAssignmentsPerCell <= 5) {
-        fontSize = '9px';
-        cellHeight = '100px';
+        fontSize = '10px';
+        cellHeight = '110px';
     } else if (maxAssignmentsPerCell <= 8) {
+        fontSize = '9px';
+        cellHeight = '130px';
+    } else if (maxAssignmentsPerCell <= 10) {
         fontSize = '8px';
-        cellHeight = '120px';
+        cellHeight = '150px';
+        condensed = true;
     } else {
+        // 11+ entries in a cell: go into condensed mode and allow auto height
         fontSize = '7px';
-        cellHeight = '140px';
+        cellHeight = null; // omit fixed height for auto expansion
+        condensed = true;
     }
+
+    // Allow user to force condensed mode & one-page fit
+    try {
+        const forced = document.getElementById('forceCondensedMode');
+        if (forced && forced.checked) {
+            condensed = true;
+        }
+        const fit = document.getElementById('fitOnePage');
+        if (fit && fit.checked) {
+            onePage = true;
+            condensed = true;
+            // apply more compact font tiers
+            if (maxAssignmentsPerCell <= 2) {
+                fontSize = '11px';
+                cellHeight = '80px';
+            } else if (maxAssignmentsPerCell <= 5) {
+                fontSize = '9px';
+                cellHeight = '100px';
+            } else if (maxAssignmentsPerCell <= 8) {
+                fontSize = '8px';
+                cellHeight = '110px';
+            } else if (maxAssignmentsPerCell <= 10) {
+                fontSize = '7px';
+                cellHeight = '120px';
+            } else {
+                fontSize = '6.5px';
+                cellHeight = null; // allow auto height if needed
+            }
+        }
+    } catch {}
 
     // Always use time slots as rows for better A4 layout
     let html = `
-        <table class="print-table optimized-print" style="font-size: ${fontSize}">
+        <table class="print-table optimized-print${condensed ? ' condensed' : ''}${onePage ? ' one-page' : ''}" style="font-size: ${fontSize}">
             <thead>
                 <tr class="print-header-row">
                     <th class="time-column">Time Slot</th>
@@ -2253,7 +2301,8 @@ function renderPrintSchedule() {
     `;
 
     window.dataManager.data.timeSlots.forEach(timeSlot => {
-        html += `<tr class="time-row" style="height: ${cellHeight}">`;
+        const rowStyle = cellHeight ? ` style=\"height: ${cellHeight}\"` : '';
+        html += `<tr class="time-row"${rowStyle}>`;
         html += `<td class="time-cell"><strong>${timeSlot}</strong></td>`;
         
         window.dataManager.data.days.forEach(day => {
@@ -2407,6 +2456,10 @@ function showTab(tabId, event = null) {
             setTimeout(() => {
                 renderPrintSchedule();
                 document.getElementById('printDate').textContent = new Date().toLocaleDateString();
+                const nameEl = document.querySelector('.institute-name');
+                if (nameEl && window.CONFIG?.INSTITUTE_NAME) {
+                    nameEl.textContent = window.CONFIG.INSTITUTE_NAME;
+                }
             }, 100);
             break;
         case 'logs':
@@ -2424,7 +2477,9 @@ function toggleTheme() {
     const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
     
     document.documentElement.setAttribute('data-color-scheme', newTheme);
-    localStorage.setItem('theme', newTheme);
+    if (window.authManager && window.authManager.isSignedIn) {
+        localStorage.setItem('theme', newTheme);
+    }
     
     const themeIcon = document.querySelector('.theme-icon');
     if (themeIcon) {
@@ -2474,7 +2529,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         return;
     }
     
-    const savedTheme = localStorage.getItem('theme');
+    const savedTheme = (window.authManager && window.authManager.isSignedIn) ? localStorage.getItem('theme') : null;
     if (savedTheme) {
         document.documentElement.setAttribute('data-color-scheme', savedTheme);
         const themeIcon = document.querySelector('.theme-icon');
@@ -3633,82 +3688,20 @@ function generateSystemReport() {
     return report;
 }
 
-// GitHub Integration Functions
+// GitHub Integration Functions (Deprecated)
 function configureGitHubSync() {
-    if (!window.authManager || !window.authManager.currentUser || !window.authManager.currentUser.isAdmin) {
-        showMessage('Only admin can configure GitHub integration', 'error');
-        return;
-    }
-
-    const token = prompt(`Configure GitHub Integration
-
-Please enter your GitHub Personal Access Token:
-
-Instructions:
-1. Go to GitHub → Settings → Developer settings → Personal access tokens
-2. Generate new token with 'repo' permissions
-3. Copy the token and paste it below
-
-Repository: ${CONFIG.GITHUB.OWNER}/${CONFIG.GITHUB.REPO}
-Data will be synced to: ${CONFIG.GITHUB.DATA_FILE_PATH}
-
-Enter token:`);
-
-    if (token && window.githubSync) {
-        if (window.githubSync.setGitHubToken(token)) {
-            updateGitHubStatus();
-            showMessage('GitHub integration configured successfully!', 'success');
-        }
-    }
+    // Deprecated: GitHub sync removed from this build
+    showMessage('GitHub sync is no longer supported.', 'info');
 }
 
 function syncToGitHub() {
-    if (!window.githubSync || !window.githubSync.isConfigured()) {
-        showMessage('GitHub not configured. Please configure first.', 'warning');
-        configureGitHubSync();
-        return;
-    }
-
-    if (!window.dataManager) {
-        showMessage('No data manager available', 'error');
-        return;
-    }
-
-    showMessage('🐙 Syncing to GitHub repository...', 'info');
-    
-    window.githubSync.syncToGitHub(window.dataManager.data).then(success => {
-        if (success) {
-            updateGitHubStatus();
-            showMessage(`🐙 Successfully synced to GitHub repository!
-
-Repository: ${window.githubSync.getRepositoryUrl()}
-Data File: ${window.githubSync.getDataFileUrl()}`, 'success');
-        } else {
-            showMessage('GitHub sync failed. Check console for details.', 'error');
-        }
-    }).catch(error => {
-        console.error('GitHub sync error:', error);
-        showMessage(`GitHub sync failed: ${error.message}`, 'error');
-    });
+    // Deprecated: GitHub sync removed from this build
+    showMessage('GitHub sync is no longer supported.', 'info');
 }
 
 function updateGitHubStatus() {
-    const statusElement = document.getElementById('github-sync-status');
-    if (statusElement && window.githubSync) {
-        if (window.githubSync.isConfigured()) {
-            statusElement.textContent = 'Configured';
-            statusElement.className = 'stat-value success';
-        } else {
-            statusElement.textContent = 'Not Configured';
-            statusElement.className = 'stat-value warning';
-        }
-    }
+    // No-op: GitHub status UI removed
 }
-
-// Initialize GitHub status on page load
-document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(updateGitHubStatus, 1000);
-});
 
 // Export functions for global access
 window.dataManager = dataManager;
@@ -3721,9 +3714,6 @@ window.showTab = showTab;
 window.showUserManagement = showUserManagement;
 window.clearAllData = clearAllData;
 window.updateAdminStats = updateAdminStats;
-window.configureGitHubSync = configureGitHubSync;
-window.syncToGitHub = syncToGitHub;
-window.updateGitHubStatus = updateGitHubStatus;
 window.approveUser = approveUser;
 window.rejectUser = rejectUser;
 window.removeApprovedUser = removeApprovedUser;
