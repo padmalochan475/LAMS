@@ -30,10 +30,20 @@ const CONFIG = {
     // Feature Flags
     FEATURES: {
         GOOGLE_DRIVE_SYNC: true, // Re-enable for cross-device sync
+        GITHUB_SYNC: true, // Enable GitHub repository sync
         REALTIME_SYNC: true,
         BULK_OPERATIONS: true,
         ANALYTICS: true,
         EXPORT_IMPORT: true
+    },
+    
+    // GitHub Configuration for repository sync
+    GITHUB: {
+        OWNER: 'padmalochan475',
+        REPO: 'LAMS',
+        BRANCH: 'main',
+        DATA_FILE_PATH: 'data/lams-data.json',
+        COMMIT_MESSAGE_PREFIX: 'Auto-sync LAMS data:'
     },
     
     // Security Settings

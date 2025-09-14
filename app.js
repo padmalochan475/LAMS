@@ -68,9 +68,26 @@ class DataManager {
         });
     }
 
-    // Enhanced loading with Firebase sync
+    // Enhanced loading with multiple sync sources
     async loadFromCloud() {
-        // Try free sync first for cross-device sync
+        // Try GitHub sync first if configured
+        if (window.githubSync && window.githubSync.isConfigured() && CONFIG.FEATURES.GITHUB_SYNC) {
+            try {
+                console.log('🐙 Attempting to load from GitHub...');
+                const githubData = await window.githubSync.loadFromGitHub();
+                if (githubData && Object.keys(githubData).length > 1) {
+                    this.data = { ...this.data, ...githubData };
+                    this.assignDataArrays();
+                    console.log('🐙 Data loaded from GitHub successfully');
+                    showMessage('✅ Data loaded from GitHub repository', 'success');
+                    return;
+                }
+            } catch (error) {
+                console.log('⚠️ GitHub load failed, trying other sources:', error.message);
+            }
+        }
+        
+        // Try free sync as backup
         if (window.freeSync) {
             const syncData = await window.freeSync.loadData();
             if (syncData && Object.keys(syncData).length > 1) {
@@ -598,13 +615,25 @@ class DataManager {
         console.log('🚀 Triggering immediate sync after data change');
         
         if (window.authManager && window.authManager.isSignedIn) {
-            // Sync immediately on data changes - no delay
+            // Sync to Google Drive immediately
             this.syncWithCloud().then(() => {
-                console.log('✅ Immediate sync completed - changes visible to all users');
+                console.log('✅ Google Drive sync completed - changes visible to all users');
                 this.updateSyncStatus('✅ Synced to all devices');
-                showMessage('✅ Assignment synced to all users!', 'success');
+                showMessage('✅ Changes synced to Google Drive!', 'success');
+                
+                // Also sync to GitHub if configured
+                if (window.githubSync && window.githubSync.isConfigured() && CONFIG.FEATURES.GITHUB_SYNC) {
+                    window.githubSync.syncToGitHub(this.data).then(success => {
+                        if (success) {
+                            console.log('🐙 GitHub sync completed successfully');
+                            showMessage('🐙 Changes also synced to GitHub!', 'success');
+                        }
+                    }).catch(error => {
+                        console.log('⚠️ GitHub sync failed:', error);
+                    });
+                }
             }).catch(error => {
-                console.log('⚠️ Immediate sync failed:', error);
+                console.log('⚠️ Google Drive sync failed:', error);
                 showMessage('⚠️ Sync failed - try again', 'warning');
             });
         } else {
@@ -924,6 +953,11 @@ let notificationManager;
 
 // UI Management Functions
 function showMessage(text, type = 'info') {
+    // Fallback for missing message system
+    if (!document.querySelector('.container')) {
+        alert(text);
+        return;
+    }
     const existing = document.querySelector('.message');
     if (existing) existing.remove();
 
@@ -2792,6 +2826,151 @@ function updateAdminStats() {
     if (pendingCount) pendingCount.textContent = pendingUsers.length;
 }
 
+// User approval functions for admin
+async function approveUser(email) {
+    if (!window.authManager?.currentUser?.isAdmin) {
+        showMessage('Admin access required', 'error');
+        return false;
+    }
+    
+    try {
+        const pendingUsers = window.dataManager?.pendingUsers || [];
+        const approvedUsers = window.dataManager?.approvedUsers || [];
+        
+        // Find the user in pending list
+        const userIndex = pendingUsers.findIndex(u => u.email === email);
+        if (userIndex === -1) {
+            showMessage('User not found in pending list', 'error');
+            return false;
+        }
+        
+        const user = pendingUsers[userIndex];
+        
+        // Add approval timestamp
+        user.approvedAt = new Date().toISOString();
+        user.approvedBy = window.authManager.currentUser.email;
+        
+        // Move from pending to approved
+        pendingUsers.splice(userIndex, 1);
+        approvedUsers.push(user);
+        
+        // Update data manager
+        window.dataManager.pendingUsers = pendingUsers;
+        window.dataManager.approvedUsers = approvedUsers;
+        
+        // Save to cloud immediately
+        const success = await window.dataManager.save();
+        if (success) {
+            console.log('✅ User approved and synced to cloud:', user.email);
+            showMessage(`User ${user.name} has been approved!`, 'success');
+            
+            // Update admin stats
+            updateAdminStats();
+            
+            // Trigger immediate sync
+            window.dataManager.triggerImmediateSync();
+            
+            return true;
+        } else {
+            throw new Error('Failed to sync approval to cloud');
+        }
+    } catch (error) {
+        console.error('Error approving user:', error);
+        showMessage(`Failed to approve user: ${error.message}`, 'error');
+        return false;
+    }
+}
+
+async function rejectUser(email) {
+    if (!window.authManager?.currentUser?.isAdmin) {
+        showMessage('Admin access required', 'error');
+        return false;
+    }
+    
+    try {
+        const pendingUsers = window.dataManager?.pendingUsers || [];
+        
+        // Find and remove the user from pending list
+        const userIndex = pendingUsers.findIndex(u => u.email === email);
+        if (userIndex === -1) {
+            showMessage('User not found in pending list', 'error');
+            return false;
+        }
+        
+        const user = pendingUsers[userIndex];
+        pendingUsers.splice(userIndex, 1);
+        
+        // Update data manager
+        window.dataManager.pendingUsers = pendingUsers;
+        
+        // Save to cloud immediately
+        const success = await window.dataManager.save();
+        if (success) {
+            console.log('❌ User rejected and removed from cloud:', user.email);
+            showMessage(`User ${user.name} has been rejected and removed.`, 'info');
+            
+            // Update admin stats
+            updateAdminStats();
+            
+            // Trigger immediate sync
+            window.dataManager.triggerImmediateSync();
+            
+            return true;
+        } else {
+            throw new Error('Failed to sync rejection to cloud');
+        }
+    } catch (error) {
+        console.error('Error rejecting user:', error);
+        showMessage(`Failed to reject user: ${error.message}`, 'error');
+        return false;
+    }
+}
+
+async function removeApprovedUser(email) {
+    if (!window.authManager?.currentUser?.isAdmin) {
+        showMessage('Admin access required', 'error');
+        return false;
+    }
+    
+    try {
+        const approvedUsers = window.dataManager?.approvedUsers || [];
+        
+        // Find and remove the user from approved list
+        const userIndex = approvedUsers.findIndex(u => u.email === email);
+        if (userIndex === -1) {
+            showMessage('User not found in approved list', 'error');
+            return false;
+        }
+        
+        const user = approvedUsers[userIndex];
+        approvedUsers.splice(userIndex, 1);
+        
+        // Update data manager
+        window.dataManager.approvedUsers = approvedUsers;
+        
+        // Save to cloud immediately
+        const success = await window.dataManager.save();
+        if (success) {
+            console.log('🗑️ Approved user removed from cloud:', user.email);
+            showMessage(`User ${user.name} has been removed from approved users.`, 'info');
+            
+            // Update admin stats
+            updateAdminStats();
+            
+            // Trigger immediate sync
+            window.dataManager.triggerImmediateSync();
+            
+            return true;
+        } else {
+            throw new Error('Failed to sync removal to cloud');
+        }
+    } catch (error) {
+        console.error('Error removing approved user:', error);
+        showMessage(`Failed to remove user: ${error.message}`, 'error');
+        return false;
+    }
+}
+
 function clearAllData() {
     if (!window.authManager?.currentUser?.isAdmin) {
         showMessage('Admin access required', 'error');
@@ -2991,6 +3170,83 @@ function debugSystemStatus() {
     if (!hasFaculty) console.log('⚠️ Missing: Faculty - Go to Master Data tab and add theory and lab faculty');
 }
 
+// GitHub Integration Functions
+function configureGitHubSync() {
+    if (!window.authManager || !window.authManager.currentUser || !window.authManager.currentUser.isAdmin) {
+        showMessage('Only admin can configure GitHub integration', 'error');
+        return;
+    }
+
+    const token = prompt(`Configure GitHub Integration
+
+Please enter your GitHub Personal Access Token:
+
+Instructions:
+1. Go to GitHub → Settings → Developer settings → Personal access tokens
+2. Generate new token with 'repo' permissions
+3. Copy the token and paste it below
+
+Repository: ${CONFIG.GITHUB.OWNER}/${CONFIG.GITHUB.REPO}
+Data will be synced to: ${CONFIG.GITHUB.DATA_FILE_PATH}
+
+Enter token:`);
+
+    if (token && window.githubSync) {
+        if (window.githubSync.setGitHubToken(token)) {
+            updateGitHubStatus();
+            showMessage('GitHub integration configured successfully!', 'success');
+        }
+    }
+}
+
+function syncToGitHub() {
+    if (!window.githubSync || !window.githubSync.isConfigured()) {
+        showMessage('GitHub not configured. Please configure first.', 'warning');
+        configureGitHubSync();
+        return;
+    }
+
+    if (!window.dataManager) {
+        showMessage('No data manager available', 'error');
+        return;
+    }
+
+    showMessage('🐙 Syncing to GitHub repository...', 'info');
+    
+    window.githubSync.syncToGitHub(window.dataManager.data).then(success => {
+        if (success) {
+            updateGitHubStatus();
+            showMessage(`🐙 Successfully synced to GitHub repository!
+
+Repository: ${window.githubSync.getRepositoryUrl()}
+Data File: ${window.githubSync.getDataFileUrl()}`, 'success');
+        } else {
+            showMessage('GitHub sync failed. Check console for details.', 'error');
+        }
+    }).catch(error => {
+        console.error('GitHub sync error:', error);
+        showMessage(`GitHub sync failed: ${error.message}`, 'error');
+    });
+}
+
+function updateGitHubStatus() {
+    const statusElement = document.getElementById('github-sync-status');
+    if (statusElement && window.githubSync) {
+        if (window.githubSync.isConfigured()) {
+            statusElement.textContent = 'Configured';
+            statusElement.className = 'stat-value success';
+        } else {
+            statusElement.textContent = 'Not Configured';
+            statusElement.className = 'stat-value warning';
+        }
+    }
+}
+
+// Initialize GitHub status on page load
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(updateGitHubStatus, 1000);
+});
+
 // Export functions for global access
 window.dataManager = dataManager;
 window.notificationManager = notificationManager;
@@ -3002,6 +3258,12 @@ window.showTab = showTab;
 window.showUserManagement = showUserManagement;
 window.clearAllData = clearAllData;
 window.updateAdminStats = updateAdminStats;
+window.configureGitHubSync = configureGitHubSync;
+window.syncToGitHub = syncToGitHub;
+window.updateGitHubStatus = updateGitHubStatus;
+window.approveUser = approveUser;
+window.rejectUser = rejectUser;
+window.removeApprovedUser = removeApprovedUser;
 window.addMasterDataItem = addMasterDataItem;
 window.addFaculty = addFaculty;
 window.deleteMasterDataItem = deleteMasterDataItem;

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LAMS - Quick Cloud Status Check</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .status-card { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .status-good { border-left: 5px solid #28a745; }
+        .status-bad { border-left: 5px solid #dc3545; }
+        .status-pending { border-left: 5px solid #ffc107; }
+        .btn { padding: 10px 20px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; background: #007bff; color: white; }
+        .console-output { background: #f8f9fa; padding: 10px; margin: 10px 0; border-radius: 4px; font-family: monospace; font-size: 12px; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>🚀 LAMS Cloud Status - Quick Check</h1>
+    
+    <div id="loading" class="status-card status-pending">
+        <h3>⏳ Initializing LAMS System...</h3>
+        <p>Please wait while we load and verify the system...</p>
+    </div>
+    
+    <div id="system-status" class="status-card" style="display: none;">
+        <h3>🔍 System Status</h3>
+        <div id="status-details"></div>
+    </div>
+    
+    <div id="cloud-status" class="status-card" style="display: none;">
+        <h3>☁️ Cloud Integration Status</h3>
+        <div id="cloud-details"></div>
+    </div>
+    
+    <div id="user-management" class="status-card" style="display: none;">
+        <h3>👥 User Management Status</h3>
+        <div id="user-details"></div>
+        <button class="btn" onclick="testUserSystem()">Test User System</button>
+    </div>
+    
+    <div id="debug-info" class="status-card" style="display: none;">
+        <h3>🐛 Debug Information</h3>
+        <button class="btn" onclick="toggleDebug()">Show/Hide Debug Console</button>
+        <div id="debug-console" class="console-output" style="display: none;"></div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+    <script src="auth.js"></script>
+    <script>
+        let initStartTime = Date.now();
+        
+        function updateStatus(elementId, content, className = '') {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.innerHTML = content;
+                if (className) {
+                    element.parentElement.className = 'status-card ' + className;
+                }
+                element.parentElement.style.display = 'block';
+            }
+        }
+        
+        function addDebugLog(message) {
+            const console = document.getElementById('debug-console');
+            if (console) {
+                const timestamp = new Date().toLocaleTimeString();
+                console.textContent += `[${timestamp}] ${message}\n`;
+            }
+        }
+        
+        function checkSystemStatus() {
+            const initTime = Date.now() - initStartTime;
+            addDebugLog(`System check started after ${initTime}ms`);
+            
+            // Check basic system components
+            const dataManager = !!window.dataManager;
+            const authManager = !!window.authManager;
+            const config = !!window.CONFIG;
+            
+            addDebugLog(`DataManager: ${dataManager}`);
+            addDebugLog(`AuthManager: ${authManager}`);
+            addDebugLog(`Config: ${config}`);
+            
+            let systemStatus = '';
+            let systemClass = '';
+            
+            if (dataManager && authManager && config) {
+                systemStatus = `
+                    <p>✅ <strong>DataManager:</strong> Loaded and initialized</p>
+                    <p>✅ <strong>AuthManager:</strong> Loaded and initialized</p>
+                    <p>✅ <strong>Config:</strong> Loaded successfully</p>
+                    <p>🕒 <strong>Initialization Time:</strong> ${initTime}ms</p>
+                `;
+                systemClass = 'status-good';
+            } else {
+                systemStatus = `
+                    <p>${dataManager ? '✅' : '❌'} <strong>DataManager:</strong> ${dataManager ? 'Loaded' : 'Failed to load'}</p>
+                    <p>${authManager ? '✅' : '❌'} <strong>AuthManager:</strong> ${authManager ? 'Loaded' : 'Failed to load'}</p>
+                    <p>${config ? '✅' : '❌'} <strong>Config:</strong> ${config ? 'Loaded' : 'Failed to load'}</p>
+                `;
+                systemClass = 'status-bad';
+            }
+            
+            updateStatus('status-details', systemStatus, systemClass);
+            document.getElementById('loading').style.display = 'none';
+            
+            if (dataManager && authManager) {
+                checkCloudStatus();
+                checkUserManagement();
+            }
+            
+            document.getElementById('debug-info').style.display = 'block';
+        }
+        
+        function checkCloudStatus() {
+            addDebugLog('Checking cloud integration...');
+            
+            const dataManager = window.dataManager;
+            if (!dataManager) {
+                updateStatus('cloud-details', '<p>❌ DataManager not available</p>', 'status-bad');
+                return;
+            }
+            
+            const hasCloudProps = dataManager.hasOwnProperty('pendingUsers') && dataManager.hasOwnProperty('approvedUsers');
+            const isCloudMode = dataManager.isCloudMode;
+            const hasSaveMethod = typeof dataManager.save === 'function';
+            const hasLoadMethod = typeof dataManager.loadFromCloud === 'function';
+            
+            addDebugLog(`Cloud properties: ${hasCloudProps}`);
+            addDebugLog(`Cloud mode: ${isCloudMode}`);
+            addDebugLog(`Save method: ${hasSaveMethod}`);
+            addDebugLog(`Load method: ${hasLoadMethod}`);
+            
+            let cloudStatus = `
+                <p>${hasCloudProps ? '✅' : '❌'} <strong>Cloud Properties:</strong> pendingUsers, approvedUsers arrays</p>
+                <p>${isCloudMode ? '✅' : '❌'} <strong>Cloud Mode:</strong> ${isCloudMode ? 'Enabled' : 'Disabled'}</p>
+                <p>${hasSaveMethod ? '✅' : '❌'} <strong>Save Method:</strong> ${hasSaveMethod ? 'Available' : 'Missing'}</p>
+                <p>${hasLoadMethod ? '✅' : '❌'} <strong>Load Method:</strong> ${hasLoadMethod ? 'Available' : 'Missing'}</p>
+                <p>📊 <strong>Pending Users:</strong> ${(dataManager.pendingUsers || []).length}</p>
+                <p>📊 <strong>Approved Users:</strong> ${(dataManager.approvedUsers || []).length}</p>
+            `;
+            
+            const cloudClass = hasCloudProps && isCloudMode && hasSaveMethod && hasLoadMethod ? 'status-good' : 'status-bad';
+            updateStatus('cloud-details', cloudStatus, cloudClass);
+        }
+        
+        function checkUserManagement() {
+            addDebugLog('Checking user management system...');
+            
+            const approveUserFunc = typeof window.approveUser === 'function';
+            const rejectUserFunc = typeof window.rejectUser === 'function';
+            const showUserMgmtFunc = typeof window.showUserManagement === 'function';
+            const removeUserFunc = typeof window.removeApprovedUser === 'function';
+            
+            addDebugLog(`approveUser function: ${approveUserFunc}`);
+            addDebugLog(`rejectUser function: ${rejectUserFunc}`);
+            addDebugLog(`showUserManagement function: ${showUserMgmtFunc}`);
+            addDebugLog(`removeApprovedUser function: ${removeUserFunc}`);
+            
+            // Check for localStorage dependencies
+            const pendingInStorage = !!localStorage.getItem(CONFIG.PENDING_USERS_KEY);
+            const approvedInStorage = !!localStorage.getItem(CONFIG.APPROVED_USERS_KEY);
+            
+            addDebugLog(`Pending users in localStorage: ${pendingInStorage}`);
+            addDebugLog(`Approved users in localStorage: ${approvedInStorage}`);
+            
+            let userStatus = `
+                <p>${approveUserFunc ? '✅' : '❌'} <strong>Approve Function:</strong> ${approveUserFunc ? 'Available' : 'Missing'}</p>
+                <p>${rejectUserFunc ? '✅' : '❌'} <strong>Reject Function:</strong> ${rejectUserFunc ? 'Available' : 'Missing'}</p>
+                <p>${showUserMgmtFunc ? '✅' : '❌'} <strong>Management UI:</strong> ${showUserMgmtFunc ? 'Available' : 'Missing'}</p>
+                <p>${removeUserFunc ? '✅' : '❌'} <strong>Remove Function:</strong> ${removeUserFunc ? 'Available' : 'Missing'}</p>
+                <p>${!pendingInStorage && !approvedInStorage ? '✅' : '❌'} <strong>localStorage Clean:</strong> ${!pendingInStorage && !approvedInStorage ? 'No user data in localStorage' : 'localStorage still has user data'}</p>
+            `;
+            
+            const userClass = approveUserFunc && rejectUserFunc && showUserMgmtFunc && !pendingInStorage && !approvedInStorage ? 'status-good' : 'status-bad';
+            updateStatus('user-details', userStatus, userClass);
+        }
+        
+        function testUserSystem() {
+            if (!window.dataManager) {
+                alert('❌ DataManager not available');
+                return;
+            }
+            
+            // Create test user
+            const testUser = {
+                id: 'test_' + Date.now(),
+                name: 'Test User',
+                email: 'test@example.com',
+                picture: 'https://via.placeholder.com/40',
+                loginTime: new Date().toISOString()
+            };
+            
+            addDebugLog('Adding test user to pending list...');
+            
+            // Add to pending users
+            if (!window.dataManager.pendingUsers) {
+                window.dataManager.pendingUsers = [];
+            }
+            
+            window.dataManager.pendingUsers.push(testUser);
+            
+            // Try to save to cloud
+            if (window.dataManager.save) {
+                window.dataManager.save().then(success => {
+                    if (success) {
+                        addDebugLog('✅ Test user saved to cloud successfully');
+                        alert('✅ Test user added and synced to cloud!');
+                        checkCloudStatus(); // Refresh status
+                    } else {
+                        addDebugLog('❌ Failed to save test user to cloud');
+                        alert('❌ Failed to sync test user to cloud');
+                    }
+                }).catch(error => {
+                    addDebugLog(`❌ Error saving to cloud: ${error.message}`);
+                    alert(`❌ Error: ${error.message}`);
+                });
+            } else {
+                addDebugLog('❌ Save function not available');
+                alert('❌ Save function not available');
+            }
+        }
+        
+        function toggleDebug() {
+            const console = document.getElementById('debug-console');
+            console.style.display = console.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        // Initialize when everything is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            addDebugLog('DOM loaded, starting system check...');
+            
+            // Wait a bit for all scripts to initialize
+            setTimeout(() => {
+                checkSystemStatus();
+            }, 1000);
+        });
+        
+        // Also check after a longer delay to catch any async initialization
+        setTimeout(() => {
+            if (window.dataManager && window.authManager) {
+                addDebugLog('Late initialization detected, rechecking...');
+                checkCloudStatus();
+                checkUserManagement();
+            }
+        }, 3000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Sync Demo</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .demo-container { max-width: 800px; margin: 0 auto; }
+        .user-simulation { 
+            display: flex; 
+            gap: 20px; 
+            margin: 20px 0; 
+        }
+        .user-box { 
+            flex: 1; 
+            background: white; 
+            padding: 15px; 
+            border-radius: 10px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .user-title { 
+            font-weight: bold; 
+            color: #333; 
+            margin-bottom: 10px;
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+        .user1 .user-title { background: #e3f2fd; }
+        .user2 .user-title { background: #f3e5f5; }
+        .assignment-list { 
+            min-height: 150px; 
+            padding: 10px; 
+            background: #fafafa; 
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .assignment-item { 
+            padding: 8px; 
+            margin: 5px 0; 
+            background: #fff; 
+            border-radius: 5px;
+            border-left: 4px solid #4caf50;
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        button { 
+            padding: 10px 15px; 
+            margin: 5px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer;
+            background: #2196f3;
+            color: white;
+        }
+        button:hover { background: #1976d2; }
+        .sync-status { 
+            padding: 10px; 
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+            text-align: center;
+        }
+        .sync-active { background: #c8e6c9; color: #2e7d32; }
+        .sync-paused { background: #ffecb3; color: #f57f17; }
+        .log { 
+            background: #333; 
+            color: #0f0; 
+            padding: 10px; 
+            border-radius: 5px; 
+            height: 200px; 
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <h1>🔄 LAMS Real-Time Sync Demo</h1>
+        <p>This demo shows how assignments sync in real-time between users.</p>
+        
+        <div class="sync-status sync-active" id="globalSyncStatus">
+            ✅ Real-Time Sync Active - Changes appear instantly on all devices
+        </div>
+        
+        <div class="user-simulation">
+            <div class="user-box user1">
+                <div class="user-title">👤 User 1 (You)</div>
+                
+                <div>
+                    <label>Subject: </label>
+                    <input type="text" id="user1Subject" placeholder="Enter subject" />
+                    <button onclick="createAssignmentUser1()">Create Assignment</button>
+                </div>
+                
+                <div class="assignment-list" id="user1Assignments">
+                    <div style="color: #666; text-align: center;">No assignments yet</div>
+                </div>
+            </div>
+            
+            <div class="user-box user2">
+                <div class="user-title">👥 Other Users</div>
+                <div style="padding: 10px; text-align: center; color: #666;">
+                    Simulates other users viewing assignments
+                </div>
+                
+                <div class="assignment-list" id="user2Assignments">
+                    <div style="color: #666; text-align: center;">No assignments yet</div>
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin: 20px 0;">
+            <button onclick="toggleDropdownDemo()">🎯 Demo Dropdown Behavior</button>
+            <button onclick="simulateMultiUser()">👥 Simulate Multi-User</button>
+            <button onclick="clearDemo()">🗑️ Clear Demo</button>
+        </div>
+        
+        <div>
+            <h3>📊 Sync Activity Log</h3>
+            <div class="log" id="syncLog"></div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="config.js"></script>
+    <script src="auth.js"></script>
+    <script src="app.js"></script>
+    
+    <script>
+        let demoDataManager;
+        let assignmentCounter = 0;
+        
+        function logSync(message, type = 'info') {
+            const log = document.getElementById('syncLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'success' ? '#0f0' : type === 'error' ? '#f44' : '#0ff';
+            log.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        function updateAssignmentDisplay() {
+            const user1List = document.getElementById('user1Assignments');
+            const user2List = document.getElementById('user2Assignments');
+            
+            if (!demoDataManager || demoDataManager.data.assignments.length === 0) {
+                user1List.innerHTML = '<div style="color: #666; text-align: center;">No assignments yet</div>';
+                user2List.innerHTML = '<div style="color: #666; text-align: center;">No assignments yet</div>';
+                return;
+            }
+            
+            const assignmentHTML = demoDataManager.data.assignments.map((assignment, index) => 
+                `<div class="assignment-item">
+                    ${index + 1}. ${assignment.day} ${assignment.timeSlot} - ${assignment.subject}
+                    <div style="font-size: 11px; color: #666;">
+                        Room: ${assignment.labRoom} | Faculty: ${assignment.theoryFaculty}
+                    </div>
+                </div>`
+            ).join('');
+            
+            user1List.innerHTML = assignmentHTML;
+            
+            // Simulate slight delay for "other users" to show real-time effect
+            setTimeout(() => {
+                user2List.innerHTML = assignmentHTML;
+                logSync(`✅ Assignment synced to ${demoDataManager.data.assignments.length} users`, 'success');
+            }, 200);
+        }
+        
+        function createAssignmentUser1() {
+            const subject = document.getElementById('user1Subject').value.trim();
+            if (!subject) {
+                logSync('❌ Please enter a subject', 'error');
+                return;
+            }
+            
+            assignmentCounter++;
+            const assignment = {
+                day: 'Monday',
+                timeSlot: `${8 + assignmentCounter}:00-${9 + assignmentCounter}:00`,
+                department: 'Computer Science',
+                semester: '1st Semester',
+                group: 'Group A',
+                subGroup: 'Sub Group 1',
+                subject: subject,
+                theoryFaculty: 'Dr. Smith',
+                labFaculty: 'Prof. Davis',
+                labRoom: `Lab ${assignmentCounter}`
+            };
+            
+            logSync(`🚀 Creating assignment: ${subject}`, 'info');
+            
+            if (demoDataManager && demoDataManager.addAssignment(assignment)) {
+                document.getElementById('user1Subject').value = '';
+                updateAssignmentDisplay();
+                logSync(`📤 Assignment "${subject}" syncing to all users...`, 'info');
+                
+                // Simulate immediate sync
+                setTimeout(() => {
+                    logSync(`✅ Assignment "${subject}" visible to all users!`, 'success');
+                }, 300);
+            } else {
+                logSync('❌ Failed to create assignment', 'error');
+            }
+        }
+        
+        function toggleDropdownDemo() {
+            logSync('🎯 Simulating dropdown interaction...', 'info');
+            document.getElementById('globalSyncStatus').className = 'sync-status sync-paused';
+            document.getElementById('globalSyncStatus').textContent = '⏸️ Sync Paused - Dropdown Active';
+            
+            setTimeout(() => {
+                logSync('🎯 Dropdown selection complete', 'info');
+                setTimeout(() => {
+                    document.getElementById('globalSyncStatus').className = 'sync-status sync-active';
+                    document.getElementById('globalSyncStatus').textContent = '✅ Real-Time Sync Active - Changes appear instantly';
+                    logSync('▶️ Sync resumed - ready for real-time updates', 'success');
+                }, 2000);
+            }, 3000);
+        }
+        
+        function simulateMultiUser() {
+            logSync('👥 Simulating assignments from other users...', 'info');
+            
+            const subjects = ['Database Design', 'Network Security', 'AI Fundamentals'];
+            let delay = 0;
+            
+            subjects.forEach((subject, index) => {
+                setTimeout(() => {
+                    assignmentCounter++;
+                    const assignment = {
+                        day: ['Tuesday', 'Wednesday', 'Thursday'][index],
+                        timeSlot: `${9 + index}:00-${10 + index}:00`,
+                        department: 'Computer Science',
+                        semester: `${index + 1}${['st', 'nd', 'rd'][index]} Semester`,
+                        group: `Group ${String.fromCharCode(65 + index)}`,
+                        subGroup: 'Sub Group 1',
+                        subject: subject,
+                        theoryFaculty: ['Dr. Johnson', 'Prof. Brown', 'Dr. Wilson'][index],
+                        labFaculty: ['Prof. Miller', 'Dr. Taylor', 'Prof. Anderson'][index],
+                        labRoom: `Lab ${assignmentCounter}`
+                    };
+                    
+                    if (demoDataManager) {
+                        demoDataManager.data.assignments.push(assignment);
+                        updateAssignmentDisplay();
+                        logSync(`📥 Received assignment "${subject}" from another user`, 'success');
+                    }
+                }, delay);
+                delay += 1000;
+            });
+        }
+        
+        function clearDemo() {
+            if (demoDataManager) {
+                demoDataManager.data.assignments = [];
+                assignmentCounter = 0;
+                updateAssignmentDisplay();
+                logSync('🗑️ Demo cleared - ready for new assignments', 'info');
+            }
+        }
+        
+        // Initialize demo
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                try {
+                    demoDataManager = new DataManager();
+                    logSync('🚀 Demo initialized - Real-time sync ready!', 'success');
+                    
+                    // Start sync monitoring
+                    if (demoDataManager.startRealTimeSync) {
+                        demoDataManager.startRealTimeSync();
+                        logSync('⚡ Real-time sync monitoring active', 'success');
+                    }
+                    
+                    updateAssignmentDisplay();
+                } catch (e) {
+                    logSync(`❌ Demo initialization failed: ${e.message}`, 'error');
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

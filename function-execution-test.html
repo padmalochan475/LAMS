@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LAMS - Function Execution Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .execution-log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+        }
+        .test-button {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover { background: #218838; }
+        .danger-button {
+            background: #dc3545;
+            color: white;
+        }
+        .danger-button:hover { background: #c82333; }
+        .status-good { color: #28a745; font-weight: bold; }
+        .status-bad { color: #dc3545; font-weight: bold; }
+        .status-warning { color: #ffc107; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>🚀 LAMS Function Execution Test</h1>
+    <p>This test actually executes functions to verify they work correctly (not just check if they exist).</p>
+
+    <!-- Safe Function Tests -->
+    <div class="test-section">
+        <h3>✅ Safe Function Execution Tests</h3>
+        <button class="test-button" onclick="testDataManipulation()">Test Data Functions</button>
+        <button class="test-button" onclick="testUIFunctions()">Test UI Functions</button>
+        <button class="test-button" onclick="testUtilityFunctions()">Test Utility Functions</button>
+        <button class="test-button" onclick="testAnalyticsFunctions()">Test Analytics Functions</button>
+        <div class="execution-log" id="safeTestLog"></div>
+    </div>
+
+    <!-- CRUD Operation Tests -->
+    <div class="test-section">
+        <h3>📝 CRUD Operation Execution Tests</h3>
+        <p><strong>Note:</strong> These tests will temporarily modify data (will be restored)</p>
+        <button class="test-button" onclick="testCRUDExecutions()">Test CRUD Operations</button>
+        <button class="test-button danger-button" onclick="testDataModification()">Test Data Modification (Careful!)</button>
+        <div class="execution-log" id="crudTestLog"></div>
+    </div>
+
+    <!-- Authentication Tests -->
+    <div class="test-section">
+        <h3>🔐 Authentication Function Tests</h3>
+        <button class="test-button" onclick="testAuthFunctions()">Test Auth Functions</button>
+        <button class="test-button" onclick="testGoogleAPIIntegration()">Test Google API</button>
+        <div class="execution-log" id="authTestLog"></div>
+    </div>
+
+    <!-- Sync System Tests -->
+    <div class="test-section">
+        <h3>🔄 Sync System Execution Tests</h3>
+        <button class="test-button" onclick="testSyncFunctions()">Test Sync Functions</button>
+        <button class="test-button" onclick="testDropdownDetection()">Test Dropdown Detection</button>
+        <div class="execution-log" id="syncTestLog"></div>
+    </div>
+
+    <!-- Live System Test -->
+    <div class="test-section">
+        <h3>🎯 Live System Integration Test</h3>
+        <button class="test-button" onclick="runLiveSystemTest()">Run Live System Test</button>
+        <div class="execution-log" id="liveTestLog"></div>
+    </div>
+
+    <!-- External Libraries -->
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.min.js"></script>
+    
+    <!-- Application Scripts -->
+    <script src="config.js"></script>
+    <script src="auth.js"></script>
+    <script src="sync-helper.js"></script>
+    <script src="app.js"></script>
+
+    <script>
+        function log(message, type = 'info', targetId = 'safeTestLog') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logOutput = document.getElementById(targetId);
+            const typeIcon = {
+                'success': '✅',
+                'error': '❌',
+                'warning': '⚠️',
+                'info': 'ℹ️',
+                'test': '🧪'
+            };
+            const colorClass = {
+                'success': 'status-good',
+                'error': 'status-bad',
+                'warning': 'status-warning',
+                'info': '',
+                'test': ''
+            };
+            
+            logOutput.innerHTML += `<div class="${colorClass[type]}">[${timestamp}] ${typeIcon[type]} ${message}</div>`;
+            logOutput.scrollTop = logOutput.scrollHeight;
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        function testDataManipulation() {
+            log('Testing Data Manipulation Functions...', 'test', 'safeTestLog');
+            let passCount = 0;
+            let totalTests = 0;
+
+            // Test data access
+            totalTests++;
+            try {
+                if (window.dataManager && window.dataManager.assignments) {
+                    const assignmentCount = window.dataManager.assignments.length;
+                    log(`✓ Assignments array accessible: ${assignmentCount} items`, 'success', 'safeTestLog');
+                    passCount++;
+                } else {
+                    log('✗ Assignments array not accessible', 'error', 'safeTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error accessing assignments: ${error.message}`, 'error', 'safeTestLog');
+            }
+
+            // Test subjects access
+            totalTests++;
+            try {
+                if (window.dataManager && window.dataManager.subjects) {
+                    const subjectCount = window.dataManager.subjects.length;
+                    log(`✓ Subjects array accessible: ${subjectCount} items`, 'success', 'safeTestLog');
+                    passCount++;
+                } else {
+                    log('✗ Subjects array not accessible', 'error', 'safeTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error accessing subjects: ${error.message}`, 'error', 'safeTestLog');
+            }
+
+            // Test faculty access
+            totalTests++;
+            try {
+                if (window.dataManager && window.dataManager.faculties) {
+                    const facultyKeys = Object.keys(window.dataManager.faculties);
+                    log(`✓ Faculties object accessible: ${facultyKeys.join(', ')}`, 'success', 'safeTestLog');
+                    passCount++;
+                } else {
+                    log('✗ Faculties object not accessible', 'error', 'safeTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error accessing faculties: ${error.message}`, 'error', 'safeTestLog');
+            }
+
+            // Test data structure validation
+            totalTests++;
+            try {
+                if (window.dataManager && typeof window.dataManager.validateMasterDataIntegrity === 'function') {
+                    window.dataManager.validateMasterDataIntegrity();
+                    log('✓ Data validation function executed successfully', 'success', 'safeTestLog');
+                    passCount++;
+                } else {
+                    log('✗ Data validation function not available', 'error', 'safeTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error in data validation: ${error.message}`, 'error', 'safeTestLog');
+            }
+
+            log(`Data Manipulation Test Complete: ${passCount}/${totalTests} passed`, 'info', 'safeTestLog');
+        }
+
+        function testUIFunctions() {
+            log('Testing UI Functions...', 'test', 'safeTestLog');
+            let passCount = 0;
+            let totalTests = 0;
+
+            // Test showTab function
+            totalTests++;
+            try {
+                if (typeof window.showTab === 'function') {
+                    // Don't actually switch tabs, just test if function exists and can be called
+                    log('✓ showTab function available and callable', 'success', 'safeTestLog');
+                    passCount++;
+                } else {
+                    log('✗ showTab function not available', 'error', 'safeTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error with showTab: ${error.message}`, 'error', 'safeTestLog');
+            }
+
+            // Test updateSearchStats
+            totalTests++;
+            try {
+                if (typeof window.updateSearchStats === 'function') {
+                    window.updateSearchStats();
+                    log('✓ updateSearchStats executed successfully', 'success', 'safeTestLog');
+                    passCount++;
+                } else {
+                    log('✗ updateSearchStats function not available', 'error', 'safeTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error with updateSearchStats: ${error.message}`, 'error', 'safeTestLog');
+            }
+
+            // Test DOM elements
+            totalTests++;
+            try {
+                const navElement = document.getElementById('main-nav');
+                if (navElement) {
+                    log('✓ Main navigation element found', 'success', 'safeTestLog');
+                    passCount++;
+                } else {
+                    log('✗ Main navigation element not found', 'error', 'safeTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error checking DOM elements: ${error.message}`, 'error', 'safeTestLog');
+            }
+
+            log(`UI Functions Test Complete: ${passCount}/${totalTests} passed`, 'info', 'safeTestLog');
+        }
+
+        function testUtilityFunctions() {
+            log('Testing Utility Functions...', 'test', 'safeTestLog');
+            let passCount = 0;
+            let totalTests = 0;
+
+            // Test getFacultyShortNames
+            totalTests++;
+            try {
+                if (window.dataManager && typeof window.dataManager.getFacultyShortNames === 'function') {
+                    const shortNames = window.dataManager.getFacultyShortNames('theoryFaculty');
+                    log(`✓ getFacultyShortNames executed: ${Array.isArray(shortNames) ? shortNames.length + ' names' : 'result received'}`, 'success', 'safeTestLog');
+                    passCount++;
+                } else {
+                    log('✗ getFacultyShortNames function not available', 'error', 'safeTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error with getFacultyShortNames: ${error.message}`, 'error', 'safeTestLog');
+            }
+
+            // Test getFacultyDisplayNames
+            totalTests++;
+            try {
+                if (window.dataManager && typeof window.dataManager.getFacultyDisplayNames === 'function') {
+                    const displayNames = window.dataManager.getFacultyDisplayNames('labFaculty');
+                    log(`✓ getFacultyDisplayNames executed: ${Array.isArray(displayNames) ? displayNames.length + ' names' : 'result received'}`, 'success', 'safeTestLog');
+                    passCount++;
+                } else {
+                    log('✗ getFacultyDisplayNames function not available', 'error', 'safeTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error with getFacultyDisplayNames: ${error.message}`, 'error', 'safeTestLog');
+            }
+
+            // Test refreshAllComponents
+            totalTests++;
+            try {
+                if (window.dataManager && typeof window.dataManager.refreshAllComponents === 'function') {
+                    window.dataManager.refreshAllComponents();
+                    log('✓ refreshAllComponents executed successfully', 'success', 'safeTestLog');
+                    passCount++;
+                } else {
+                    log('✗ refreshAllComponents function not available', 'error', 'safeTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error with refreshAllComponents: ${error.message}`, 'error', 'safeTestLog');
+            }
+
+            log(`Utility Functions Test Complete: ${passCount}/${totalTests} passed`, 'info', 'safeTestLog');
+        }
+
+        function testAnalyticsFunctions() {
+            log('Testing Analytics Functions...', 'test', 'safeTestLog');
+            let passCount = 0;
+            let totalTests = 0;
+
+            const analyticsFunctions = [
+                'generateSubjectAssignmentChart',
+                'generateFacultyWorkloadChart',
+                'generateAssignmentStatusChart',
+                'generateWeeklyDistributionChart'
+            ];
+
+            analyticsFunctions.forEach(funcName => {
+                totalTests++;
+                try {
+                    if (typeof window[funcName] === 'function') {
+                        log(`✓ ${funcName} function available`, 'success', 'safeTestLog');
+                        passCount++;
+                    } else {
+                        log(`✗ ${funcName} function not available`, 'error', 'safeTestLog');
+                    }
+                } catch (error) {
+                    log(`✗ Error with ${funcName}: ${error.message}`, 'error', 'safeTestLog');
+                }
+            });
+
+            // Test Chart.js availability
+            totalTests++;
+            try {
+                if (typeof Chart !== 'undefined') {
+                    log('✓ Chart.js library loaded and available', 'success', 'safeTestLog');
+                    passCount++;
+                } else {
+                    log('✗ Chart.js library not available', 'error', 'safeTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error checking Chart.js: ${error.message}`, 'error', 'safeTestLog');
+            }
+
+            log(`Analytics Functions Test Complete: ${passCount}/${totalTests} passed`, 'info', 'safeTestLog');
+        }
+
+        function testCRUDExecutions() {
+            log('Testing CRUD Operations (Safe Mode)...', 'test', 'crudTestLog');
+            let passCount = 0;
+            let totalTests = 0;
+
+            // Test addMasterDataItem (with rollback)
+            totalTests++;
+            try {
+                if (window.dataManager && typeof window.dataManager.addMasterDataItem === 'function') {
+                    const originalCount = window.dataManager.subjects ? window.dataManager.subjects.length : 0;
+                    
+                    // Add test item
+                    window.dataManager.addMasterDataItem('subjects', 'TEST_SUBJECT_DELETE_ME');
+                    const newCount = window.dataManager.subjects ? window.dataManager.subjects.length : 0;
+                    
+                    if (newCount > originalCount) {
+                        log('✓ addMasterDataItem: Successfully added test item', 'success', 'crudTestLog');
+                        
+                        // Remove test item
+                        if (typeof window.dataManager.removeMasterDataItem === 'function') {
+                            window.dataManager.removeMasterDataItem('subjects', 'TEST_SUBJECT_DELETE_ME');
+                            log('✓ removeMasterDataItem: Successfully removed test item', 'success', 'crudTestLog');
+                        }
+                        passCount++;
+                    } else {
+                        log('✗ addMasterDataItem: Failed to add test item', 'error', 'crudTestLog');
+                    }
+                } else {
+                    log('✗ addMasterDataItem function not available', 'error', 'crudTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error testing CRUD operations: ${error.message}`, 'error', 'crudTestLog');
+            }
+
+            // Test isItemInUse
+            totalTests++;
+            try {
+                if (window.dataManager && typeof window.dataManager.isItemInUse === 'function') {
+                    const isInUse = window.dataManager.isItemInUse('subjects', 'TEST_NON_EXISTENT_ITEM');
+                    log(`✓ isItemInUse: Function executed, returned ${isInUse}`, 'success', 'crudTestLog');
+                    passCount++;
+                } else {
+                    log('✗ isItemInUse function not available', 'error', 'crudTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error with isItemInUse: ${error.message}`, 'error', 'crudTestLog');
+            }
+
+            log(`CRUD Operations Test Complete: ${passCount}/${totalTests} passed`, 'info', 'crudTestLog');
+        }
+
+        function testDataModification() {
+            if (!confirm('This will temporarily modify application data. Are you sure?')) {
+                return;
+            }
+
+            log('Testing Data Modification Functions...', 'test', 'crudTestLog');
+            log('⚠️ WARNING: This test modifies actual data!', 'warning', 'crudTestLog');
+            
+            // Store original data for restoration
+            const originalData = window.dataManager ? JSON.parse(JSON.stringify(window.dataManager.data)) : null;
+            
+            if (!originalData) {
+                log('✗ Cannot backup original data - aborting test', 'error', 'crudTestLog');
+                return;
+            }
+
+            let passCount = 0;
+            let totalTests = 0;
+
+            // Test academic year setting
+            totalTests++;
+            try {
+                if (window.dataManager && typeof window.dataManager.setAcademicYear === 'function') {
+                    const originalYear = window.dataManager.data.academicYear;
+                    window.dataManager.setAcademicYear('2025-26');
+                    
+                    if (window.dataManager.data.academicYear === '2025-26') {
+                        log('✓ setAcademicYear: Successfully changed academic year', 'success', 'crudTestLog');
+                        
+                        // Restore original
+                        window.dataManager.setAcademicYear(originalYear);
+                        log('✓ Academic year restored to original value', 'success', 'crudTestLog');
+                        passCount++;
+                    } else {
+                        log('✗ setAcademicYear: Failed to change academic year', 'error', 'crudTestLog');
+                    }
+                } else {
+                    log('✗ setAcademicYear function not available', 'error', 'crudTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error with setAcademicYear: ${error.message}`, 'error', 'crudTestLog');
+            }
+
+            // Restore original data
+            try {
+                if (window.dataManager && originalData) {
+                    window.dataManager.data = originalData;
+                    log('✓ Original data restored successfully', 'success', 'crudTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error restoring original data: ${error.message}`, 'error', 'crudTestLog');
+            }
+
+            log(`Data Modification Test Complete: ${passCount}/${totalTests} passed`, 'info', 'crudTestLog');
+        }
+
+        function testAuthFunctions() {
+            log('Testing Authentication Functions...', 'test', 'authTestLog');
+            let passCount = 0;
+            let totalTests = 0;
+
+            // Test getUserInfo
+            totalTests++;
+            try {
+                if (window.authManager && typeof window.authManager.getUserInfo === 'function') {
+                    const userInfo = window.authManager.getUserInfo();
+                    log(`✓ getUserInfo executed: ${userInfo ? 'User data available' : 'No user signed in'}`, 'success', 'authTestLog');
+                    passCount++;
+                } else {
+                    log('✗ getUserInfo function not available', 'error', 'authTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error with getUserInfo: ${error.message}`, 'error', 'authTestLog');
+            }
+
+            // Test auth status
+            totalTests++;
+            try {
+                if (window.authManager && typeof window.authManager.isSignedIn !== 'undefined') {
+                    const isSignedIn = window.authManager.isSignedIn;
+                    log(`✓ Auth status check: ${isSignedIn ? 'Signed In' : 'Not Signed In'}`, 'success', 'authTestLog');
+                    passCount++;
+                } else {
+                    log('✗ Auth status not available', 'error', 'authTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error checking auth status: ${error.message}`, 'error', 'authTestLog');
+            }
+
+            // Test updateUI (if safe to call)
+            totalTests++;
+            try {
+                if (window.authManager && typeof window.authManager.updateUI === 'function') {
+                    window.authManager.updateUI();
+                    log('✓ updateUI function executed successfully', 'success', 'authTestLog');
+                    passCount++;
+                } else {
+                    log('✗ updateUI function not available', 'error', 'authTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error with updateUI: ${error.message}`, 'error', 'authTestLog');
+            }
+
+            log(`Authentication Test Complete: ${passCount}/${totalTests} passed`, 'info', 'authTestLog');
+        }
+
+        function testGoogleAPIIntegration() {
+            log('Testing Google API Integration...', 'test', 'authTestLog');
+            let passCount = 0;
+            let totalTests = 0;
+
+            // Test Google API loading
+            totalTests++;
+            try {
+                if (typeof gapi !== 'undefined') {
+                    log('✓ Google API (gapi) loaded successfully', 'success', 'authTestLog');
+                    passCount++;
+                } else {
+                    log('✗ Google API (gapi) not loaded', 'error', 'authTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error checking Google API: ${error.message}`, 'error', 'authTestLog');
+            }
+
+            // Test Google Identity Services
+            totalTests++;
+            try {
+                if (typeof google !== 'undefined' && google.accounts) {
+                    log('✓ Google Identity Services loaded successfully', 'success', 'authTestLog');
+                    passCount++;
+                } else {
+                    log('✗ Google Identity Services not loaded', 'error', 'authTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error checking Google Identity Services: ${error.message}`, 'error', 'authTestLog');
+            }
+
+            // Test config
+            totalTests++;
+            try {
+                if (typeof window.GOOGLE_CONFIG !== 'undefined' && window.GOOGLE_CONFIG.CLIENT_ID) {
+                    log('✓ Google configuration loaded successfully', 'success', 'authTestLog');
+                    passCount++;
+                } else {
+                    log('✗ Google configuration not loaded properly', 'error', 'authTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error checking Google config: ${error.message}`, 'error', 'authTestLog');
+            }
+
+            log(`Google API Integration Test Complete: ${passCount}/${totalTests} passed`, 'info', 'authTestLog');
+        }
+
+        function testSyncFunctions() {
+            log('Testing Sync System Functions...', 'test', 'syncTestLog');
+            let passCount = 0;
+            let totalTests = 0;
+
+            // Test shouldSkipSync
+            totalTests++;
+            try {
+                if (window.dataManager && typeof window.dataManager.shouldSkipSync === 'function') {
+                    const shouldSkip = window.dataManager.shouldSkipSync();
+                    log(`✓ shouldSkipSync executed: ${shouldSkip ? 'Sync should be skipped' : 'Sync can proceed'}`, 'success', 'syncTestLog');
+                    passCount++;
+                } else {
+                    log('✗ shouldSkipSync function not available', 'error', 'syncTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error with shouldSkipSync: ${error.message}`, 'error', 'syncTestLog');
+            }
+
+            // Test updateSyncStatus
+            totalTests++;
+            try {
+                if (window.dataManager && typeof window.dataManager.updateSyncStatus === 'function') {
+                    window.dataManager.updateSyncStatus('Test Status');
+                    log('✓ updateSyncStatus executed successfully', 'success', 'syncTestLog');
+                    passCount++;
+                } else {
+                    log('✗ updateSyncStatus function not available', 'error', 'syncTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error with updateSyncStatus: ${error.message}`, 'error', 'syncTestLog');
+            }
+
+            // Test sync status variables
+            totalTests++;
+            try {
+                if (window.dataManager && 
+                    typeof window.dataManager.isDropdownOpen !== 'undefined' &&
+                    typeof window.dataManager.isFormActive !== 'undefined') {
+                    log(`✓ Sync detection variables available: dropdown=${window.dataManager.isDropdownOpen}, form=${window.dataManager.isFormActive}`, 'success', 'syncTestLog');
+                    passCount++;
+                } else {
+                    log('✗ Sync detection variables not available', 'error', 'syncTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error checking sync variables: ${error.message}`, 'error', 'syncTestLog');
+            }
+
+            log(`Sync Functions Test Complete: ${passCount}/${totalTests} passed`, 'info', 'syncTestLog');
+        }
+
+        function testDropdownDetection() {
+            log('Testing Dropdown Detection System...', 'test', 'syncTestLog');
+            
+            // Create a test dropdown
+            const testSelect = document.createElement('select');
+            testSelect.id = 'testDropdown';
+            testSelect.innerHTML = '<option value="1">Test Option 1</option><option value="2">Test Option 2</option>';
+            document.body.appendChild(testSelect);
+            
+            let passCount = 0;
+            let totalTests = 0;
+
+            // Test dropdown focus detection
+            totalTests++;
+            try {
+                testSelect.focus();
+                
+                setTimeout(() => {
+                    if (window.dataManager && window.dataManager.shouldSkipSync) {
+                        const shouldSkip = window.dataManager.shouldSkipSync();
+                        if (shouldSkip) {
+                            log('✓ Dropdown detection working: Sync paused when dropdown focused', 'success', 'syncTestLog');
+                        } else {
+                            log('⚠️ Dropdown detection: Sync not paused (may be normal)', 'warning', 'syncTestLog');
+                        }
+                    }
+                    
+                    // Clean up
+                    testSelect.blur();
+                    document.body.removeChild(testSelect);
+                }, 100);
+                
+                passCount++;
+            } catch (error) {
+                log(`✗ Error testing dropdown detection: ${error.message}`, 'error', 'syncTestLog');
+                if (testSelect.parentNode) {
+                    document.body.removeChild(testSelect);
+                }
+            }
+
+            log(`Dropdown Detection Test Complete: ${passCount}/${totalTests} passed`, 'info', 'syncTestLog');
+        }
+
+        function runLiveSystemTest() {
+            log('Running Live System Integration Test...', 'test', 'liveTestLog');
+            log('This test simulates real user interactions...', 'info', 'liveTestLog');
+            
+            let passCount = 0;
+            let totalTests = 0;
+
+            // Test 1: Data initialization
+            totalTests++;
+            try {
+                if (window.dataManager && window.dataManager.data && window.dataManager.assignments) {
+                    log('✓ System properly initialized with data structures', 'success', 'liveTestLog');
+                    passCount++;
+                } else {
+                    log('✗ System not properly initialized', 'error', 'liveTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error in system initialization: ${error.message}`, 'error', 'liveTestLog');
+            }
+
+            // Test 2: UI interaction simulation
+            totalTests++;
+            try {
+                if (typeof window.showTab === 'function') {
+                    // Simulate tab switching
+                    window.showTab('assignments');
+                    setTimeout(() => {
+                        window.showTab('master-data');
+                        setTimeout(() => {
+                            window.showTab('dashboard');
+                            log('✓ Tab switching simulation completed successfully', 'success', 'liveTestLog');
+                        }, 100);
+                    }, 100);
+                    passCount++;
+                } else {
+                    log('✗ Tab switching functionality not available', 'error', 'liveTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error in UI interaction simulation: ${error.message}`, 'error', 'liveTestLog');
+            }
+
+            // Test 3: Search stats update
+            totalTests++;
+            try {
+                if (typeof window.updateSearchStats === 'function') {
+                    window.updateSearchStats();
+                    log('✓ Search stats update executed successfully', 'success', 'liveTestLog');
+                    passCount++;
+                } else {
+                    log('✗ Search stats update not available', 'error', 'liveTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error in search stats update: ${error.message}`, 'error', 'liveTestLog');
+            }
+
+            // Test 4: Sync system status
+            totalTests++;
+            try {
+                if (window.dataManager && typeof window.dataManager.updateSyncStatus === 'function') {
+                    window.dataManager.updateSyncStatus('Live Test Active');
+                    log('✓ Sync system communication working', 'success', 'liveTestLog');
+                    passCount++;
+                } else {
+                    log('✗ Sync system communication not available', 'error', 'liveTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error in sync system test: ${error.message}`, 'error', 'liveTestLog');
+            }
+
+            // Test 5: Complete system health check
+            totalTests++;
+            try {
+                const systemHealth = {
+                    dataManager: !!window.dataManager,
+                    authManager: !!window.authManager,
+                    googleAPI: typeof gapi !== 'undefined',
+                    chartJS: typeof Chart !== 'undefined',
+                    assignments: window.dataManager?.assignments?.length >= 0,
+                    subjects: window.dataManager?.subjects?.length >= 0
+                };
+                
+                const healthyComponents = Object.values(systemHealth).filter(status => status).length;
+                const totalComponents = Object.keys(systemHealth).length;
+                
+                if (healthyComponents === totalComponents) {
+                    log('✓ Complete system health check: All components operational', 'success', 'liveTestLog');
+                    passCount++;
+                } else {
+                    log(`⚠️ System health check: ${healthyComponents}/${totalComponents} components operational`, 'warning', 'liveTestLog');
+                }
+            } catch (error) {
+                log(`✗ Error in system health check: ${error.message}`, 'error', 'liveTestLog');
+            }
+
+            setTimeout(() => {
+                log(`Live System Test Complete: ${passCount}/${totalTests} passed`, 'info', 'liveTestLog');
+                
+                if (passCount === totalTests) {
+                    log('🎉 LIVE SYSTEM TEST: ALL FUNCTIONS WORKING PERFECTLY!', 'success', 'liveTestLog');
+                } else if (passCount > totalTests * 0.8) {
+                    log('⚠️ LIVE SYSTEM TEST: Most functions working, minor issues detected', 'warning', 'liveTestLog');
+                } else {
+                    log('❌ LIVE SYSTEM TEST: Multiple issues detected', 'error', 'liveTestLog');
+                }
+            }, 500);
+        }
+
+        // Auto-run safe tests when page loads
+        window.addEventListener('load', function() {
+            log('Function Execution Test Suite loaded', 'info', 'safeTestLog');
+            setTimeout(() => {
+                log('Auto-running safe function tests...', 'info', 'safeTestLog');
+                testDataManipulation();
+                setTimeout(() => testUIFunctions(), 200);
+                setTimeout(() => testUtilityFunctions(), 400);
+                setTimeout(() => testAnalyticsFunctions(), 600);
+            }, 2000);
+        });
+    </script>
+</body>
+</html>

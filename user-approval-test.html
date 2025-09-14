@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Approval Workflow Test - LAMS</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 15px;
+        }
+        .test-section {
+            background: #f8f9fa;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+            border-left: 4px solid #007bff;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #007bff;
+        }
+        .workflow-step {
+            background: #e9ecef;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #28a745;
+        }
+        .workflow-step.warning {
+            border-left-color: #ffc107;
+            background: #fff3cd;
+        }
+        .workflow-step.danger {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+        .code-block {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        .status-indicator {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+            margin: 5px;
+        }
+        .status-indicator.pass {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-indicator.fail {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .btn.success {
+            background: #28a745;
+        }
+        .btn.danger {
+            background: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>👥 User Approval Workflow Test</h1>
+        
+        <div class="test-section">
+            <h3>📋 User Approval Workflow Overview</h3>
+            <p>This page tests the complete user approval system in LAMS. Here's how it works:</p>
+            
+            <div class="workflow-step">
+                <strong>Step 1: New User Signs In</strong>
+                <ul>
+                    <li>User clicks "Sign in with Google"</li>
+                    <li>Google OAuth provides user credentials</li>
+                    <li>System checks if user email matches admin email</li>
+                    <li>If not admin, checks if user is in approved list</li>
+                </ul>
+            </div>
+            
+            <div class="workflow-step warning">
+                <strong>Step 2: User Added to Pending List</strong>
+                <ul>
+                    <li>If user is not approved, they're added to pending users list</li>
+                    <li>User data is immediately synced to Google Drive</li>
+                    <li>Pending count is updated in admin UI</li>
+                    <li>User sees message: "Access request sent to admin"</li>
+                </ul>
+            </div>
+            
+            <div class="workflow-step">
+                <strong>Step 3: Admin Reviews Pending Users</strong>
+                <ul>
+                    <li>Admin sees pending users count in navigation</li>
+                    <li>Admin opens "Manage Users" panel</li>
+                    <li>All pending users are displayed with photos, names, emails</li>
+                    <li>Admin can approve or reject each user</li>
+                </ul>
+            </div>
+            
+            <div class="workflow-step">
+                <strong>Step 4: User Approval/Rejection</strong>
+                <ul>
+                    <li>Admin clicks "Approve" → User moved to approved list</li>
+                    <li>Admin clicks "Reject" → User removed from pending list</li>
+                    <li>Changes are immediately synced to Google Drive</li>
+                    <li>All devices get updated user lists</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 Function Verification</h3>
+            <p>Checking if all required functions are available:</p>
+            
+            <div id="function-check-results">
+                <div class="status-indicator" id="checkUserApproval">Checking user approval functions...</div>
+                <div class="status-indicator" id="addToPending">Checking add to pending function...</div>
+                <div class="status-indicator" id="approveReject">Checking approve/reject functions...</div>
+                <div class="status-indicator" id="adminUI">Checking admin UI functions...</div>
+                <div class="status-indicator" id="syncFunctions">Checking sync functions...</div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 Test Scenarios</h3>
+            
+            <div class="workflow-step">
+                <strong>Test 1: New User Sign-in Process</strong>
+                <p>This tests what happens when a new user tries to sign in:</p>
+                <div class="code-block">
+// Simulated user data (would come from Google OAuth)
+const newUser = {
+    id: "123456789",
+    name: "John Doe",
+    email: "john.doe@example.com",
+    picture: "https://via.placeholder.com/50",
+    loginTime: new Date().toISOString()
+};
+
+// Test the workflow
+console.log("1. User signs in with Google OAuth");
+console.log("2. System checks if user is admin:", newUser.email === CONFIG.ADMIN_EMAIL);
+console.log("3. If not admin, check if approved:", "checkUserApprovalFromCloud(newUser.email)");
+console.log("4. If not approved, add to pending:", "addToPendingUsersCloud(newUser)");
+                </div>
+                <button class="btn" onclick="testNewUserSignIn()">Test New User Sign-in</button>
+            </div>
+            
+            <div class="workflow-step">
+                <strong>Test 2: Admin User Management Interface</strong>
+                <p>This tests the admin interface for managing pending users:</p>
+                <div class="code-block">
+// Admin opens user management
+console.log("1. Admin clicks 'Manage Users' button");
+console.log("2. System loads pending and approved users from cloud");
+console.log("3. UI displays all pending users with approve/reject buttons");
+console.log("4. UI displays all approved users with remove option");
+                </div>
+                <button class="btn" onclick="testAdminInterface()">Test Admin Interface</button>
+            </div>
+            
+            <div class="workflow-step">
+                <strong>Test 3: User Approval Process</strong>
+                <p>This tests approving a pending user:</p>
+                <div class="code-block">
+// Admin approves a user
+console.log("1. Admin clicks 'Approve' for a pending user");
+console.log("2. User moved from pending to approved list");
+console.log("3. Approval timestamp and admin info added");
+console.log("4. Changes synced to Google Drive immediately");
+console.log("5. UI updated to reflect changes");
+                </div>
+                <button class="btn success" onclick="testUserApproval()">Test User Approval</button>
+            </div>
+            
+            <div class="workflow-step">
+                <strong>Test 4: User Rejection Process</strong>
+                <p>This tests rejecting a pending user:</p>
+                <div class="code-block">
+// Admin rejects a user
+console.log("1. Admin clicks 'Reject' for a pending user");
+console.log("2. User removed from pending list");
+console.log("3. Changes synced to Google Drive immediately");
+console.log("4. UI updated to reflect changes");
+                </div>
+                <button class="btn danger" onclick="testUserRejection()">Test User Rejection</button>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Current System Status</h3>
+            <div id="system-status">
+                <p>Loading system status...</p>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔄 Test Results</h3>
+            <div id="test-results" class="code-block">
+Test results will appear here when you run the tests above...
+            </div>
+        </div>
+    </div>
+
+    <!-- Include necessary scripts for testing -->
+    <script src="config.js"></script>
+    <script src="auth.js"></script>
+    <script src="app.js"></script>
+    
+    <script>
+        // Test logging
+        function log(message, type = 'info') {
+            const resultsDiv = document.getElementById('test-results');
+            const timestamp = new Date().toLocaleTimeString();
+            resultsDiv.innerHTML += `[${timestamp}] ${message}\n`;
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+            console.log(`[User Approval Test] ${message}`);
+        }
+
+        // Function verification
+        function checkFunctions() {
+            const checks = [
+                {
+                    id: 'checkUserApproval',
+                    test: () => {
+                        return typeof window.authManager?.checkUserApprovalFromCloud === 'function' &&
+                               typeof window.authManager?.addToPendingUsersCloud === 'function';
+                    },
+                    message: 'User approval checking functions'
+                },
+                {
+                    id: 'addToPending',
+                    test: () => {
+                        return typeof window.dataManager?.pendingUsers !== 'undefined' &&
+                               typeof window.dataManager?.approvedUsers !== 'undefined';
+                    },
+                    message: 'Pending users data structure'
+                },
+                {
+                    id: 'approveReject',
+                    test: () => {
+                        return typeof window.approveUser === 'function' &&
+                               typeof window.rejectUser === 'function' &&
+                               typeof window.removeApprovedUser === 'function';
+                    },
+                    message: 'Approve/Reject functions'
+                },
+                {
+                    id: 'adminUI',
+                    test: () => {
+                        return typeof window.showUserManagement === 'function' &&
+                               typeof window.updateAdminStats === 'function';
+                    },
+                    message: 'Admin UI functions'
+                },
+                {
+                    id: 'syncFunctions',
+                    test: () => {
+                        return typeof window.dataManager?.save === 'function' &&
+                               typeof window.dataManager?.triggerImmediateSync === 'function';
+                    },
+                    message: 'Sync functions'
+                }
+            ];
+
+            checks.forEach(check => {
+                const element = document.getElementById(check.id);
+                const passed = check.test();
+                
+                element.textContent = `${check.message}: ${passed ? 'PASS' : 'FAIL'}`;
+                element.className = `status-indicator ${passed ? 'pass' : 'fail'}`;
+                
+                log(`Function Check: ${check.message} - ${passed ? 'PASS' : 'FAIL'}`);
+            });
+        }
+
+        // Test new user sign-in process
+        function testNewUserSignIn() {
+            log('🧪 Testing New User Sign-in Process');
+            
+            const newUser = {
+                id: "test_123456789",
+                name: "Test User",
+                email: "test.user@example.com",
+                picture: "https://via.placeholder.com/50",
+                loginTime: new Date().toISOString()
+            };
+            
+            log(`📝 Simulating sign-in for: ${newUser.name} (${newUser.email})`);
+            
+            // Check if admin
+            const isAdmin = newUser.email === CONFIG.ADMIN_EMAIL;
+            log(`👤 Is admin check: ${isAdmin ? 'YES - Would sign in directly' : 'NO - Proceeding to approval check'}`);
+            
+            if (!isAdmin) {
+                // Check if approved
+                const pendingUsers = window.dataManager?.pendingUsers || [];
+                const approvedUsers = window.dataManager?.approvedUsers || [];
+                
+                const isApproved = approvedUsers.some(u => u.email === newUser.email);
+                const isPending = pendingUsers.some(u => u.email === newUser.email);
+                
+                log(`✅ Is approved check: ${isApproved ? 'YES - Would sign in directly' : 'NO'}`);
+                log(`⏳ Is pending check: ${isPending ? 'YES - Already in pending list' : 'NO'}`);
+                
+                if (!isApproved && !isPending) {
+                    log(`📋 User would be added to pending list`);
+                    log(`📊 Current pending users: ${pendingUsers.length}`);
+                    log(`👥 Current approved users: ${approvedUsers.length}`);
+                    log(`💾 Changes would be synced to Google Drive immediately`);
+                    log(`🔔 Admin would see notification of new pending user`);
+                } else if (isPending) {
+                    log(`⚠️ User already in pending list - would show waiting message`);
+                } else {
+                    log(`✅ User already approved - would sign in successfully`);
+                }
+            }
+            
+            log('✅ New user sign-in test completed');
+        }
+
+        // Test admin interface
+        function testAdminInterface() {
+            log('🧪 Testing Admin Interface');
+            
+            if (!window.authManager?.currentUser?.isAdmin) {
+                log('⚠️ Not signed in as admin - simulating admin access');
+            }
+            
+            const pendingUsers = window.dataManager?.pendingUsers || [];
+            const approvedUsers = window.dataManager?.approvedUsers || [];
+            
+            log(`📊 Admin would see:`);
+            log(`   - Pending users: ${pendingUsers.length}`);
+            log(`   - Approved users: ${approvedUsers.length}`);
+            
+            if (pendingUsers.length > 0) {
+                log(`📋 Pending users list:`);
+                pendingUsers.forEach((user, index) => {
+                    log(`   ${index + 1}. ${user.name} (${user.email})`);
+                });
+            } else {
+                log(`📋 No pending users to display`);
+            }
+            
+            if (approvedUsers.length > 0) {
+                log(`✅ Approved users list:`);
+                approvedUsers.forEach((user, index) => {
+                    log(`   ${index + 1}. ${user.name} (${user.email})`);
+                });
+            } else {
+                log(`✅ No approved users to display`);
+            }
+            
+            log('✅ Admin interface test completed');
+        }
+
+        // Test user approval
+        function testUserApproval() {
+            log('🧪 Testing User Approval Process');
+            
+            const pendingUsers = window.dataManager?.pendingUsers || [];
+            
+            if (pendingUsers.length === 0) {
+                log('⚠️ No pending users to approve - adding test user first');
+                
+                // Add a test user to pending list
+                const testUser = {
+                    id: "test_approval_123",
+                    name: "Test Approval User",
+                    email: "approval.test@example.com",
+                    picture: "https://via.placeholder.com/50",
+                    loginTime: new Date().toISOString()
+                };
+                
+                pendingUsers.push(testUser);
+                if (window.dataManager) {
+                    window.dataManager.pendingUsers = pendingUsers;
+                }
+                
+                log(`📋 Added test user: ${testUser.name} (${testUser.email})`);
+            }
+            
+            const userToApprove = pendingUsers[0];
+            log(`👤 Simulating approval for: ${userToApprove.name} (${userToApprove.email})`);
+            
+            if (typeof window.approveUser === 'function') {
+                log(`✅ approveUser function is available`);
+                log(`📝 Would execute: approveUser('${userToApprove.email}')`);
+                log(`🔄 Process would:`);
+                log(`   1. Move user from pending to approved list`);
+                log(`   2. Add approval timestamp and admin info`);
+                log(`   3. Save changes to Google Drive`);
+                log(`   4. Update admin statistics`);
+                log(`   5. Trigger immediate sync to all devices`);
+            } else {
+                log(`❌ approveUser function not found`);
+            }
+            
+            log('✅ User approval test completed');
+        }
+
+        // Test user rejection
+        function testUserRejection() {
+            log('🧪 Testing User Rejection Process');
+            
+            const pendingUsers = window.dataManager?.pendingUsers || [];
+            
+            if (pendingUsers.length === 0) {
+                log('⚠️ No pending users to reject - adding test user first');
+                
+                // Add a test user to pending list
+                const testUser = {
+                    id: "test_rejection_123",
+                    name: "Test Rejection User",
+                    email: "rejection.test@example.com",
+                    picture: "https://via.placeholder.com/50",
+                    loginTime: new Date().toISOString()
+                };
+                
+                pendingUsers.push(testUser);
+                if (window.dataManager) {
+                    window.dataManager.pendingUsers = pendingUsers;
+                }
+                
+                log(`📋 Added test user: ${testUser.name} (${testUser.email})`);
+            }
+            
+            const userToReject = pendingUsers[0];
+            log(`👤 Simulating rejection for: ${userToReject.name} (${userToReject.email})`);
+            
+            if (typeof window.rejectUser === 'function') {
+                log(`✅ rejectUser function is available`);
+                log(`📝 Would execute: rejectUser('${userToReject.email}')`);
+                log(`🔄 Process would:`);
+                log(`   1. Remove user from pending list`);
+                log(`   2. Save changes to Google Drive`);
+                log(`   3. Update admin statistics`);
+                log(`   4. Trigger immediate sync to all devices`);
+                log(`   5. User would not be able to access system`);
+            } else {
+                log(`❌ rejectUser function not found`);
+            }
+            
+            log('✅ User rejection test completed');
+        }
+
+        // Update system status
+        function updateSystemStatus() {
+            const statusDiv = document.getElementById('system-status');
+            
+            const pendingCount = window.dataManager?.pendingUsers?.length || 0;
+            const approvedCount = window.dataManager?.approvedUsers?.length || 0;
+            const isSignedIn = window.authManager?.isSignedIn || false;
+            const isAdmin = window.authManager?.currentUser?.isAdmin || false;
+            
+            statusDiv.innerHTML = `
+                <div class="workflow-step">
+                    <strong>Current System Status:</strong>
+                    <ul>
+                        <li>User signed in: ${isSignedIn ? '✅ Yes' : '❌ No'}</li>
+                        <li>Admin access: ${isAdmin ? '✅ Yes' : '❌ No'}</li>
+                        <li>Pending users: ${pendingCount}</li>
+                        <li>Approved users: ${approvedCount}</li>
+                        <li>User approval system: ${typeof window.approveUser === 'function' ? '✅ Ready' : '❌ Not available'}</li>
+                        <li>Data sync system: ${typeof window.dataManager?.save === 'function' ? '✅ Ready' : '❌ Not available'}</li>
+                    </ul>
+                </div>
+            `;
+        }
+
+        // Initialize tests
+        document.addEventListener('DOMContentLoaded', function() {
+            log('🚀 User Approval Workflow Test initialized');
+            
+            setTimeout(() => {
+                checkFunctions();
+                updateSystemStatus();
+                log('📊 System status loaded');
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

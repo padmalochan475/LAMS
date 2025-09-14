@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LAMS Sync & Analytics Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .button { padding: 10px 15px; margin: 5px; background: #007cba; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 3px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        #log { background: #f8f9fa; border: 1px solid #dee2e6; padding: 10px; height: 300px; overflow-y: scroll; font-family: monospace; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>🔧 LAMS Sync & Analytics Test</h1>
+    
+    <div class="test-section">
+        <h3>📊 System Status</h3>
+        <div id="systemStatus" class="status info">Checking system status...</div>
+        <button class="button" onclick="checkSystemStatus()">Refresh Status</button>
+    </div>
+
+    <div class="test-section">
+        <h3>🔄 Sync Testing</h3>
+        <button class="button" onclick="testDataLoading()">Test Data Loading</button>
+        <button class="button" onclick="testSyncFunctionality()">Test Sync Functions</button>
+        <button class="button" onclick="createTestAssignment()">Create Test Assignment</button>
+    </div>
+
+    <div class="test-section">
+        <h3>📈 Analytics Testing</h3>
+        <button class="button" onclick="testChartJS()">Test Chart.js Loading</button>
+        <button class="button" onclick="testAnalyticsRendering()">Test Analytics Rendering</button>
+    </div>
+
+    <div class="test-section">
+        <h3>📋 Test Log</h3>
+        <button class="button" onclick="clearLog()">Clear Log</button>
+        <div id="log"></div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `[${timestamp}] ${type.toUpperCase()}: ${message}`;
+            logEntry.style.color = type === 'error' ? 'red' : type === 'success' ? 'green' : 'blue';
+            logDiv.appendChild(logEntry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        function updateStatus(message, type) {
+            const statusDiv = document.getElementById('systemStatus');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+
+        function checkSystemStatus() {
+            log('Checking system status...');
+            
+            // Check if main app is loaded
+            if (typeof dataManager === 'undefined') {
+                updateStatus('❌ DataManager not loaded', 'error');
+                log('ERROR: DataManager not found', 'error');
+                return;
+            }
+
+            // Check Chart.js
+            if (typeof Chart === 'undefined') {
+                updateStatus('⚠️ Chart.js not loaded', 'error');
+                log('WARNING: Chart.js not available', 'error');
+            } else {
+                log('SUCCESS: Chart.js is available', 'success');
+            }
+
+            // Check authentication
+            if (typeof authManager === 'undefined') {
+                log('WARNING: AuthManager not found', 'error');
+            } else {
+                log('SUCCESS: AuthManager available', 'success');
+            }
+
+            // Check data structure
+            if (dataManager && dataManager.data) {
+                log(`SUCCESS: Data structure loaded with ${dataManager.data.assignments.length} assignments`, 'success');
+                updateStatus('✅ System Ready', 'success');
+            } else {
+                updateStatus('❌ Data structure missing', 'error');
+                log('ERROR: Data structure not properly initialized', 'error');
+            }
+        }
+
+        function testDataLoading() {
+            log('Testing data loading functionality...');
+            
+            if (!dataManager) {
+                log('ERROR: DataManager not available', 'error');
+                return;
+            }
+
+            log(`Current assignments count: ${dataManager.data.assignments.length}`);
+            log(`Current subjects count: ${dataManager.data.subjects.length}`);
+            log(`Current faculty count: ${dataManager.data.theoryFaculty.length + dataManager.data.labFaculty.length}`);
+            
+            if (dataManager.data.assignments.length > 0) {
+                log('Sample assignment: ' + JSON.stringify(dataManager.data.assignments[0]), 'success');
+            }
+        }
+
+        function testSyncFunctionality() {
+            log('Testing sync functionality...');
+            
+            if (!dataManager) {
+                log('ERROR: Cannot test sync - DataManager not available', 'error');
+                return;
+            }
+
+            // Test refresh function
+            try {
+                dataManager.refreshAllComponents();
+                log('SUCCESS: refreshAllComponents() executed', 'success');
+            } catch (e) {
+                log('ERROR: refreshAllComponents() failed: ' + e.message, 'error');
+            }
+
+            // Check sync status
+            if (dataManager.isCloudMode) {
+                log('SUCCESS: Cloud mode is enabled', 'success');
+            } else {
+                log('WARNING: Cloud mode is disabled', 'error');
+            }
+        }
+
+        function createTestAssignment() {
+            log('Creating test assignment...');
+            
+            if (!dataManager) {
+                log('ERROR: DataManager not available', 'error');
+                return;
+            }
+
+            const testAssignment = {
+                department: 'CSE',
+                semester: '5th',
+                group: 'A',
+                subGroup: '1',
+                subject: 'Database Lab',
+                day: 'Monday',
+                timeSlot: '10:00-11:00',
+                labRoom: 'Lab 1',
+                theoryFaculty: 'Dr. Smith',
+                labFaculty: 'Prof. Johnson'
+            };
+
+            try {
+                const success = dataManager.addAssignment(testAssignment);
+                if (success) {
+                    log('SUCCESS: Test assignment created', 'success');
+                    log('New assignments count: ' + dataManager.data.assignments.length);
+                } else {
+                    log('ERROR: Failed to create test assignment', 'error');
+                }
+            } catch (e) {
+                log('ERROR: Exception while creating assignment: ' + e.message, 'error');
+            }
+        }
+
+        function testChartJS() {
+            log('Testing Chart.js functionality...');
+            
+            if (typeof Chart === 'undefined') {
+                log('ERROR: Chart.js is not loaded', 'error');
+                return;
+            }
+
+            log('SUCCESS: Chart.js is available', 'success');
+            log('Chart.js version: ' + Chart.version);
+            
+            try {
+                // Try to create a simple test chart
+                const canvas = document.createElement('canvas');
+                canvas.width = 100;
+                canvas.height = 100;
+                canvas.style.display = 'none';
+                document.body.appendChild(canvas);
+                
+                const testChart = new Chart(canvas, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Test'],
+                        datasets: [{
+                            data: [1],
+                            backgroundColor: ['#007cba']
+                        }]
+                    },
+                    options: { responsive: false }
+                });
+                
+                testChart.destroy();
+                document.body.removeChild(canvas);
+                log('SUCCESS: Chart.js test chart created and destroyed', 'success');
+            } catch (e) {
+                log('ERROR: Chart.js test failed: ' + e.message, 'error');
+            }
+        }
+
+        function testAnalyticsRendering() {
+            log('Testing analytics rendering...');
+            
+            if (typeof renderAnalytics === 'undefined') {
+                log('ERROR: renderAnalytics function not found', 'error');
+                return;
+            }
+
+            try {
+                renderAnalytics();
+                log('SUCCESS: renderAnalytics() called', 'success');
+            } catch (e) {
+                log('ERROR: renderAnalytics() failed: ' + e.message, 'error');
+            }
+        }
+
+        // Auto-run system check on load
+        window.addEventListener('load', () => {
+            setTimeout(checkSystemStatus, 1000);
+        });
+    </script>
+</body>
+</html>

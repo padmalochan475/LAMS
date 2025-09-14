@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LAMS Analytics Styling Test</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .test-header {
+            text-align: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin-bottom: 20px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: var(--color-bg-1);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--color-border);
+        }
+        .test-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--color-text-1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #4CAF50;
+        }
+        .preview-box {
+            background: var(--color-bg-2);
+            border-radius: var(--radius-base);
+            padding: 15px;
+            margin-top: 10px;
+            border: 1px dashed var(--color-border);
+        }
+    </style>
+</head>
+<body>
+    <div class="test-header">
+        <h1>🎨 LAMS Analytics Styling Verification</h1>
+        <p>Testing all analytics components and CSS styling</p>
+    </div>
+
+    <div class="container">
+        <!-- Test 1: Analytics Grid Layout -->
+        <div class="test-section">
+            <div class="test-title">
+                <span class="status-indicator"></span>
+                📊 Analytics Grid Layout Test
+            </div>
+            <div class="preview-box">
+                <div class="analytics-grid">
+                    <div class="glass-card">
+                        <h3>Sample Chart 1</h3>
+                        <div class="chart-container" style="height: 200px; background: rgba(29, 184, 205, 0.1); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                            <span style="color: var(--color-text-2);">Chart Area Preview</span>
+                        </div>
+                    </div>
+                    <div class="glass-card">
+                        <h3>Sample Chart 2</h3>
+                        <div class="chart-container" style="height: 200px; background: rgba(29, 184, 205, 0.1); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                            <span style="color: var(--color-text-2);">Chart Area Preview</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test 2: Analytics Filters -->
+        <div class="test-section">
+            <div class="test-title">
+                <span class="status-indicator"></span>
+                🎛️ Analytics Filters Test
+            </div>
+            <div class="preview-box">
+                <div class="glass-card">
+                    <h3>📚 Subject-Faculty Analysis</h3>
+                    <div class="analytics-filters">
+                        <select id="testSubjectFilter" class="form-control">
+                            <option value="">All Subjects</option>
+                            <option value="math">Mathematics</option>
+                            <option value="cs">Computer Science</option>
+                            <option value="physics">Physics</option>
+                        </select>
+                        <label>
+                            <input type="checkbox" id="testTheory"> Theory Only
+                        </label>
+                        <label>
+                            <input type="checkbox" id="testLab"> Lab Only
+                        </label>
+                    </div>
+                    <div class="chart-container" style="height: 150px; background: rgba(29, 184, 205, 0.1); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                        <span style="color: var(--color-text-2);">Interactive Chart Preview</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test 3: Analytics Stats -->
+        <div class="test-section">
+            <div class="test-title">
+                <span class="status-indicator"></span>
+                📈 Analytics Statistics Test
+            </div>
+            <div class="preview-box">
+                <div class="glass-card">
+                    <h3>📊 Weekly Workload Statistics</h3>
+                    <div class="analytics-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Average Faculty per Subject:</span>
+                            <span class="stat-value">2.5</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Most Popular Subject:</span>
+                            <span class="stat-value">Computer Science</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Peak Day:</span>
+                            <span class="stat-value">Wednesday</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Lab Utilization:</span>
+                            <span class="stat-value">85.2%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test 4: Responsive Design -->
+        <div class="test-section">
+            <div class="test-title">
+                <span class="status-indicator"></span>
+                📱 Responsive Design Test
+            </div>
+            <div class="preview-box">
+                <p><strong>Instructions:</strong> Resize your browser window to test responsive behavior.</p>
+                <ul>
+                    <li>✅ Desktop (>768px): Grid shows multiple columns</li>
+                    <li>✅ Tablet (768px): Grid adapts to smaller screens</li>
+                    <li>✅ Mobile (<768px): Single column layout</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Test 5: Dark/Light Theme -->
+        <div class="test-section">
+            <div class="test-title">
+                <span class="status-indicator"></span>
+                🌙 Theme Compatibility Test
+            </div>
+            <div class="preview-box">
+                <button class="btn btn--primary" onclick="toggleTheme()">Toggle Theme</button>
+                <p style="margin-top: 10px;">Test analytics components in both light and dark themes.</p>
+            </div>
+        </div>
+
+        <!-- Test 6: Actual Chart Integration -->
+        <div class="test-section">
+            <div class="test-title">
+                <span class="status-indicator"></span>
+                📊 Live Chart Integration Test
+            </div>
+            <div class="preview-box">
+                <div class="glass-card">
+                    <h3>Sample Analytics Chart</h3>
+                    <div class="chart-container" style="height: 300px;">
+                        <canvas id="testChart"></canvas>
+                    </div>
+                    <div class="analytics-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Total Data Points:</span>
+                            <span class="stat-value" id="dataPoints">5</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Chart Type:</span>
+                            <span class="stat-value">Bar Chart</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Theme toggle function
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-color-scheme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-color-scheme', newTheme);
+        }
+
+        // Create a test chart
+        function createTestChart() {
+            const ctx = document.getElementById('testChart');
+            if (!ctx) return;
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Computer Science', 'Mathematics', 'Physics', 'Chemistry', 'Biology'],
+                    datasets: [{
+                        label: 'Faculty Assignments',
+                        data: [12, 8, 15, 6, 9],
+                        backgroundColor: [
+                            '#1FB8CD',
+                            '#FFC185', 
+                            '#B4413C',
+                            '#5D878F',
+                            '#DB4545'
+                        ],
+                        borderColor: '#0EA5E9',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Number of Assignments'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Subjects'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize test chart when page loads
+        window.addEventListener('load', () => {
+            createTestChart();
+        });
+
+        // Log styling verification
+        console.log('🎨 Analytics Styling Test Loaded');
+        console.log('✅ CSS Variables Check:', {
+            primaryColor: getComputedStyle(document.documentElement).getPropertyValue('--color-primary'),
+            backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--color-bg-1'),
+            textColor: getComputedStyle(document.documentElement).getPropertyValue('--color-text-1'),
+            borderRadius: getComputedStyle(document.documentElement).getPropertyValue('--radius-base')
+        });
+    </script>
+</body>
+</html>

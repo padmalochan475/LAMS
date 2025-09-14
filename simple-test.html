@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple LAMS Test</title>
+</head>
+<body>
+    <h1>LAMS Simple Test</h1>
+    <button onclick="test()">Test Assignment Creation</button>
+    <div id="result"></div>
+
+    <script>
+        // Minimal DataManager
+        class SimpleDataManager {
+            constructor() {
+                this.data = {
+                    assignments: [],
+                    timeSlots: ['9:00-10:00'],
+                    departments: ['CSE'],
+                    semesters: ['1st'],
+                    groups: ['A'],
+                    subGroups: ['1'],
+                    subjects: ['Lab'],
+                    labRooms: ['Lab1'],
+                    theoryFaculty: ['Dr.A'],
+                    labFaculty: ['Prof.B']
+                };
+            }
+            
+            addAssignment(assignment) {
+                this.data.assignments.push(assignment);
+                return true;
+            }
+        }
+
+        window.dataManager = new SimpleDataManager();
+
+        function test() {
+            const assignment = {
+                day: 'Monday',
+                timeSlot: '9:00-10:00',
+                department: 'CSE',
+                semester: '1st',
+                group: 'A',
+                subGroup: '1',
+                subject: 'Lab',
+                labRoom: 'Lab1',
+                theoryFaculty: 'Dr.A',
+                labFaculty: 'Prof.B'
+            };
+
+            const result = window.dataManager.addAssignment(assignment);
+            document.getElementById('result').innerHTML = result ? 
+                'SUCCESS: Assignment created!' : 
+                'FAILED: Assignment not created';
+        }
+    </script>
+</body>
+</html>

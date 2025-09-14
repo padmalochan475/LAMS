@@ -68,10 +68,6 @@
                 <span class="nav-icon">🖨️</span>
                 Print Schedule
             </button>
-            <button class="nav-tab" onclick="showTab('activity')">
-                <span class="nav-icon">📰</span>
-                Activity Feed
-            </button>
         </nav>
 
         <!-- Loading Screen -->
@@ -142,15 +138,9 @@
                         <span class="stat-label">Pending Requests</span>
                         <span class="stat-value" id="pendingRequestsCount">0</span>
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-label">GitHub Sync</span>
-                        <span class="stat-value" id="github-sync-status">Not Configured</span>
-                    </div>
                 </div>
                 <div class="admin-actions">
                     <button class="btn btn--primary" onclick="showUserManagement()">Manage Users</button>
-                    <button class="btn btn--outline" onclick="configureGitHubSync()">Configure GitHub</button>
-                    <button class="btn btn--secondary" onclick="syncToGitHub()">Sync to GitHub</button>
                     <button class="btn btn--outline" onclick="clearAllData()">Clear All Data</button>
                 </div>
             </div>
@@ -462,92 +452,6 @@
                         <canvas id="heatmapChart"></canvas>
                     </div>
                 </div>
-                
-                <!-- New Interactive Analytics -->
-                <div class="glass-card">
-                    <h3>📚 Subject-Faculty Assignment Analysis</h3>
-                    <div class="analytics-filters">
-                        <select id="subjectFilter" class="form-control" onchange="updateSubjectFacultyAnalysis()">
-                            <option value="">All Subjects</option>
-                        </select>
-                    </div>
-                    <div class="chart-container" style="position: relative; height: 300px;">
-                        <canvas id="subjectFacultyChart"></canvas>
-                    </div>
-                    <div class="analytics-stats">
-                        <div class="stat-item">
-                            <span class="stat-label">Average Faculty per Subject:</span>
-                            <span id="avgFacultyPerSubject" class="stat-value">0</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Most Popular Subject:</span>
-                            <span id="mostPopularSubject" class="stat-value">-</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="glass-card">
-                    <h3>📊 Weekly Workload Distribution</h3>
-                    <div class="analytics-filters">
-                        <label>
-                            <input type="checkbox" id="showTheoryOnly" onchange="updateWeeklyWorkload()"> Theory Only
-                        </label>
-                        <label>
-                            <input type="checkbox" id="showLabOnly" onchange="updateWeeklyWorkload()"> Lab Only
-                        </label>
-                    </div>
-                    <div class="chart-container" style="position: relative; height: 300px;">
-                        <canvas id="weeklyWorkloadChart"></canvas>
-                    </div>
-                    <div class="analytics-stats">
-                        <div class="stat-item">
-                            <span class="stat-label">Peak Day:</span>
-                            <span id="peakDay" class="stat-value">-</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Total Weekly Hours:</span>
-                            <span id="totalWeeklyHours" class="stat-value">0</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="glass-card">
-                    <h3>🏢 Department Resource Utilization</h3>
-                    <div class="analytics-filters">
-                        <select id="departmentFilter" class="form-control" onchange="updateDepartmentAnalysis()">
-                            <option value="">All Departments</option>
-                        </select>
-                    </div>
-                    <div class="chart-container" style="position: relative; height: 300px;">
-                        <canvas id="departmentResourceChart"></canvas>
-                    </div>
-                    <div class="analytics-stats">
-                        <div class="stat-item">
-                            <span class="stat-label">Lab Utilization:</span>
-                            <span id="labUtilization" class="stat-value">0%</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Faculty Efficiency:</span>
-                            <span id="facultyEfficiency" class="stat-value">0%</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Faculty Workload Table -->
-                <div class="glass-card" style="grid-column: 1 / -1;">
-                    <h3>👨‍🏫 Faculty Workload Analysis</h3>
-                    <div class="analytics-filters">
-                        <select id="facultyTypeFilter" class="form-control" onchange="updateFacultyWorkloadTable()">
-                            <option value="all">All Faculty</option>
-                            <option value="theory">Theory Faculty Only</option>
-                            <option value="lab">Lab Faculty Only</option>
-                        </select>
-                        <input type="text" id="facultySearchFilter" class="form-control" placeholder="Search faculty..." oninput="updateFacultyWorkloadTable()" style="flex: 1; min-width: 200px;">
-                    </div>
-                    <div id="facultyWorkloadTable" class="faculty-workload-table" style="overflow-x: auto; margin-top: 15px;">
-                        <p class="empty-state">Loading faculty workload data...</p>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -607,41 +511,11 @@
                 </div>
             </div>
         </div>
-
-        <!-- Activity Feed Tab -->
-        <div class="tab-content" id="activity-tab">
-            <div class="glass-card">
-                <h2>Real-Time Activity Feed</h2>
-                <div class="activity-controls">
-                    <button class="btn btn--secondary" onclick="refreshActivityFeed()">
-                        <span class="nav-icon">🔄</span> Refresh
-                    </button>
-                    <button class="btn btn--outline" onclick="clearActivityFeed()">
-                        <span class="nav-icon">🗑️</span> Clear All
-                    </button>
-                    <div class="activity-stats">
-                        <span id="activityCount">0 activities</span>
-                    </div>
-                </div>
-                <div id="activityFeed" class="activity-feed">
-                    <p class="empty-state">No recent activities.</p>
-                </div>
-            </div>
-        </div>
     </div>
 
-    <!-- External Libraries -->
-    <script src="https://apis.google.com/js/api.js"></script>
-    <script src="https://accounts.google.com/gsi/client"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.min.js"></script>
-    
-    <!-- Application Scripts -->
     <script src="config.js"></script>
     <script src="auth.js"></script>
-    <script src="github-sync.js"></script>
-    <script src="free-sync.js"></script>
-    <script src="realtime-sync.js"></script>
-    <script src="activity-tracker.js"></script>
+    <script src="sync-helper.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
