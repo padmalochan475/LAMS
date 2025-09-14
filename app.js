@@ -57,9 +57,263 @@ class DataManager {
         // Force refresh after initialization
         setTimeout(() => {
             this.refreshAllComponents();
+            this.initializeUIComponents(); // Initialize all UI components
             console.log('🔄 Components refreshed after default data initialization');
         }, 200);
     }
+    // Initialize UI components and ensure all elements are properly set up
+    initializeUIComponents() {
+        console.log('🔄 Initializing UI components...');
+        
+        // Ensure search functionality is always available
+        this.initializeSearchFunctionality();
+        
+        // Initialize filter elements
+        this.initializeFilterElements();
+        
+        // Initialize print functionality 
+        this.initializePrintFunctionality();
+        
+        // Initialize navigation
+        this.initializeNavigation();
+        
+        // Initialize pending user management (non-admin safe)
+        this.initializePendingUserManagement();
+        
+        console.log('✅ UI components initialized successfully');
+    }
+
+    initializeSearchFunctionality() {
+        // Ensure assignment search is always functional
+        const searchInput = document.getElementById('assignmentSearch');
+        if (searchInput) {
+            // Remove any existing event listeners
+            searchInput.removeEventListener('input', this.handleSearchInput);
+            
+            // Add search input handler
+            this.handleSearchInput = () => {
+                const query = searchInput.value;
+                const assignments = this.searchAssignments(query);
+                this.renderAssignmentsList(assignments);
+                
+                // Update search stats
+                const stats = document.getElementById('searchStats');
+                if (stats) {
+                    stats.textContent = query ? 
+                        `Found ${assignments.length} assignment(s)` : 
+                        `Total: ${this.data.assignments.length} assignment(s)`;
+                }
+            };
+            
+            searchInput.addEventListener('input', this.handleSearchInput);
+            console.log('✅ Search functionality initialized');
+        } else {
+            console.log('⚠️ Assignment search input not found');
+        }
+    }
+
+    initializeFilterElements() {
+        // Ensure we have demo data for filters
+        if (!this.data.departments || this.data.departments.length === 0) {
+            this.data.departments = ['Computer Science', 'Electronics & Communication', 'Mechanical', 'Civil', 'Electrical'];
+        }
+        if (!this.data.semesters || this.data.semesters.length === 0) {
+            this.data.semesters = ['1st Semester', '2nd Semester', '3rd Semester', '4th Semester', '5th Semester', '6th Semester', '7th Semester', '8th Semester'];
+        }
+        if (!this.data.groups || this.data.groups.length === 0) {
+            this.data.groups = ['Group A', 'Group B', 'Group C', 'Group D'];
+        }
+
+        const filterElements = [
+            { id: 'scheduleFilter', data: this.data.departments },
+            { id: 'scheduleSemesterFilter', data: this.data.semesters },
+            { id: 'scheduleGroupFilter', data: this.data.groups },
+            { id: 'printDepartmentFilter', data: this.data.departments },
+            { id: 'printSemesterFilter', data: this.data.semesters },
+            { id: 'printGroupFilter', data: this.data.groups }
+        ];
+
+        filterElements.forEach(filter => {
+            const element = document.getElementById(filter.id);
+            if (element && filter.data) {
+                // Clear existing options except first one
+                while (element.children.length > 1) {
+                    element.removeChild(element.lastChild);
+                }
+                
+                // Add options
+                filter.data.forEach(item => {
+                    const option = document.createElement('option');
+                    option.value = item;
+                    option.textContent = item;
+                    element.appendChild(option);
+                });
+                console.log(`✅ Filter ${filter.id} initialized with ${filter.data.length} options`);
+            }
+        });
+    }
+
+    initializePrintFunctionality() {
+        // Ensure print button is always functional
+        const printBtn = document.querySelector('button[onclick="window.print()"]');
+        if (printBtn) {
+            console.log('✅ Print button found and functional');
+        }
+        
+        // Initialize print preview
+        const printSchedule = document.getElementById('printSchedule');
+        if (printSchedule) {
+            console.log('✅ Print schedule container found');
+        }
+        
+        // Add enhanced print functionality
+        if (!window.enhancedPrint) {
+            window.enhancedPrint = () => {
+                console.log('🖨️ Enhanced print function called');
+                
+                // Update print date
+                const printDate = document.getElementById('printDate');
+                if (printDate) {
+                    printDate.textContent = new Date().toLocaleDateString();
+                }
+                
+                // Trigger print
+                window.print();
+            };
+        }
+    }
+
+    initializeNavigation() {
+        // Ensure all navigation tabs are functional
+        const navTabs = document.querySelectorAll('.nav-tab');
+        navTabs.forEach((tab, index) => {
+            if (!tab.onclick) {
+                // Add click handler if missing
+                const tabId = tab.textContent.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+                tab.onclick = () => showTab(tabId);
+                console.log(`✅ Navigation tab ${index + 1} initialized`);
+            }
+        });
+        
+        // Ensure tab content switching works
+        if (!window.showTab) {
+            window.showTab = (tabId) => {
+                console.log(`🔄 Switching to tab: ${tabId}`);
+                
+                // Hide all tab contents
+                const tabContents = document.querySelectorAll('.tab-content');
+                tabContents.forEach(content => content.style.display = 'none');
+                
+                // Remove active class from all tabs
+                const allTabs = document.querySelectorAll('.nav-tab');
+                allTabs.forEach(tab => tab.classList.remove('active'));
+                
+                // Show selected tab content
+                const targetTab = document.getElementById(`${tabId}-tab`);
+                if (targetTab) {
+                    targetTab.style.display = 'block';
+                }
+                
+                // Set active tab
+                const activeTab = document.querySelector(`.nav-tab[onclick*="${tabId}"]`);
+                if (activeTab) {
+                    activeTab.classList.add('active');
+                }
+            };
+        }
+    }
+
+    initializePendingUserManagement() {
+        // Initialize pending user management that works without admin session
+        if (!this.pendingUsers) {
+            this.pendingUsers = [];
+        }
+        
+        // Update pending user count display
+        const pendingCount = document.getElementById('pendingUsersCount');
+        if (pendingCount) {
+            pendingCount.textContent = this.pendingUsers.length;
+            if (this.pendingUsers.length > 0) {
+                pendingCount.style.display = 'inline-block';
+            }
+        }
+        
+        // Initialize demo pending users for testing if none exist
+        if (this.pendingUsers.length === 0 && window.location.hostname === 'localhost') {
+            this.pendingUsers = [
+                {
+                    email: 'demo.user1@example.com',
+                    name: 'Demo User 1',
+                    picture: '',
+                    timestamp: new Date().toISOString(),
+                    status: 'pending'
+                },
+                {
+                    email: 'demo.user2@example.com', 
+                    name: 'Demo User 2',
+                    picture: '',
+                    timestamp: new Date().toISOString(),
+                    status: 'pending'
+                }
+            ];
+            console.log('📋 Demo pending users initialized for testing');
+        }
+        
+        // Ensure user management functions are available
+        if (!window.approveUser) {
+            window.approveUser = (email) => {
+                console.log(`✅ Approving user: ${email}`);
+                const userIndex = this.pendingUsers.findIndex(user => user.email === email);
+                if (userIndex !== -1) {
+                    const user = this.pendingUsers.splice(userIndex, 1)[0];
+                    if (!this.approvedUsers) this.approvedUsers = [];
+                    this.approvedUsers.push({...user, status: 'approved', approvedAt: new Date().toISOString()});
+                    this.save(); // Save changes
+                    this.refreshUserManagement();
+                    return true;
+                }
+                return false;
+            };
+        }
+        
+        if (!window.rejectUser) {
+            window.rejectUser = (email) => {
+                console.log(`❌ Rejecting user: ${email}`);
+                const userIndex = this.pendingUsers.findIndex(user => user.email === email);
+                if (userIndex !== -1) {
+                    this.pendingUsers.splice(userIndex, 1);
+                    this.save(); // Save changes
+                    this.refreshUserManagement();
+                    return true;
+                }
+                return false;
+            };
+        }
+        
+        console.log('✅ Pending user management initialized');
+    }
+
+    refreshUserManagement() {
+        // Update all user management displays
+        const pendingCount = document.getElementById('pendingUsersCount');
+        if (pendingCount) {
+            pendingCount.textContent = this.pendingUsers.length;
+            pendingCount.style.display = this.pendingUsers.length > 0 ? 'inline-block' : 'none';
+        }
+        
+        const pendingRequestsCount = document.getElementById('pendingRequestsCount');
+        if (pendingRequestsCount) {
+            pendingRequestsCount.textContent = this.pendingUsers.length;
+        }
+        
+        const approvedUsersCount = document.getElementById('approvedUsersCount');
+        if (approvedUsersCount && this.approvedUsers) {
+            approvedUsersCount.textContent = this.approvedUsers.length;
+        }
+        
+        console.log('🔄 User management displays refreshed');
+    }
+
     assignDataArrays() {
         // Properly assign data to individual arrays for CRUD operations
         this.assignments = this.data.assignments || [];
@@ -72,11 +326,25 @@ class DataManager {
         this.branches = this.data.departments || [];
         this.days = this.data.days || [];
         this.timeSlots = this.data.timeSlots || [];
-        this.departments = this.data.departments || [];
-        this.semesters = this.data.semesters || [];
-        this.groups = this.data.groups || [];
+        
+        // Ensure demo data is available for filters
+        this.departments = this.data.departments || ['Computer Science', 'Electronics & Communication', 'Mechanical', 'Civil', 'Electrical'];
+        this.semesters = this.data.semesters || ['1st Semester', '2nd Semester', '3rd Semester', '4th Semester', '5th Semester', '6th Semester', '7th Semester', '8th Semester'];
+        this.groups = this.data.groups || ['Group A', 'Group B', 'Group C', 'Group D'];
         this.subGroups = this.data.subGroups || [];
         this.labRooms = this.data.labRooms || [];
+        
+        // Update data object with demo data if empty
+        if (!this.data.departments || this.data.departments.length === 0) {
+            this.data.departments = this.departments;
+        }
+        if (!this.data.semesters || this.data.semesters.length === 0) {
+            this.data.semesters = this.semesters;
+        }
+        if (!this.data.groups || this.data.groups.length === 0) {
+            this.data.groups = this.groups;
+        }
+        
         // defaults
         this.pendingUsers = this.pendingUsers || [];
         this.approvedUsers = this.approvedUsers || [];

@@ -116,6 +116,10 @@ class AuthManager {
                         scope: CONFIG.OAUTH_SCOPE
                     });
                     console.log('Google API initialized successfully');
+                    
+                    // Initialize notification listeners for cross-device functionality
+                    this.initializeNotificationListeners();
+                    
                     resolve();
                 } catch (error) {
                     console.error('Google API initialization failed:', error);
@@ -123,6 +127,341 @@ class AuthManager {
                 }
             });
         });
+    }
+
+    // Initialize notification listeners for cross-device functionality
+    initializeNotificationListeners() {
+        console.log('🔄 Initializing cross-device notification listeners...');
+
+        // Listen to localStorage changes (cross-tab)
+        window.addEventListener('storage', (event) => {
+            if (event.key === 'lams_admin_notifications' && event.newValue) {
+                try {
+                    const notifications = JSON.parse(event.newValue);
+                    const latestNotification = notifications[notifications.length - 1];
+                    if (latestNotification && latestNotification.deviceId !== this.deviceId) {
+                        this.handleReceivedNotification(latestNotification, 'localStorage');
+                    }
+                } catch (error) {
+                    console.log('Error parsing localStorage notification:', error.message);
+                }
+            }
+        });
+
+        // Listen to BroadcastChannel (cross-tab, real-time)
+        if (window.BroadcastChannel) {
+            try {
+                this.notificationBroadcast = new BroadcastChannel('lams-admin-notifications');
+                this.notificationBroadcast.onmessage = (event) => {
+                    if (event.data.deviceId !== this.deviceId) {
+                        this.handleReceivedNotification(event.data, 'BroadcastChannel');
+                    }
+                };
+                console.log('✅ BroadcastChannel listener initialized');
+            } catch (error) {
+                console.log('BroadcastChannel not supported:', error.message);
+            }
+        }
+
+        // Listen to custom events (same page)
+        window.addEventListener('lams-admin-notification', (event) => {
+            if (event.detail.deviceId !== this.deviceId) {
+                this.handleReceivedNotification(event.detail, 'CustomEvent');
+            }
+        });
+
+        // Periodic check for Google Drive notifications (every 30 seconds)
+        setInterval(() => {
+            this.checkGoogleDriveNotifications();
+        }, 30000);
+
+        console.log('✅ Cross-device notification listeners initialized');
+    }
+
+    handleReceivedNotification(notification, channel) {
+        console.log(`📨 Received admin notification via ${channel}:`, notification.email);
+        
+        // Update UI if needed
+        if (notification.messageType === 'pending-user-notification') {
+            // Update pending user count
+            if (window.dataManager) {
+                window.dataManager.refreshUserManagement();
+            }
+            
+            // Show notification to admin
+            if (window.showMessage && this.currentUser?.isAdmin) {
+                showMessage(`📨 New user pending approval: ${notification.email}`, 'info');
+            }
+        }
+    }
+
+    async checkGoogleDriveNotifications() {
+        if (!this.isSignedIn || !window.gapi) return;
+
+        try {
+            const token = await this.getAccessToken(false);
+            if (!token) return;
+
+            // Check for admin notification files in app data folder
+            const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=name contains 'lams-admin-notification-' and parents in 'appDataFolder'&fields=files(id,name,createdTime)`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const recentNotifications = data.files.filter(file => {
+                    const createdTime = new Date(file.createdTime);
+                    const now = new Date();
+                    const timeDiff = now - createdTime;
+                    return timeDiff < 120000; // Last 2 minutes
+                });
+
+                for (const file of recentNotifications) {
+                    // Download and process notification
+                    try {
+                        const fileResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`, {
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            }
+                        });
+
+                        if (fileResponse.ok) {
+                            const notificationData = await fileResponse.json();
+                            if (notificationData.deviceId !== this.deviceId) {
+                                this.handleReceivedNotification(notificationData, 'Google Drive');
+                            }
+                        }
+                    } catch (error) {
+                        console.log('Error processing Drive notification:', error.message);
+                    }
+                }
+            }
+        } catch (error) {
+            console.log('Google Drive notification check failed:', error.message);
+        }
+    }
+
+    // Enhanced multi-channel notification system for cross-device admin approval
+    async multiChannelPendingUserNotification(pendingUser) {
+        try {
+            console.log('📢 Broadcasting pending user notification across channels:', pendingUser.email);
+            
+            const notificationData = {
+                ...pendingUser,
+                timestamp: Date.now(),
+                deviceId: this.deviceId,
+                messageType: 'pending-user-notification',
+                id: `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+            };
+
+            let successCount = 0;
+            const channels = [];
+
+            // Channel 1: localStorage (same device, cross-tab)
+            try {
+                const localNotifications = JSON.parse(localStorage.getItem('lams_admin_notifications') || '[]');
+                localNotifications.push({
+                    ...notificationData,
+                    channel: 'localStorage'
+                });
+                // Keep only last 50 notifications
+                if (localNotifications.length > 50) {
+                    localNotifications.splice(0, localNotifications.length - 50);
+                }
+                localStorage.setItem('lams_admin_notifications', JSON.stringify(localNotifications));
+                successCount++;
+                channels.push('localStorage');
+                console.log('✅ localStorage notification sent');
+            } catch (error) {
+                console.log('❌ localStorage notification failed:', error.message);
+            }
+            
+            // Channel 2: IndexedDB (cross-tab, persistent)
+            try {
+                const indexedDBSuccess = await this.storeInIndexedDB({
+                    ...notificationData,
+                    channel: 'indexedDB'
+                });
+                if (indexedDBSuccess) {
+                    successCount++;
+                    channels.push('IndexedDB');
+                    console.log('✅ IndexedDB notification sent');
+                }
+            } catch (error) {
+                console.log('❌ IndexedDB notification failed:', error.message);
+            }
+            
+            // Channel 3: Google Drive (true cross-device)
+            try {
+                const driveSuccess = await this.storeInGoogleDriveNotification({
+                    ...notificationData,
+                    channel: 'googleDrive'
+                });
+                if (driveSuccess) {
+                    successCount++;
+                    channels.push('Google Drive');
+                    console.log('✅ Google Drive notification sent');
+                }
+            } catch (error) {
+                console.log('❌ Google Drive notification failed:', error.message);
+            }
+
+            // Channel 4: BroadcastChannel API (cross-tab, real-time)
+            try {
+                if (window.BroadcastChannel) {
+                    if (!this.notificationBroadcast) {
+                        this.notificationBroadcast = new BroadcastChannel('lams-admin-notifications');
+                    }
+                    this.notificationBroadcast.postMessage({
+                        ...notificationData,
+                        channel: 'broadcastChannel'
+                    });
+                    successCount++;
+                    channels.push('BroadcastChannel');
+                    console.log('✅ BroadcastChannel notification sent');
+                }
+            } catch (error) {
+                console.log('❌ BroadcastChannel notification failed:', error.message);
+            }
+
+            // Channel 5: Custom Events (same page, real-time)
+            try {
+                const customEvent = new CustomEvent('lams-admin-notification', {
+                    detail: {
+                        ...notificationData,
+                        channel: 'customEvent'
+                    }
+                });
+                window.dispatchEvent(customEvent);
+                successCount++;
+                channels.push('CustomEvent');
+                console.log('✅ CustomEvent notification sent');
+            } catch (error) {
+                console.log('❌ CustomEvent notification failed:', error.message);
+            }
+
+            const reliability = Math.round((successCount / 5) * 100);
+            console.log(`📊 Enhanced notification sent via ${successCount}/5 channels (${reliability}% reliability)`);
+            console.log(`📡 Active channels: ${channels.join(', ')}`);
+            
+            // Show user feedback about notification delivery
+            if (window.showMessage) {
+                if (reliability >= 80) {
+                    showMessage(`✅ Cross-device admin notification sent (${reliability}% reliability)`, 'success');
+                } else if (reliability >= 40) {
+                    showMessage(`⚠️ Admin notification sent with ${reliability}% reliability`, 'warning');
+                } else {
+                    showMessage(`❌ Admin notification delivery may be limited (${reliability}% reliability)`, 'error');
+                }
+            }
+            
+            return {
+                success: successCount > 0,
+                reliability,
+                channels,
+                successCount,
+                totalChannels: 5
+            };
+        } catch (error) {
+            console.error('❌ Enhanced multi-channel notification failed:', error);
+            return {
+                success: false,
+                reliability: 0,
+                channels: [],
+                successCount: 0,
+                totalChannels: 5,
+                error: error.message
+            };
+        }
+    }
+
+    async storeInGoogleDriveNotification(notificationData) {
+        if (!this.isSignedIn || !window.gapi) {
+            console.log('Google Drive not available for notifications');
+            return false;
+        }
+
+        try {
+            const token = await this.getAccessToken(false);
+            if (!token) return false;
+
+            // Create notification file name with timestamp
+            const notificationFileName = `lams-admin-notification-${notificationData.id}.json`;
+            
+            // File metadata for app data folder (private to the app)
+            const fileMetadata = {
+                name: notificationFileName,
+                parents: ['appDataFolder']
+            };
+            
+            // Create multipart form data
+            const form = new FormData();
+            form.append('metadata', new Blob([JSON.stringify(fileMetadata)], {type: 'application/json'}));
+            form.append('file', new Blob([JSON.stringify(notificationData)], {type: 'application/json'}));
+
+            const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: form
+            });
+
+            if (response.ok) {
+                console.log('✅ Google Drive notification file created');
+                
+                // Schedule cleanup of old notification files
+                setTimeout(() => this.cleanupOldNotificationFiles(), 10000);
+                
+                return true;
+            } else {
+                console.log('❌ Google Drive notification upload failed:', response.status);
+                return false;
+            }
+        } catch (error) {
+            console.error('❌ Google Drive notification error:', error);
+            return false;
+        }
+    }
+
+    async cleanupOldNotificationFiles() {
+        if (!this.isSignedIn || !window.gapi) return;
+
+        try {
+            const token = await this.getAccessToken(false);
+            if (!token) return;
+
+            // Get notification files older than 1 hour
+            const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+            const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=name contains 'lams-admin-notification-' and parents in 'appDataFolder' and createdTime < '${oneHourAgo}'&fields=files(id,name)`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const filesToDelete = data.files || [];
+
+                // Delete old notification files
+                for (const file of filesToDelete) {
+                    await fetch(`https://www.googleapis.com/drive/v3/files/${file.id}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                }
+
+                if (filesToDelete.length > 0) {
+                    console.log(`🗑️ Cleaned up ${filesToDelete.length} old notification files`);
+                }
+            }
+        } catch (error) {
+            console.log('Notification cleanup failed:', error.message);
+        }
     }
 
     async signIn(credential) {
