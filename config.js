@@ -34,6 +34,7 @@ const CONFIG = {
         REALTIME_SYNC: true,
         BULK_OPERATIONS: true,
         ANALYTICS: true,
+        ANALYTICS_SAFE_MODE: false, // Default off in production; can be toggled at runtime
         EXPORT_IMPORT: true
     },
     

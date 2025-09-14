@@ -72,6 +72,10 @@
                 <span class="nav-icon">📰</span>
                 Activity Feed
             </button>
+            <button class="nav-tab admin-only" onclick="showTab('system-health')" style="display: none;">
+                <span class="nav-icon">🔧</span>
+                System Health
+            </button>
         </nav>
 
         <!-- Loading Screen -->
@@ -628,6 +632,109 @@
                 </div>
             </div>
         </div>
+
+        <!-- System Health Tab (Admin Only) -->
+        <div class="tab-content admin-only" id="system-health-tab" style="display: none;">
+            <div class="glass-card">
+                <h2>🔧 System Health Monitor</h2>
+                <p class="tab-description">Comprehensive system diagnostics and health monitoring for LAMS</p>
+                
+                <div class="health-controls">
+                    <button class="btn btn--primary" onclick="runSystemHealthCheck()">
+                        <span class="nav-icon">🔍</span> Run Full Health Check
+                    </button>
+                    <button class="btn btn--secondary" onclick="runQuickDiagnostic()">
+                        <span class="nav-icon">⚡</span> Quick Diagnostic
+                    </button>
+                    <button class="btn btn--outline" onclick="exportSystemReport()">
+                        <span class="nav-icon">📋</span> Export Report
+                    </button>
+                    <label class="toggle-control" style="margin-left: auto; display: inline-flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="toggleSafeMode" onchange="toggleSafeModeRuntime()">
+                        <span>Analytics Safe Mode</span>
+                    </label>
+                </div>
+
+                <div class="health-dashboard">
+                    <div class="health-section">
+                        <h3>🔧 Core Components</h3>
+                        <div id="core-components-status" class="health-status-grid">
+                            <div class="status-item" id="status-datamanager">
+                                <span class="status-icon">⏳</span>
+                                <span class="status-label">DataManager</span>
+                                <span class="status-value">Checking...</span>
+                            </div>
+                            <div class="status-item" id="status-authmanager">
+                                <span class="status-icon">⏳</span>
+                                <span class="status-label">AuthManager</span>
+                                <span class="status-value">Checking...</span>
+                            </div>
+                            <div class="status-item" id="status-config">
+                                <span class="status-icon">⏳</span>
+                                <span class="status-label">Configuration</span>
+                                <span class="status-value">Checking...</span>
+                            </div>
+                            <div class="status-item" id="status-sync">
+                                <span class="status-icon">⏳</span>
+                                <span class="status-label">Cloud Sync</span>
+                                <span class="status-value">Checking...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="health-section">
+                        <h3>📊 Data Integrity</h3>
+                        <div id="data-integrity-status" class="health-metrics">
+                            <div class="metric-item">
+                                <span class="metric-label">Total Assignments:</span>
+                                <span id="metric-assignments" class="metric-value">-</span>
+                            </div>
+                            <div class="metric-item">
+                                <span class="metric-label">Master Data Items:</span>
+                                <span id="metric-masterdata" class="metric-value">-</span>
+                            </div>
+                            <div class="metric-item">
+                                <span class="metric-label">Faculty Members:</span>
+                                <span id="metric-faculty" class="metric-value">-</span>
+                            </div>
+                            <div class="metric-item">
+                                <span class="metric-label">Last Sync:</span>
+                                <span id="metric-lastsync" class="metric-value">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="health-section">
+                        <h3>🌐 System Performance</h3>
+                        <div id="performance-status" class="health-metrics">
+                            <div class="metric-item">
+                                <span class="metric-label">App Load Time:</span>
+                                <span id="metric-loadtime" class="metric-value">-</span>
+                            </div>
+                            <div class="metric-item">
+                                <span class="metric-label">Memory Usage:</span>
+                                <span id="metric-memory" class="metric-value">-</span>
+                            </div>
+                            <div class="metric-item">
+                                <span class="metric-label">Sync Success Rate:</span>
+                                <span id="metric-syncrate" class="metric-value">-</span>
+                            </div>
+                            <div class="metric-item">
+                                <span class="metric-label">Error Count:</span>
+                                <span id="metric-errors" class="metric-value">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="health-section">
+                        <h3>🔍 Diagnostic Results</h3>
+                        <div id="diagnostic-results" class="diagnostic-output">
+                            <p class="empty-state">Run a health check to see diagnostic results</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- External Libraries -->
@@ -639,9 +746,6 @@
     <script src="config.js"></script>
     <script src="auth.js"></script>
     <script src="github-sync.js"></script>
-    <script src="free-sync.js"></script>
-    <script src="realtime-sync.js"></script>
-    <script src="activity-tracker.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

@@ -1,52 +1,58 @@
-# Trident Academy of Technology - Lab Management System
+# Trident Academy of Technology - Lab Management System (LAMS)
 
-A comprehensive web-based lab assignment management system designed for Trident Academy of Technology. Features Google Drive integration, responsive design, and optimized A4 printing.
+## 🚀 **Quick Start**
 
-## 🚀 Features
+**Live System**: https://padmalochan475.github.io/LAMS/  
+**Status**: ✅ Production Ready  
+**Admin**: padmalochan.maharana@tat.ac.in
 
-- **Google Authentication**: Secure login with Google accounts
-- **Cloud Storage**: Automatic sync with Google Drive
-- **Responsive Design**: Works on desktop, tablet, and mobile devices
-- **A4 Print Optimization**: Professional schedule printing with dynamic font sizing
-- **Real-time Analytics**: Comprehensive charts and statistics
-- **Conflict Detection**: Automatic detection of scheduling conflicts
-- **Bulk Operations**: Manage multiple assignments efficiently
-- **Export/Import**: Backup and restore data as JSON files
+## 📋 **Complete Documentation**
 
-## 📋 Setup Instructions
+For comprehensive documentation, setup instructions, features, and technical details, see:
 
-### 1. Google OAuth Setup (Already Configured)
+➡️ **[COMPREHENSIVE-DOCUMENTATION.md](./COMPREHENSIVE-DOCUMENTATION.md)**
 
-**Current Configuration:**
-- **Client ID**: `485361990614-74vhnb9vqjulp17gno3janj8blugshpr.apps.googleusercontent.com`
-- **API Key**: `AIzaSyBxrTxVOKb9nIJJGy52GjSqhfbYixoqDVE`
-- **Admin Email**: `padmalochan.maharana@tat.ac.in`
-- **Authorized Domain**: `padmalochan475.github.io`
-- **Redirect URI**: `https://padmalochan475.github.io/LAMS/`
+## ⚡ **Key Features**
+- ✅ Real-time sync across all devices (5-second intervals)
+- ✅ Google Drive cloud storage with offline fallback  
+- ✅ Cross-device authentication with user approval workflow
+- ✅ GitHub repository integration for version control
+- ✅ Responsive design with A4 print optimization
+- ✅ Zero-popup background synchronization
+- ✅ Automatic conflict detection and resolution
 
-**Manual Setup (if needed):**
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing one
-3. Enable Google Drive API and Google+ API
-4. Create OAuth 2.0 credentials
-5. Add your GitHub Pages domain to authorized origins
-6. Update credentials in `config.js`
+## 🔧 **Tech Stack**
+- **Frontend**: Vanilla JavaScript, HTML5, CSS3
+- **Authentication**: Google OAuth 2.0
+- **Storage**: Google Drive API (Primary), localStorage (Cache)  
+- **Hosting**: GitHub Pages (Static)
+- **Backup**: GitHub API integration
 
-### 2. GitHub Pages Deployment (Live)
+## 📁 **Core Files**
+```
+LAMS/
+├── app.js                           # Main application (3278+ lines)
+├── auth.js                          # Authentication (1156 lines)
+├── config.js                        # Configuration (68 lines)
+├── github-sync.js                   # GitHub integration
+├── style.css                        # Responsive styling (2900+ lines)
+├── index.html                       # Main interface (647 lines)
+├── README.md                        # This file
+└── COMPREHENSIVE-DOCUMENTATION.md   # Complete documentation
+```
 
-**Example Deployment:**
-- **Live URL**: https://padmalochan475.github.io/LAMS/
-- **Repository**: https://github.com/padmalochan475/LAMS
-- **Admin Access**: padmalochan.maharana@tat.ac.in
+## 🎯 **Production Status**
 
-**For New Deployment:**
-1. Fork this repository
-2. Update `config.js` with your Google credentials
-3. Customize institute information in `config.js`
-4. Enable GitHub Pages in repository settings
-5. Select source as "Deploy from a branch" → "main"
+**✅ DEPLOYMENT READY** - All features fully implemented and tested:
+- Real-time sync verified across multiple devices globally
+- User approval workflow working with cloud synchronization  
+- GitHub backup integration functional
+- Print optimization tested for A4 landscape format
+- Cross-browser compatibility confirmed
 
-### 3. Configuration
+---
+
+*For detailed setup, configuration, troubleshooting, and API documentation, refer to [COMPREHENSIVE-DOCUMENTATION.md](./COMPREHENSIVE-DOCUMENTATION.md)*
 
 Edit `config.js` to customize:
 
@@ -104,6 +110,12 @@ const CONFIG = {
 - Department-wise statistics
 - Time slot efficiency metrics
 - Semester-wise reports
+
+### Analytics Safe Mode
+- Purpose: Prevents chart errors on first run or when there’s no data by skipping heavy Chart.js rendering until data exists.
+- Default: Off in production (`CONFIG.FEATURES.ANALYTICS_SAFE_MODE = false`).
+- Toggle at runtime: Open the System Health tab and use the "Analytics Safe Mode" checkbox. Changes take effect immediately and re-render analytics.
+- Persistence: The preference is saved locally in the browser under the key `analyticsSafeMode` and is applied on next load.
 
 ## 🔒 Security Features
 

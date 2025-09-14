@@ -1,0 +1,5 @@
+{
+    "docker.showStartPage": false,
+    "dev.containers.defaultExtensions": [],
+    "remote.containers.showQuickPick": false
+}

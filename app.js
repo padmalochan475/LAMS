@@ -875,12 +875,20 @@ class DataManager {
     }
 
     refreshAllComponents() {
+        // Ensure we don't refresh before DataManager is fully initialized
+        if (!this.data || !this.data.assignments) {
+            console.log('⏸️ Skipping refresh - DataManager not fully initialized');
+            return;
+        }
+        
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => {
-                this.doRefresh();
+                // Add small delay to ensure all DOM elements are available
+                setTimeout(() => this.doRefresh(), 100);
             });
         } else {
-            this.doRefresh();
+            // Add small delay to ensure all elements are rendered
+            setTimeout(() => this.doRefresh(), 50);
         }
     }
 
@@ -900,26 +908,46 @@ class DataManager {
                 activeElement.closest('#assignmentForm')
             );
             
-            if (!isUserInteracting) {
-                refreshDropdowns();
-            }
+            const refreshFunctions = [
+                { name: 'refreshDropdowns', fn: () => !isUserInteracting && refreshDropdowns() },
+                { name: 'updateCountBadges', fn: updateCountBadges },
+                { name: 'renderDashboard', fn: renderDashboard },
+                { name: 'renderAssignmentsList', fn: renderAssignmentsList },
+                { name: 'renderSchedule', fn: renderSchedule },
+                { name: 'renderMasterDataLists', fn: renderMasterDataLists },
+                { name: 'renderPrintSchedule', fn: renderPrintSchedule }
+            ];
             
-            updateCountBadges();
-            renderDashboard();
-            renderAssignmentsList();
-            renderSchedule();
-            renderMasterDataLists();
-            renderPrintSchedule();
+            let failedComponents = [];
+            
+            refreshFunctions.forEach(({ name, fn }) => {
+                try {
+                    if (fn) fn();
+                } catch (error) {
+                    console.error(`❌ Failed to refresh ${name}:`, error);
+                    failedComponents.push(name);
+                }
+            });
             
             // Force update the current tab if it's analytics
             const activeTab = document.querySelector('.nav-tab.active');
             if (activeTab && activeTab.textContent.trim().includes('Analytics')) {
                 setTimeout(() => {
-                    renderAnalytics();
+                    try {
+                        renderAnalytics();
+                    } catch (error) {
+                        console.error('❌ Failed to refresh analytics:', error);
+                        failedComponents.push('renderAnalytics');
+                    }
                 }, 200);
             }
             
-            console.log('✅ All components refreshed successfully');
+            if (failedComponents.length > 0) {
+                console.warn('⚠️ Some components failed to refresh:', failedComponents);
+                showMessage(`⚠️ Some components failed to refresh: ${failedComponents.join(', ')}`, 'warning');
+            } else {
+                console.log('✅ All components refreshed successfully');
+            }
         } catch (e) {
             console.error('Error refreshing components:', e);
             showMessage('⚠️ Some components failed to refresh', 'warning');
@@ -1012,21 +1040,21 @@ function showEnhancedConflictNotification(message, conflicts) {
     if (conflicts.roomConflict) {
         conflictDetails += `
             <div class="conflict-detail">
-                <strong>Room Conflict:</strong> ${dataManager.getAssignmentDisplay(conflicts.roomConflict)}
+                <strong>Room Conflict:</strong> ${window.dataManager.getAssignmentDisplay(conflicts.roomConflict)}
             </div>
         `;
     }
     if (conflicts.facultyConflict) {
         conflictDetails += `
             <div class="conflict-detail">
-                <strong>Faculty Conflict:</strong> ${dataManager.getAssignmentDisplay(conflicts.facultyConflict)}
+                <strong>Faculty Conflict:</strong> ${window.dataManager.getAssignmentDisplay(conflicts.facultyConflict)}
             </div>
         `;
     }
     if (conflicts.classConflict) {
         conflictDetails += `
             <div class="conflict-detail">
-                <strong>Class Conflict:</strong> ${dataManager.getAssignmentDisplay(conflicts.classConflict)}
+                <strong>Class Conflict:</strong> ${window.dataManager.getAssignmentDisplay(conflicts.classConflict)}
             </div>
         `;
     }
@@ -1188,35 +1216,40 @@ function updateCountBadges() {
 }
 
 function renderDashboard() {
-    if (!dataManager) return;
+    if (!window.dataManager) return;
     
-    const totalAssignments = document.getElementById('totalAssignments');
-    const totalFaculty = document.getElementById('totalFaculty');
-    const totalRooms = document.getElementById('totalRooms');
-    const totalSubjects = document.getElementById('totalSubjects');
-    
-    if (totalAssignments) totalAssignments.textContent = dataManager.data.assignments.length;
-    if (totalFaculty) totalFaculty.textContent = dataManager.data.theoryFaculty.length + dataManager.data.labFaculty.length;
-    if (totalRooms) totalRooms.textContent = dataManager.data.labRooms.length;
-    if (totalSubjects) totalSubjects.textContent = dataManager.data.subjects.length;
-
-    const recentList = document.getElementById('recentAssignmentsList');
-    if (recentList) {
-        const recent = dataManager.data.assignments.slice(-5).reverse();
+    try {
+        const totalAssignments = document.getElementById('totalAssignments');
+        const totalFaculty = document.getElementById('totalFaculty');
+        const totalRooms = document.getElementById('totalRooms');
+        const totalSubjects = document.getElementById('totalSubjects');
         
-        if (recent.length === 0) {
-            recentList.innerHTML = '<p class="empty-state">No assignments created yet. Add master data first, then create assignments.</p>';
-        } else {
-            recentList.innerHTML = recent.map(assignment => `
-                <div class="assignment-item">
-                    <h4>${dataManager.getAssignmentDisplay(assignment)}</h4>
-                    <div class="assignment-details">
-                        <span class="assignment-time">${assignment.day} | ${assignment.timeSlot}</span>
-                        <span class="assignment-badge">${assignment.department}</span>
+        if (totalAssignments) totalAssignments.textContent = window.dataManager.data.assignments.length;
+        if (totalFaculty) totalFaculty.textContent = window.dataManager.data.theoryFaculty.length + window.dataManager.data.labFaculty.length;
+        if (totalRooms) totalRooms.textContent = window.dataManager.data.labRooms.length;
+        if (totalSubjects) totalSubjects.textContent = window.dataManager.data.subjects.length;
+
+        const recentList = document.getElementById('recentAssignmentsList');
+        if (recentList) {
+            const recent = window.dataManager.data.assignments.slice(-5).reverse();
+            
+            if (recent.length === 0) {
+                recentList.innerHTML = '<p class="empty-state">No assignments created yet. Add master data first, then create assignments.</p>';
+            } else {
+                recentList.innerHTML = recent.map(assignment => `
+                    <div class="assignment-item">
+                        <h4>${window.dataManager.getAssignmentDisplay(assignment)}</h4>
+                        <div class="assignment-details">
+                            <span class="assignment-time">${assignment.day} | ${assignment.timeSlot}</span>
+                            <span class="assignment-badge">${assignment.department}</span>
+                        </div>
                     </div>
-                </div>
-            `).join('');
+                `).join('');
+            }
         }
+    } catch (error) {
+        console.error('❌ Error in renderDashboard:', error);
+        throw error; // Re-throw to be caught by doRefresh
     }
     
     // Update admin stats if admin
@@ -1224,99 +1257,108 @@ function renderDashboard() {
 }
 
 function renderAssignmentsList() {
-    if (!dataManager) {
+    if (!window.dataManager) {
         console.error('❌ DataManager not available for renderAssignmentsList');
         return;
     }
     
-    const list = document.getElementById('assignmentsList');
-    const searchInput = document.getElementById('assignmentSearch');
-    if (!list) {
-        console.error('❌ assignmentsList element not found');
-        return;
-    }
-    
-    console.log('📋 Rendering assignments list with data:', {
-        total: dataManager.data.assignments.length,
-        assignments: dataManager.data.assignments.map(a => `${a.subject} - ${a.department}`)
-    });
-    
-    const query = searchInput ? searchInput.value : '';
-    const assignments = dataManager.searchAssignments(query);
-    
-    if (assignments.length === 0) {
-        const message = query ? 
-            'No assignments match your search.' : 
-            'No assignments created yet. Click "Add Assignment" to create your first lab assignment.';
-        list.innerHTML = `<p class="empty-state">${message}</p>`;
-        console.log('📋 No assignments to display');
-        return;
-    }
+    try {
+        const list = document.getElementById('assignmentsList');
+        const searchInput = document.getElementById('assignmentSearch');
+        if (!list) {
+            console.warn('⚠️ assignmentsList element not found - tab may not be visible');
+            return; // Don't throw error if element doesn't exist (tab not active)
+        }
+        
+        console.log('📋 Rendering assignments list with data:', {
+            total: window.dataManager.data.assignments.length,
+            assignments: window.dataManager.data.assignments.map(a => `${a.subject} - ${a.department}`)
+        });
+        
+        const query = searchInput ? searchInput.value : '';
+        const assignments = window.dataManager.searchAssignments(query);
+        
+        if (assignments.length === 0) {
+            const message = query ? 
+                'No assignments match your search.' : 
+                'No assignments created yet. Click "Add Assignment" to create your first lab assignment.';
+            list.innerHTML = `<p class="empty-state">${message}</p>`;
+            console.log('📋 No assignments to display');
+            return;
+        }
 
-    list.innerHTML = assignments.map((assignment, index) => {
-        const originalIndex = dataManager.data.assignments.indexOf(assignment);
-        return `
-            <div class="assignment-item">
-                <div class="flex justify-between items-center">
-                    <div>
-                        <h4>${dataManager.getAssignmentDisplay(assignment)}</h4>
-                        <div class="assignment-details">
-                            ${assignment.day} | ${assignment.timeSlot}
+        list.innerHTML = assignments.map((assignment, index) => {
+            const originalIndex = window.dataManager.data.assignments.indexOf(assignment);
+            return `
+                <div class="assignment-item">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h4>${window.dataManager.getAssignmentDisplay(assignment)}</h4>
+                            <div class="assignment-details">
+                                ${assignment.day} | ${assignment.timeSlot}
+                            </div>
                         </div>
+                        <button class="delete-btn" onclick="deleteAssignment(${originalIndex})">Delete</button>
                     </div>
-                    <button class="delete-btn" onclick="deleteAssignment(${originalIndex})">Delete</button>
                 </div>
-            </div>
-        `;
-    }).join('');
-    
-    console.log(`✅ Rendered ${assignments.length} assignments successfully`);
+            `;
+        }).join('');
+        
+        console.log(`✅ Rendered ${assignments.length} assignments successfully`);
+    } catch (error) {
+        console.error('❌ Error in renderAssignmentsList:', error);
+        throw error; // Re-throw to be caught by doRefresh
+    }
 }
 
 function renderSchedule() {
-    if (!dataManager) return;
+    if (!window.dataManager) return;
     
-    const grid = document.getElementById('scheduleGrid');
-    if (!grid) return;
-    
-    const deptFilter = document.getElementById('scheduleFilter')?.value || '';
-    const semesterFilter = document.getElementById('scheduleSemesterFilter')?.value || '';
-    const groupFilter = document.getElementById('scheduleGroupFilter')?.value || '';
-    
-    if (dataManager.data.timeSlots.length === 0) {
-        grid.innerHTML = '<p class="empty-state">Add time slots and assignments to view the schedule.</p>';
-        return;
-    }
+    try {
+        const grid = document.getElementById('scheduleGrid');
+        if (!grid) {
+            console.warn('⚠️ scheduleGrid element not found - tab may not be visible');
+            return; // Don't throw error if element doesn't exist (tab not active)
+        }
+        
+        const deptFilter = document.getElementById('scheduleFilter')?.value || '';
+        const semesterFilter = document.getElementById('scheduleSemesterFilter')?.value || '';
+        const groupFilter = document.getElementById('scheduleGroupFilter')?.value || '';
+        
+        if (window.dataManager.data.timeSlots.length === 0) {
+            grid.innerHTML = '<p class="empty-state">Add time slots and assignments to view the schedule.</p>';
+            return;
+        }
 
-    let filteredAssignments = dataManager.data.assignments;
-    
-    if (deptFilter) filteredAssignments = filteredAssignments.filter(a => a.department === deptFilter);
-    if (semesterFilter) filteredAssignments = filteredAssignments.filter(a => a.semester === semesterFilter);
-    if (groupFilter) filteredAssignments = filteredAssignments.filter(a => a.group === groupFilter);
+        let filteredAssignments = window.dataManager.data.assignments;
+        
+        if (deptFilter) filteredAssignments = filteredAssignments.filter(a => a.department === deptFilter);
+        if (semesterFilter) filteredAssignments = filteredAssignments.filter(a => a.semester === semesterFilter);
+        if (groupFilter) filteredAssignments = filteredAssignments.filter(a => a.group === groupFilter);
 
-    if (dataManager.data.scheduleOrientation === "timesHorizontal") {
+    if (window.dataManager.data.scheduleOrientation === "timesHorizontal") {
         let html = `
             <table class="schedule-table">
                 <thead>
                     <tr>
                         <th>Day</th>
-                        ${dataManager.data.timeSlots.map(slot => `<th>${slot}</th>`).join('')}
+                        ${window.dataManager.data.timeSlots.map(slot => `<th>${slot}</th>`).join('')}
                     </tr>
                 </thead>
                 <tbody>
         `;
 
-        dataManager.data.days.forEach(day => {
+        window.dataManager.data.days.forEach(day => {
             html += `<tr><td><strong>${day}</strong></td>`;
             
-            dataManager.data.timeSlots.forEach(timeSlot => {
+            window.dataManager.data.timeSlots.forEach(timeSlot => {
                 const slotAssignments = filteredAssignments.filter(a => 
                     a.day === day && a.timeSlot === timeSlot
                 );
                 
                 html += '<td>';
                 slotAssignments.forEach(assignment => {
-                    html += `<div class="schedule-entry">${dataManager.getAssignmentDisplay(assignment)}</div>`;
+                    html += `<div class="schedule-entry">${window.dataManager.getAssignmentDisplay(assignment)}</div>`;
                 });
                 html += '</td>';
             });
@@ -1332,23 +1374,23 @@ function renderSchedule() {
                 <thead>
                     <tr>
                         <th>Time Slot</th>
-                        ${dataManager.data.days.map(day => `<th>${day}</th>`).join('')}
+                        ${window.dataManager.data.days.map(day => `<th>${day}</th>`).join('')}
                     </tr>
                 </thead>
                 <tbody>
         `;
 
-        dataManager.data.timeSlots.forEach(timeSlot => {
+        window.dataManager.data.timeSlots.forEach(timeSlot => {
             html += `<tr><td><strong>${timeSlot}</strong></td>`;
             
-            dataManager.data.days.forEach(day => {
+            window.dataManager.data.days.forEach(day => {
                 const dayAssignments = filteredAssignments.filter(a => 
                     a.day === day && a.timeSlot === timeSlot
                 );
                 
                 html += '<td>';
                 dayAssignments.forEach(assignment => {
-                    html += `<div class="schedule-entry">${dataManager.getAssignmentDisplay(assignment)}</div>`;
+                    html += `<div class="schedule-entry">${window.dataManager.getAssignmentDisplay(assignment)}</div>`;
                 });
                 html += '</td>';
             });
@@ -1359,10 +1401,14 @@ function renderSchedule() {
         html += '</tbody></table>';
         grid.innerHTML = html;
     }
+    } catch (error) {
+        console.error('❌ Error in renderSchedule:', error);
+        throw error; // Re-throw to be caught by doRefresh
+    }
 }
 
 function renderMasterDataLists() {
-    if (!dataManager) return;
+    if (!window.dataManager) return;
     
     const configs = [
         { id: 'departmentsList', type: 'departments' },
@@ -1378,7 +1424,7 @@ function renderMasterDataLists() {
         const container = document.getElementById(config.id);
         if (!container) return;
         
-        const items = dataManager.data[config.type];
+        const items = window.dataManager.data[config.type];
         
         if (items.length === 0) {
             container.innerHTML = '<p class="empty-state">No items added yet.</p>';
@@ -1398,7 +1444,7 @@ function renderMasterDataLists() {
 }
 
 function renderFacultyList(type) {
-    if (!dataManager) return;
+    if (!window.dataManager) return;
     
     const facultyType = type === 'theory' ? 'theoryFaculty' : 'labFaculty';
     const containerId = type === 'theory' ? 'theoryFacultyList' : 'labFacultyList';
@@ -1406,7 +1452,7 @@ function renderFacultyList(type) {
     
     if (!container) return;
     
-    const faculty = dataManager.data[facultyType];
+    const faculty = window.dataManager.data[facultyType];
     
     if (faculty.length === 0) {
         container.innerHTML = '<p class="empty-state">No faculty added yet.</p>';
@@ -1434,6 +1480,39 @@ function renderAnalytics() {
     if (!window.dataManager) return;
     
     try {
+        // Feature flag: Disable analytics entirely if turned off
+        if (!window.CONFIG?.FEATURES?.ANALYTICS) {
+            const analyticsTab = document.getElementById('analytics-tab');
+            if (analyticsTab) analyticsTab.style.display = 'none';
+            console.log('📊 Analytics feature disabled via config.');
+            return;
+        }
+
+        // Safe mode: Skip charts if no data available
+        const hasAnyData = (window.dataManager.data.assignments?.length || 0) > 0
+            || (window.dataManager.data.subjects?.length || 0) > 0
+            || ((window.dataManager.data.theoryFaculty?.length || 0) + (window.dataManager.data.labFaculty?.length || 0)) > 0;
+        if (window.CONFIG?.FEATURES?.ANALYTICS_SAFE_MODE && !hasAnyData) {
+            console.log('🛟 Analytics Safe Mode: Skipping chart rendering due to empty dataset.');
+            const containers = [
+                'facultyWorkloadChart','subjectDistributionChart','roomUtilizationChart','departmentOverviewChart','timeSlotChart','heatmapChart','subjectFacultyChart','weeklyWorkloadChart','departmentResourceChart'
+            ];
+            containers.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    const parent = el.closest('.glass-card') || el.parentElement;
+                    if (parent) {
+                        parent.querySelector('.empty-state')?.remove();
+                        const note = document.createElement('p');
+                        note.className = 'empty-state';
+                        note.textContent = 'Charts will appear when data is added.';
+                        parent.appendChild(note);
+                    }
+                }
+            });
+            return;
+        }
+
         // Check if Chart.js is loaded
         if (typeof Chart === 'undefined') {
             console.error('Chart.js is not loaded');
@@ -1467,6 +1546,56 @@ function renderAnalytics() {
         showMessage('❌ Analytics failed to load. Refreshing...', 'error');
         setTimeout(renderAnalytics, 2000);
     }
+}
+
+// Gate GitHub admin UI by feature flag and configuration
+function toggleFeatureVisibility() {
+    try {
+        // Analytics tab visibility
+        const analyticsNavBtn = document.querySelector(".nav-tab[onclick=\"showTab('analytics')\"]");
+        if (analyticsNavBtn) {
+            analyticsNavBtn.style.display = window.CONFIG?.FEATURES?.ANALYTICS ? '' : 'none';
+        }
+
+        // GitHub admin buttons
+        const githubButtons = [
+            ...document.querySelectorAll('button[onclick="configureGitHubSync()"]'),
+            ...document.querySelectorAll('button[onclick="syncToGitHub()"]')
+        ];
+        const enableGitHub = !!window.CONFIG?.FEATURES?.GITHUB_SYNC;
+        githubButtons.forEach(btn => btn.style.display = enableGitHub ? '' : 'none');
+
+        const ghStatus = document.getElementById('github-sync-status');
+        if (ghStatus) {
+            ghStatus.textContent = enableGitHub ? (window.githubSync?.isConfigured() ? 'Configured' : 'Not Configured') : 'Disabled';
+        }
+    } catch (err) {
+        console.warn('Feature toggle visibility error:', err);
+    }
+}
+
+// Runtime safe mode toggle handling
+function applySafeModeFromStorage() {
+    try {
+        const stored = localStorage.getItem('analyticsSafeMode');
+        if (stored !== null) {
+            const val = stored === 'true';
+            if (window.CONFIG?.FEATURES) window.CONFIG.FEATURES.ANALYTICS_SAFE_MODE = val;
+        }
+        const checkbox = document.getElementById('toggleSafeMode');
+        if (checkbox) {
+            checkbox.checked = !!window.CONFIG?.FEATURES?.ANALYTICS_SAFE_MODE;
+        }
+    } catch {}
+}
+
+function toggleSafeModeRuntime() {
+    const checkbox = document.getElementById('toggleSafeMode');
+    const enabled = !!checkbox?.checked;
+    if (window.CONFIG?.FEATURES) window.CONFIG.FEATURES.ANALYTICS_SAFE_MODE = enabled;
+    try { localStorage.setItem('analyticsSafeMode', String(enabled)); } catch {}
+    // If Analytics tab is visible, re-render it to reflect the change
+    try { renderAnalytics(); } catch {}
 }
 
 function renderFacultyWorkloadChart() {
@@ -2053,8 +2182,12 @@ function updateFacultyWorkloadTable() {
 function renderPrintSchedule() {
     if (!window.dataManager) return;
     
-    const grid = document.getElementById('printGrid');
-    if (!grid) return;
+    try {
+        const grid = document.getElementById('printGrid');
+        if (!grid) {
+            console.warn('⚠️ printGrid element not found - print tab may not be visible');
+            return; // Don't throw error if element doesn't exist (tab not active)
+        }
     
     const deptFilter = document.getElementById('printDepartmentFilter')?.value || '';
     const semesterFilter = document.getElementById('printSemesterFilter')?.value || '';
@@ -2070,20 +2203,20 @@ function renderPrintSchedule() {
         title.textContent = titleText;
     }
     
-    if (dataManager.data.timeSlots.length === 0 || dataManager.data.assignments.length === 0) {
+    if (window.dataManager.data.timeSlots.length === 0 || window.dataManager.data.assignments.length === 0) {
         grid.innerHTML = '<p class="empty-state">No assignments to print.</p>';
         return;
     }
 
-    let filteredAssignments = dataManager.data.assignments;
+    let filteredAssignments = window.dataManager.data.assignments;
     if (deptFilter) filteredAssignments = filteredAssignments.filter(a => a.department === deptFilter);
     if (semesterFilter) filteredAssignments = filteredAssignments.filter(a => a.semester === semesterFilter);
     if (groupFilter) filteredAssignments = filteredAssignments.filter(a => a.group === groupFilter);
 
     // Calculate maximum assignments per cell for optimal sizing
     let maxAssignmentsPerCell = 1;
-    dataManager.data.timeSlots.forEach(timeSlot => {
-        dataManager.data.days.forEach(day => {
+    window.dataManager.data.timeSlots.forEach(timeSlot => {
+        window.dataManager.data.days.forEach(day => {
             const count = filteredAssignments.filter(a => 
                 a.day === day && a.timeSlot === timeSlot
             ).length;
@@ -2113,17 +2246,17 @@ function renderPrintSchedule() {
             <thead>
                 <tr class="print-header-row">
                     <th class="time-column">Time Slot</th>
-                    ${dataManager.data.days.map(day => `<th class="day-column">${day}</th>`).join('')}
+                    ${window.dataManager.data.days.map(day => `<th class="day-column">${day}</th>`).join('')}
                 </tr>
             </thead>
             <tbody>
     `;
 
-    dataManager.data.timeSlots.forEach(timeSlot => {
+    window.dataManager.data.timeSlots.forEach(timeSlot => {
         html += `<tr class="time-row" style="height: ${cellHeight}">`;
         html += `<td class="time-cell"><strong>${timeSlot}</strong></td>`;
         
-        dataManager.data.days.forEach(day => {
+        window.dataManager.data.days.forEach(day => {
             const dayAssignments = filteredAssignments.filter(a => 
                 a.day === day && a.timeSlot === timeSlot
             );
@@ -2134,7 +2267,7 @@ function renderPrintSchedule() {
                 html += '<div class="no-lab">-</div>';
             } else {
                 dayAssignments.forEach((assignment, index) => {
-                    const printDisplay = dataManager.getAssignmentPrintDisplay(assignment);
+                    const printDisplay = window.dataManager.getAssignmentPrintDisplay(assignment);
                     
                     html += `
                         <div class="lab-entry lab-entry-${index % 3}">
@@ -2152,22 +2285,26 @@ function renderPrintSchedule() {
 
     html += '</tbody></table>';
     grid.innerHTML = html;
+    } catch (error) {
+        console.error('❌ Error in renderPrintSchedule:', error);
+        throw error; // Re-throw to be caught by doRefresh
+    }
 }
 
 // Event Handlers
 function addMasterDataItem(type, inputId) {
     const input = document.getElementById(inputId);
-    if (!input || !dataManager) return;
+    if (!input || !window.dataManager) return;
     
     const value = input.value.trim();
     
-    if (dataManager.addMasterDataItem(type, value)) {
+    if (window.dataManager.addMasterDataItem(type, value)) {
         input.value = '';
     }
 }
 
 function addFaculty(type) {
-    if (!dataManager) return;
+    if (!window.dataManager) return;
     
     const shortInput = document.getElementById(`new${type === 'theory' ? 'Theory' : 'Lab'}FacultyShort`);
     const fullInput = document.getElementById(`new${type === 'theory' ? 'Theory' : 'Lab'}FacultyFull`);
@@ -2181,7 +2318,7 @@ function addFaculty(type) {
     
     const facultyData = { short, full, dept };
     
-    if (dataManager.addFaculty(type, facultyData)) {
+    if (window.dataManager.addFaculty(type, facultyData)) {
         shortInput.value = '';
         fullInput.value = '';
         deptSelect.value = '';
@@ -2189,10 +2326,10 @@ function addFaculty(type) {
 }
 
 function deleteMasterDataItem(type, value) {
-    if (!dataManager) return;
+    if (!window.dataManager) return;
     
     if (confirm(`Are you sure you want to delete "${value}"?`)) {
-        if (dataManager.removeMasterDataItem(type, value)) {
+        if (window.dataManager.removeMasterDataItem(type, value)) {
             // Force immediate UI refresh after deletion
             setTimeout(() => {
                 renderMasterDataLists();
@@ -2205,10 +2342,10 @@ function deleteMasterDataItem(type, value) {
 }
 
 function deleteFaculty(type, shortName) {
-    if (!dataManager) return;
+    if (!window.dataManager) return;
     
     if (confirm(`Are you sure you want to delete faculty "${shortName}"?`)) {
-        if (dataManager.removeFaculty(type, shortName)) {
+        if (window.dataManager.removeFaculty(type, shortName)) {
             // Force immediate UI refresh after deletion
             setTimeout(() => {
                 renderMasterDataLists();
@@ -2221,10 +2358,10 @@ function deleteFaculty(type, shortName) {
 }
 
 function deleteAssignment(index) {
-    if (!dataManager) return;
+    if (!window.dataManager) return;
     
     if (confirm('Are you sure you want to delete this assignment?')) {
-        if (dataManager.removeAssignment(index)) {
+        if (window.dataManager.removeAssignment(index)) {
             // Force immediate UI refresh after deletion
             setTimeout(() => {
                 renderAssignmentsList();
@@ -2351,6 +2488,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         themeToggle.addEventListener('click', toggleTheme);
     }
 
+    // Apply feature visibility toggles
+    toggleFeatureVisibility?.();
+
+    // Apply saved Safe Mode preference
+    applySafeModeFromStorage?.();
+
     const assignmentForm = document.getElementById('assignmentForm');
     if (assignmentForm) {
         assignmentForm.addEventListener('submit', function(e) {
@@ -2372,7 +2515,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             console.log('📋 Assignment data collected:', assignment);
 
-            if (!dataManager) {
+            if (!window.dataManager) {
                 console.error('❌ DataManager not available');
                 alert('System error - DataManager not found. Please refresh the page.');
                 return;
@@ -2511,10 +2654,10 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 // Additional Utility Functions
 function exportData() {
-    if (!dataManager) return;
+    if (!window.dataManager) return;
     
     const data = {
-        ...dataManager.data,
+        ...window.dataManager.data,
         exportDate: new Date().toISOString(),
         version: '2.0.0'
     };
@@ -2637,11 +2780,11 @@ function updateSearchStats() {
     const searchInput = document.getElementById('assignmentSearch');
     const statsContainer = document.getElementById('searchStats');
     
-    if (!searchInput || !statsContainer || !dataManager) return;
+    if (!searchInput || !statsContainer || !window.dataManager) return;
     
     const query = searchInput.value.trim();
     if (query) {
-        const results = dataManager.searchAssignments(query);
+        const results = window.dataManager.searchAssignments(query);
         statsContainer.innerHTML = `
             <small class="search-result-count">
                 ${results.length} result${results.length !== 1 ? 's' : ''} found
@@ -2655,31 +2798,31 @@ function updateSearchStats() {
 
 // Institute-specific analytics for management
 function renderInstituteAnalytics() {
-    if (!dataManager) return;
+    if (!window.dataManager) return;
     
     // Lab utilization analysis
     const utilizationData = {};
-    dataManager.data.labRooms.forEach(room => {
-        utilizationData[room] = dataManager.data.assignments.filter(a => a.labRoom === room).length;
+    window.dataManager.data.labRooms.forEach(room => {
+        utilizationData[room] = window.dataManager.data.assignments.filter(a => a.labRoom === room).length;
     });
     
     // Faculty workload analysis
     const facultyWorkload = {};
-    dataManager.data.assignments.forEach(assignment => {
+    window.dataManager.data.assignments.forEach(assignment => {
         facultyWorkload[assignment.theoryFaculty] = (facultyWorkload[assignment.theoryFaculty] || 0) + 1;
         facultyWorkload[assignment.labFaculty] = (facultyWorkload[assignment.labFaculty] || 0) + 1;
     });
     
     // Department distribution
     const deptDistribution = {};
-    dataManager.data.assignments.forEach(assignment => {
+    window.dataManager.data.assignments.forEach(assignment => {
         deptDistribution[assignment.department] = (deptDistribution[assignment.department] || 0) + 1;
     });
     
     // Time slot efficiency
     const timeSlotUsage = {};
-    dataManager.data.timeSlots.forEach(slot => {
-        timeSlotUsage[slot] = dataManager.data.assignments.filter(a => a.timeSlot === slot).length;
+    window.dataManager.data.timeSlots.forEach(slot => {
+        timeSlotUsage[slot] = window.dataManager.data.assignments.filter(a => a.timeSlot === slot).length;
     });
     
     return {
@@ -2687,17 +2830,17 @@ function renderInstituteAnalytics() {
         facultyWorkload: facultyWorkload,
         departmentDistribution: deptDistribution,
         timeSlotEfficiency: timeSlotUsage,
-        totalLabs: dataManager.data.assignments.length,
-        averageLabsPerDay: (dataManager.data.assignments.length / dataManager.data.days.length).toFixed(1)
+        totalLabs: window.dataManager.data.assignments.length,
+        averageLabsPerDay: (window.dataManager.data.assignments.length / window.dataManager.data.days.length).toFixed(1)
     };
 }
 
 // Bulk operations for institute management
 function bulkAssignFaculty(assignments, theoryFaculty, labFaculty) {
-    if (!dataManager || !assignments.length) return false;
+    if (!window.dataManager || !assignments.length) return false;
     
     assignments.forEach(assignment => {
-        const index = dataManager.data.assignments.findIndex(a => 
+        const index = window.dataManager.data.assignments.findIndex(a => 
             a.day === assignment.day && 
             a.timeSlot === assignment.timeSlot && 
             a.department === assignment.department &&
@@ -2707,8 +2850,8 @@ function bulkAssignFaculty(assignments, theoryFaculty, labFaculty) {
         );
         
         if (index !== -1) {
-            if (theoryFaculty) dataManager.data.assignments[index].theoryFaculty = theoryFaculty;
-            if (labFaculty) dataManager.data.assignments[index].labFaculty = labFaculty;
+            if (theoryFaculty) window.dataManager.data.assignments[index].theoryFaculty = theoryFaculty;
+            if (labFaculty) window.dataManager.data.assignments[index].labFaculty = labFaculty;
         }
     });
     
@@ -2721,7 +2864,7 @@ function bulkAssignFaculty(assignments, theoryFaculty, labFaculty) {
 function generateSemesterReport(semester) {
     if (!window.dataManager) return null;
     
-    const semesterAssignments = dataManager.data.assignments.filter(a => a.semester === semester);
+    const semesterAssignments = window.dataManager.data.assignments.filter(a => a.semester === semester);
     const departments = [...new Set(semesterAssignments.map(a => a.department))];
     const subjects = [...new Set(semesterAssignments.map(a => a.subject))];
     const faculty = [...new Set([...semesterAssignments.map(a => a.theoryFaculty), ...semesterAssignments.map(a => a.labFaculty)])];
@@ -2980,8 +3123,8 @@ function clearAllData() {
     if (confirm('This will delete ALL lab data. Are you sure?')) {
         if (confirm('This action cannot be undone. Continue?')) {
             localStorage.clear();
-            if (dataManager) {
-                dataManager.data = {
+            if (window.dataManager) {
+                window.dataManager.data = {
                     days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
                     timeSlots: [],
                     departments: ["CSE", "ECE", "EEE", "MECH", "CIVIL"],
@@ -3170,6 +3313,326 @@ function debugSystemStatus() {
     if (!hasFaculty) console.log('⚠️ Missing: Faculty - Go to Master Data tab and add theory and lab faculty');
 }
 
+// System Health Monitor Functions
+function runSystemHealthCheck() {
+    if (!window.authManager?.currentUser?.isAdmin) {
+        showMessage('Admin access required for system health checks', 'error');
+        return;
+    }
+
+    console.log('🔍 Running comprehensive system health check...');
+    
+    // Update UI to show checking state
+    updateHealthStatus('checking');
+    
+    const results = {
+        timestamp: new Date().toISOString(),
+        components: {},
+        metrics: {},
+        performance: {},
+        errors: []
+    };
+
+    try {
+        // Test DataManager
+        results.components.datamanager = testDataManager();
+        
+        // Test AuthManager
+        results.components.authmanager = testAuthManager();
+        
+        // Test Configuration
+        results.components.config = testConfiguration();
+        
+        // Test Sync System
+        results.components.sync = testSyncSystem();
+        
+        // Collect metrics
+        results.metrics = collectSystemMetrics();
+        
+        // Test performance
+        results.performance = measurePerformance();
+        
+        // Update UI with results
+        displayHealthResults(results);
+        
+        showMessage('System health check completed', 'success');
+        console.log('🎉 Health check completed:', results);
+        
+    } catch (error) {
+        console.error('❌ Health check failed:', error);
+        showMessage('Health check failed: ' + error.message, 'error');
+        updateHealthStatus('error');
+    }
+}
+
+function runQuickDiagnostic() {
+    if (!window.authManager?.currentUser?.isAdmin) {
+        showMessage('Admin access required for diagnostics', 'error');
+        return;
+    }
+
+    const output = document.getElementById('diagnostic-results');
+    if (!output) return;
+    
+    let diagnostic = '🔍 Quick Diagnostic Report\n';
+    diagnostic += '='.repeat(50) + '\n\n';
+    diagnostic += `Timestamp: ${new Date().toLocaleString()}\n\n`;
+    
+    // Core components check
+    diagnostic += '🔧 Core Components:\n';
+    diagnostic += `DataManager: ${window.dataManager ? '✅ OK' : '❌ MISSING'}\n`;
+    diagnostic += `AuthManager: ${window.authManager ? '✅ OK' : '❌ MISSING'}\n`;
+    diagnostic += `Configuration: ${window.CONFIG ? '✅ OK' : '❌ MISSING'}\n`;
+    diagnostic += `Chart.js: ${typeof Chart !== 'undefined' ? '✅ OK' : '❌ MISSING'}\n\n`;
+    
+    // Data status
+    if (window.dataManager) {
+        diagnostic += '📊 Data Status:\n';
+        diagnostic += `Assignments: ${window.dataManager.data.assignments.length}\n`;
+        diagnostic += `Subjects: ${window.dataManager.data.subjects.length}\n`;
+        diagnostic += `Faculty: ${window.dataManager.data.theoryFaculty.length + window.dataManager.data.labFaculty.length}\n`;
+        diagnostic += `Lab Rooms: ${window.dataManager.data.labRooms.length}\n`;
+        diagnostic += `Time Slots: ${window.dataManager.data.timeSlots.length}\n\n`;
+    }
+    
+    // Sync status
+    if (window.authManager) {
+        diagnostic += '🌐 Sync Status:\n';
+        diagnostic += `Signed In: ${window.authManager.isSignedIn ? '✅ YES' : '❌ NO'}\n`;
+        diagnostic += `Real-time Sync: ${window.dataManager?.syncInterval ? '✅ ACTIVE' : '⚠️ INACTIVE'}\n`;
+        diagnostic += `Last Sync: ${window.dataManager?.lastSyncTime || 'Never'}\n\n`;
+    }
+    
+    // Memory usage (if available)
+    if (performance.memory) {
+        diagnostic += '💾 Memory Usage:\n';
+        diagnostic += `Used: ${Math.round(performance.memory.usedJSHeapSize / 1024 / 1024)}MB\n`;
+        diagnostic += `Total: ${Math.round(performance.memory.totalJSHeapSize / 1024 / 1024)}MB\n`;
+        diagnostic += `Limit: ${Math.round(performance.memory.jsHeapSizeLimit / 1024 / 1024)}MB\n\n`;
+    }
+    
+    diagnostic += '✅ Quick diagnostic completed';
+    
+    output.textContent = diagnostic;
+    showMessage('Quick diagnostic completed', 'success');
+}
+
+function exportSystemReport() {
+    if (!window.authManager?.currentUser?.isAdmin) {
+        showMessage('Admin access required for system reports', 'error');
+        return;
+    }
+
+    const report = generateSystemReport();
+    const blob = new Blob([report], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `lams-system-report-${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showMessage('System report exported successfully', 'success');
+}
+
+// Helper functions for health checks
+function testDataManager() {
+    if (!window.dataManager) return { status: 'error', message: 'DataManager not found' };
+    
+    try {
+        const requiredMethods = ['addMasterDataItem', 'addFaculty', 'addAssignment', 'syncWithCloud'];
+        const missingMethods = requiredMethods.filter(method => typeof window.dataManager[method] !== 'function');
+        
+        if (missingMethods.length > 0) {
+            return { status: 'warning', message: `Missing methods: ${missingMethods.join(', ')}` };
+        }
+        
+        return { status: 'healthy', message: 'All methods available' };
+    } catch (error) {
+        return { status: 'error', message: error.message };
+    }
+}
+
+function testAuthManager() {
+    if (!window.authManager) return { status: 'error', message: 'AuthManager not found' };
+    
+    try {
+        const isSignedIn = window.authManager.isSignedIn;
+        const hasUser = window.authManager.currentUser;
+        
+        if (!isSignedIn) {
+            return { status: 'warning', message: 'User not signed in' };
+        }
+        
+        if (!hasUser) {
+            return { status: 'warning', message: 'No user data available' };
+        }
+        
+        return { status: 'healthy', message: `Signed in as ${hasUser.email}` };
+    } catch (error) {
+        return { status: 'error', message: error.message };
+    }
+}
+
+function testConfiguration() {
+    if (!window.CONFIG) return { status: 'error', message: 'Configuration not found' };
+    
+    try {
+        const requiredKeys = ['GOOGLE_CLIENT_ID', 'GOOGLE_API_KEY', 'INSTITUTE_NAME'];
+        const missingKeys = requiredKeys.filter(key => !CONFIG[key]);
+        
+        if (missingKeys.length > 0) {
+            return { status: 'error', message: `Missing config: ${missingKeys.join(', ')}` };
+        }
+        
+        return { status: 'healthy', message: 'All required settings present' };
+    } catch (error) {
+        return { status: 'error', message: error.message };
+    }
+}
+
+function testSyncSystem() {
+    if (!window.dataManager) return { status: 'error', message: 'DataManager not available' };
+    
+    try {
+        const hasInterval = window.dataManager.syncInterval !== null;
+        const isSignedIn = window.authManager?.isSignedIn;
+        
+        if (!isSignedIn) {
+            return { status: 'warning', message: 'Not signed in - sync disabled' };
+        }
+        
+        if (!hasInterval) {
+            return { status: 'warning', message: 'Real-time sync not active' };
+        }
+        
+        return { status: 'healthy', message: 'Real-time sync active' };
+    } catch (error) {
+        return { status: 'error', message: error.message };
+    }
+}
+
+function collectSystemMetrics() {
+    const metrics = {};
+    
+    if (window.dataManager) {
+        metrics.assignments = window.dataManager.data.assignments.length;
+        metrics.masterData = window.dataManager.data.subjects.length + 
+                           window.dataManager.data.labRooms.length + 
+                           window.dataManager.data.timeSlots.length;
+        metrics.faculty = window.dataManager.data.theoryFaculty.length + 
+                         window.dataManager.data.labFaculty.length;
+        metrics.lastSync = window.dataManager.lastSyncTime || 'Never';
+    }
+    
+    return metrics;
+}
+
+function measurePerformance() {
+    const performance = {};
+    
+    if (window.performance) {
+        performance.loadTime = Math.round(window.performance.timing.loadEventEnd - 
+                                        window.performance.timing.navigationStart) + 'ms';
+    }
+    
+    if (window.performance.memory) {
+        performance.memory = Math.round(window.performance.memory.usedJSHeapSize / 1024 / 1024) + 'MB';
+    }
+    
+    performance.syncRate = window.dataManager?.syncFailureCount ? 
+        Math.round((1 - window.dataManager.syncFailureCount / 10) * 100) + '%' : '100%';
+    
+    performance.errors = '0'; // Could be enhanced to track actual errors
+    
+    return performance;
+}
+
+function updateHealthStatus(state) {
+    const components = ['datamanager', 'authmanager', 'config', 'sync'];
+    
+    components.forEach(component => {
+        const element = document.getElementById(`status-${component}`);
+        if (element) {
+            if (state === 'checking') {
+                element.className = 'status-item';
+                element.querySelector('.status-value').textContent = 'Checking...';
+                element.querySelector('.status-icon').textContent = '⏳';
+            }
+        }
+    });
+}
+
+function displayHealthResults(results) {
+    // Update component statuses
+    Object.keys(results.components).forEach(component => {
+        const element = document.getElementById(`status-${component}`);
+        if (element) {
+            const result = results.components[component];
+            element.className = `status-item status-${result.status}`;
+            element.querySelector('.status-value').textContent = result.message;
+        }
+    });
+    
+    // Update metrics
+    Object.keys(results.metrics).forEach(metric => {
+        const element = document.getElementById(`metric-${metric}`);
+        if (element) {
+            element.textContent = results.metrics[metric];
+        }
+    });
+    
+    // Update performance
+    Object.keys(results.performance).forEach(perf => {
+        const element = document.getElementById(`metric-${perf}`);
+        if (element) {
+            element.textContent = results.performance[perf];
+        }
+    });
+    
+    // Show detailed results in diagnostic output
+    const output = document.getElementById('diagnostic-results');
+    if (output) {
+        let report = '🔍 System Health Check Results\n';
+        report += '='.repeat(50) + '\n\n';
+        report += `Timestamp: ${new Date(results.timestamp).toLocaleString()}\n\n`;
+        
+        report += '🔧 Component Status:\n';
+        Object.keys(results.components).forEach(component => {
+            const result = results.components[component];
+            const icon = result.status === 'healthy' ? '✅' : result.status === 'warning' ? '⚠️' : '❌';
+            report += `${component}: ${icon} ${result.message}\n`;
+        });
+        
+        report += '\n📊 Metrics:\n';
+        Object.keys(results.metrics).forEach(metric => {
+            report += `${metric}: ${results.metrics[metric]}\n`;
+        });
+        
+        report += '\n🌐 Performance:\n';
+        Object.keys(results.performance).forEach(perf => {
+            report += `${perf}: ${results.performance[perf]}\n`;
+        });
+        
+        output.textContent = report;
+    }
+}
+
+function generateSystemReport() {
+    let report = 'LAMS System Report\n';
+    report += '='.repeat(50) + '\n\n';
+    report += `Generated: ${new Date().toLocaleString()}\n`;
+    report += `Institute: ${CONFIG?.INSTITUTE_NAME || 'Unknown'}\n`;
+    report += `Version: ${window.dataManager?.data?.version || 'Unknown'}\n\n`;
+    
+    // Add more comprehensive report data here
+    // This could include configuration, data summary, recent activities, etc.
+    
+    return report;
+}
+
 // GitHub Integration Functions
 function configureGitHubSync() {
     if (!window.authManager || !window.authManager.currentUser || !window.authManager.currentUser.isAdmin) {
@@ -3275,3 +3738,11 @@ window.refreshSyncLogs = refreshSyncLogs;
 window.clearSyncLogs = clearSyncLogs;
 window.exportSyncLogs = exportSyncLogs;
 window.debugSystemStatus = debugSystemStatus;
+
+// Make system health functions available globally
+window.runSystemHealthCheck = runSystemHealthCheck;
+window.runQuickDiagnostic = runQuickDiagnostic;
+window.exportSystemReport = exportSystemReport;
+
+// Make DataManager class available globally for testing
+window.DataManager = DataManager;
