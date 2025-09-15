@@ -1752,18 +1752,23 @@ function renderAnalytics() {
         updateAnalyticsFilters();
         
         // New Advanced Analytics
-        renderTimeSlotAnalysisChart();
-        renderLabTheoryChart();
-        renderFacultyPerformanceChart();
-        renderRoomUtilizationAnalysisChart();
-        renderComplexityChart();
-        updateOptimizationDashboard();
+        try {
+            renderTimeSlotAnalysisChart();
+            renderLabTheoryChart();
+            renderFacultyPerformanceChart();
+            renderRoomUtilizationAnalysisChart();
+            renderComplexityChart();
+            updateOptimizationDashboard();
+        } catch (chartError) {
+            console.warn('⚠️ Some advanced analytics failed:', chartError);
+            // Continue with basic analytics even if advanced charts fail
+        }
         
         showMessage('📊 Analytics loaded successfully!', 'success');
     } catch (e) {
         console.error('Error rendering analytics:', e);
-        showMessage('❌ Analytics failed to load. Refreshing...', 'error');
-        setTimeout(renderAnalytics, 2000);
+        showMessage('❌ Analytics failed to load. Please check console for details.', 'error');
+        // Don't auto-retry to avoid infinite loops
     }
 }
 
@@ -2955,9 +2960,9 @@ function renderPrintSchedule() {
     if (!window.dataManager) return;
     
     try {
-        const grid = document.getElementById('printGrid');
+        const grid = document.getElementById('printSchedule');
         if (!grid) {
-            console.warn('⚠️ printGrid element not found - print tab may not be visible');
+            console.warn('⚠️ printSchedule element not found - print tab may not be visible');
             return; // Don't throw error if element doesn't exist (tab not active)
         }
     
@@ -3018,7 +3023,7 @@ function renderPrintSchedule() {
 
     // Always use time slots as rows for better A4 landscape layout
     let html = `
-        <table class="print-table compact-print" style="font-size: ${fontSize}; line-height: ${lineHeight};">
+        <table class="print-table compact-print one-page" style="font-size: ${fontSize}; line-height: ${lineHeight};">
             <thead>
                 <tr class="print-header-row">
                     <th class="time-column">Time Slot</th>

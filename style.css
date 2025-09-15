@@ -1819,25 +1819,45 @@ body {
     letter-spacing: 0.1px !important;
   }
 
-  /* One-page fit tweaks */
+  /* One-page fit tweaks - Ultra compact for single page */
   .print-table.one-page .print-header-row th {
-    padding: 5px 3px !important;
-    font-size: 11px !important;
+    padding: 3px 2px !important;
+    font-size: 10px !important;
+    font-weight: bold !important;
+    line-height: 1.1 !important;
   }
   .print-table.one-page .time-cell {
-    padding: 4px 2px !important;
-    font-size: 9.5px !important;
+    padding: 2px 1px !important;
+    font-size: 8.5px !important;
+    line-height: 1.0 !important;
+    white-space: nowrap !important;
   }
   .print-table.one-page .schedule-cell {
-    padding: 2px 2px !important;
+    padding: 1px 1px !important;
+    line-height: 1.0 !important;
+    vertical-align: top !important;
   }
   .print-table.one-page .lab-entry {
-    margin-bottom: 1px !important;
-    padding: 1px 2px !important;
-    line-height: 1.02 !important;
+    margin-bottom: 0.5px !important;
+    padding: 0.5px 1px !important;
+    line-height: 1.0 !important;
+    font-size: 7.5px !important;
   }
   .print-table.one-page .lab-display {
-    font-size: 0.9em !important;
+    font-size: 0.85em !important;
+    line-height: 1.0 !important;
+    margin: 0 !important;
+  }
+  
+  /* Force all content to stay within page bounds */
+  .print-table.one-page tbody tr {
+    page-break-inside: avoid !important;
+    height: auto !important;
+  }
+  
+  .print-table.one-page tbody tr td {
+    overflow: hidden !important;
+    word-wrap: break-word !important;
   }
   
   /* Style the assignment display line for readability without changing content */
@@ -1910,7 +1930,16 @@ body {
   
   @page {
     size: A4 landscape !important;
-    margin: 8mm 6mm !important; /* Reduced margins for more content space */
+    margin: 6mm 4mm !important; /* Minimal margins for maximum content space */
+  }
+  
+  /* Force single-page layout - prevent any page breaks */
+  .print-table.one-page {
+    page-break-inside: avoid !important;
+    max-height: 100vh !important;
+    width: 100% !important;
+    transform: scale(0.85) !important; /* Scale down to fit more content */
+    transform-origin: top left !important;
   }
   
   /* Ensure single-page layout for compact printing */
@@ -1928,8 +1957,68 @@ body {
     height: auto !important;
     min-height: 15px !important;
   }
+  
+  /* Comprehensive one-page optimization */
+  .print-table.one-page thead th {
+    page-break-after: avoid !important;
+  }
+  
+  .print-table.one-page tbody {
+    page-break-inside: avoid !important;
+  }
+  
+  /* Prevent any table rows from breaking across pages */
+  .print-table.one-page tr {
+    page-break-inside: avoid !important;
+    page-break-after: auto !important;
+  }
+  
+  /* Additional scaling for very large schedules */
+  @media print {
+    .print-table.one-page {
+      font-size: 85% !important;
+      max-height: 95vh !important;
+    }
+    
+    /* One-page optimization for all layout types */
+    .timeline-container,
+    .list-container,
+    .compact-container {
+      page-break-inside: avoid !important;
+      font-size: 85% !important;
+      max-height: 95vh !important;
+      overflow: hidden !important;
+      transform: scale(0.9) !important;
+      transform-origin: top left !important;
+    }
+    
+    /* Prevent page breaks in timeline items */
+    .timeline-item,
+    .list-item,
+    .compact-item {
+      page-break-inside: avoid !important;
+      margin-bottom: 2px !important;
+    }
+    
+    /* Compress text in print layouts */
+    .timeline-container *,
+    .list-container *,
+    .compact-container * {
+      line-height: 1.1 !important;
+    }
+  }
+  
   .print-table tfoot { 
     display: table-footer-group !important; 
+  }
+  
+  /* Force single-page layout for the main print container */
+  @media print {
+    #printSchedule {
+      page-break-inside: avoid !important;
+      max-height: 100vh !important;
+      overflow: hidden !important;
+    }
   }
   
   .time-row {
