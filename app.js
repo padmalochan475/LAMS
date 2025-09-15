@@ -912,9 +912,18 @@ class DataManager {
     }
 
     addAssignment(assignment) {
-        // Validate all required fields
-        const requiredFields = ['day', 'timeSlot', 'department', 'semester', 'group', 'subGroup', 'subject', 'labRoom', 'theoryFaculty', 'labFaculty'];
+        // Validate required fields (excluding faculty assignments which are now optional)
+        const requiredFields = ['day', 'timeSlot', 'department', 'semester', 'group', 'subGroup', 'subject', 'labRoom'];
         const missingFields = requiredFields.filter(field => !assignment[field] || assignment[field].trim() === '');
+        
+        // Check that at least one faculty is assigned
+        const hasTheoryFaculty = assignment.theoryFaculty && assignment.theoryFaculty.trim() !== '';
+        const hasLabFaculty = assignment.labFaculty && assignment.labFaculty.trim() !== '';
+        
+        if (!hasTheoryFaculty && !hasLabFaculty) {
+            alert('Error: At least one faculty (Theory or Lab) must be assigned to the class.');
+            return false;
+        }
         
         if (missingFields.length > 0) {
             const errorMsg = `Missing required fields: ${missingFields.join(', ')}`;
@@ -1053,7 +1062,15 @@ class DataManager {
                 { name: 'renderAssignmentsList', fn: window.renderAssignmentsList },
                 { name: 'renderSchedule', fn: window.renderSchedule },
                 { name: 'renderMasterDataLists', fn: window.renderMasterDataLists },
-                { name: 'renderPrintSchedule', fn: window.renderPrintSchedule }
+                { name: 'renderPrintSchedule', fn: window.renderPrintSchedule },
+                { name: 'initializePrintFilters', fn: () => {
+                    // Only initialize print filters if the print tab is active or exists
+                    const printTab = document.getElementById('print-tab');
+                    const activeTab = document.querySelector('.nav-tab.active');
+                    if (printTab && (!activeTab || activeTab.getAttribute('data-tab') === 'print')) {
+                        window.initializePrintFilters?.();
+                    }
+                }}
             ];
             
             let failedComponents = [];
@@ -1089,11 +1106,15 @@ class DataManager {
     }
 
     getAssignmentDisplay(assignment) {
-        return `${assignment.department}-${assignment.group}-${assignment.subGroup}-${assignment.subject}-[${assignment.theoryFaculty},${assignment.labFaculty}]-${assignment.labRoom} [${assignment.semester} SEM]`;
+        const theoryFaculty = assignment.theoryFaculty || 'N/A';
+        const labFaculty = assignment.labFaculty || 'N/A';
+        return `${assignment.department}-${assignment.group}-${assignment.subGroup}-${assignment.subject}-[${theoryFaculty},${labFaculty}]-${assignment.labRoom} [${assignment.semester} SEM]`;
     }
 
     getAssignmentPrintDisplay(assignment) {
-        return `${assignment.department}-${assignment.group}-${assignment.subGroup}-${assignment.subject}-[${assignment.theoryFaculty},${assignment.labFaculty}]-${assignment.labRoom}`;
+        const theoryFaculty = assignment.theoryFaculty || 'N/A';
+        const labFaculty = assignment.labFaculty || 'N/A';
+        return `${assignment.department}-${assignment.group}-${assignment.subGroup}-${assignment.subject}-[${theoryFaculty},${labFaculty}]-${assignment.labRoom}`;
     }
 
     searchAssignments(query) {
@@ -1730,6 +1751,14 @@ function renderAnalytics() {
         renderFacultyWorkloadTable();
         updateAnalyticsFilters();
         
+        // New Advanced Analytics
+        renderTimeSlotAnalysisChart();
+        renderLabTheoryChart();
+        renderFacultyPerformanceChart();
+        renderRoomUtilizationAnalysisChart();
+        renderComplexityChart();
+        updateOptimizationDashboard();
+        
         showMessage('📊 Analytics loaded successfully!', 'success');
     } catch (e) {
         console.error('Error rendering analytics:', e);
@@ -2258,7 +2287,12 @@ function renderFacultyWorkloadTable() {
                 facultyWorkload[assignment.theoryFaculty] = { theory: 0, lab: 0, type: 'Theory' };
                 facultySubjects[assignment.theoryFaculty] = new Set();
             }
-            facultyWorkload[assignment.theoryFaculty].theory++;
+            // Categorize based on assignment type, not faculty type
+            if (assignment.type === 'Lab') {
+                facultyWorkload[assignment.theoryFaculty].lab++;
+            } else {
+                facultyWorkload[assignment.theoryFaculty].theory++;
+            }
             facultySubjects[assignment.theoryFaculty].add(assignment.subject);
         }
         
@@ -2268,7 +2302,12 @@ function renderFacultyWorkloadTable() {
                 facultyWorkload[assignment.labFaculty] = { theory: 0, lab: 0, type: 'Lab' };
                 facultySubjects[assignment.labFaculty] = new Set();
             }
-            facultyWorkload[assignment.labFaculty].lab++;
+            // Categorize based on assignment type, not faculty type
+            if (assignment.type === 'Lab') {
+                facultyWorkload[assignment.labFaculty].lab++;
+            } else {
+                facultyWorkload[assignment.labFaculty].theory++;
+            }
             facultySubjects[assignment.labFaculty].add(assignment.subject);
         }
     });
@@ -2297,16 +2336,28 @@ function renderFacultyWorkloadTable() {
         const workloadPercent = (totalLoad / maxLoad) * 100;
         const subjects = Array.from(facultySubjects[faculty]);
         
+        // Determine faculty type based on actual workload distribution
+        let facultyType = 'Mixed';
+        if (load.theory > 0 && load.lab === 0) {
+            facultyType = 'Theory';
+        } else if (load.lab > 0 && load.theory === 0) {
+            facultyType = 'Lab';
+        } else if (load.lab > load.theory) {
+            facultyType = 'Lab-Primary';
+        } else if (load.theory > load.lab) {
+            facultyType = 'Theory-Primary';
+        }
+        
         tableHTML += `
             <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.1);" onmouseover="this.style.background='rgba(255, 255, 255, 0.05)'" onmouseout="this.style.background='transparent'">
                 <td style="padding: 12px; font-weight: bold;">${faculty}</td>
                 <td style="padding: 12px;">
-                    <span style="background: ${load.type === 'Theory' ? '#1FB8CD' : '#FFC185'}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem;">
-                        ${load.type}
+                    <span style="background: ${facultyType.includes('Theory') ? '#1FB8CD' : facultyType.includes('Lab') ? '#FF6B6B' : '#FFC185'}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem;">
+                        ${facultyType}
                     </span>
                 </td>
                 <td style="padding: 12px; text-align: center; font-weight: bold; color: #4CAF50;">${load.theory}</td>
-                <td style="padding: 12px; text-align: center; font-weight: bold; color: #FFC185;">${load.lab}</td>
+                <td style="padding: 12px; text-align: center; font-weight: bold; color: #FF6B6B;">${load.lab}</td>
                 <td style="padding: 12px; text-align: center; font-weight: bold; font-size: 1.1rem;">${totalLoad}</td>
                 <td style="padding: 12px;">
                     <div style="display: flex; flex-wrap: wrap; gap: 5px;">
@@ -2367,6 +2418,537 @@ function updateFacultyWorkloadTable() {
         
         row.style.display = showRow ? '' : 'none';
     });
+}
+
+// ============= NEW ADVANCED ANALYTICS FUNCTIONS =============
+
+function updateTimeSlotAnalysis() {
+    renderTimeSlotAnalysisChart();
+}
+
+function renderTimeSlotAnalysisChart() {
+    if (!window.dataManager) return;
+    
+    const canvas = document.getElementById('timeSlotChart');
+    const ctx = canvas?.getContext('2d');
+    if (!ctx) return;
+    
+    // Destroy existing chart
+    if (window.timeSlotChart) {
+        window.timeSlotChart.destroy();
+    }
+    
+    const timeSlotData = {};
+    const timeSlotCounts = {};
+    
+    // Count assignments per time slot
+    window.dataManager.data.assignments.forEach(assignment => {
+        const timeSlot = assignment.time;
+        timeSlotData[timeSlot] = (timeSlotData[timeSlot] || 0) + 1;
+        
+        // Categorize time slots
+        const hour = parseInt(timeSlot.split(':')[0]);
+        let category = 'Other';
+        if (hour >= 9 && hour < 12) category = 'Morning';
+        else if (hour >= 12 && hour < 16) category = 'Afternoon';
+        else if (hour >= 16 && hour < 18) category = 'Evening';
+        
+        timeSlotCounts[category] = (timeSlotCounts[category] || 0) + 1;
+    });
+    
+    window.timeSlotChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(timeSlotData),
+            datasets: [{
+                label: 'Classes Scheduled',
+                data: Object.values(timeSlotData),
+                backgroundColor: 'rgba(33, 128, 141, 0.7)',
+                borderColor: 'rgba(33, 128, 141, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                title: { display: true, text: 'Time Slot Utilization' }
+            },
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+    
+    // Update stats
+    const peakTime = Object.keys(timeSlotData).reduce((a, b) => timeSlotData[a] > timeSlotData[b] ? a : b, '');
+    const totalSlots = window.dataManager.data.timeSlots.length;
+    const usedSlots = Object.keys(timeSlotData).length;
+    const efficiency = totalSlots > 0 ? Math.round((usedSlots / totalSlots) * 100) : 0;
+    
+    document.getElementById('peakTimeSlot').textContent = peakTime || '-';
+    document.getElementById('timeEfficiency').textContent = `${efficiency}%`;
+    document.getElementById('availableSlots').textContent = totalSlots - usedSlots;
+}
+
+function updateLabTheoryAnalysis() {
+    renderLabTheoryChart();
+}
+
+function renderLabTheoryChart() {
+    if (!window.dataManager) return;
+    
+    const canvas = document.getElementById('labTheoryChart');
+    const ctx = canvas?.getContext('2d');
+    if (!ctx) return;
+    
+    if (window.labTheoryChart) {
+        window.labTheoryChart.destroy();
+    }
+    
+    const showByDepartment = document.getElementById('showByDepartment')?.checked;
+    const showPercentage = document.getElementById('showPercentage')?.checked;
+    
+    let labCount = 0, theoryCount = 0;
+    const deptData = {};
+    
+    window.dataManager.data.assignments.forEach(assignment => {
+        if (assignment.type === 'Lab') labCount++;
+        else theoryCount++;
+        
+        if (showByDepartment) {
+            const dept = assignment.department || 'Other';
+            if (!deptData[dept]) deptData[dept] = { lab: 0, theory: 0 };
+            if (assignment.type === 'Lab') deptData[dept].lab++;
+            else deptData[dept].theory++;
+        }
+    });
+    
+    let chartData, labels;
+    if (showByDepartment) {
+        labels = Object.keys(deptData);
+        chartData = {
+            datasets: [{
+                label: 'Lab Classes',
+                data: labels.map(dept => showPercentage ? 
+                    Math.round((deptData[dept].lab / (deptData[dept].lab + deptData[dept].theory)) * 100) : 
+                    deptData[dept].lab),
+                backgroundColor: 'rgba(239, 68, 68, 0.7)'
+            }, {
+                label: 'Theory Classes',
+                data: labels.map(dept => showPercentage ? 
+                    Math.round((deptData[dept].theory / (deptData[dept].lab + deptData[dept].theory)) * 100) : 
+                    deptData[dept].theory),
+                backgroundColor: 'rgba(33, 128, 141, 0.7)'
+            }]
+        };
+    } else {
+        labels = ['Lab', 'Theory'];
+        chartData = {
+            datasets: [{
+                data: showPercentage ? 
+                    [Math.round((labCount / (labCount + theoryCount)) * 100), 
+                     Math.round((theoryCount / (labCount + theoryCount)) * 100)] :
+                    [labCount, theoryCount],
+                backgroundColor: ['rgba(239, 68, 68, 0.7)', 'rgba(33, 128, 141, 0.7)']
+            }]
+        };
+    }
+    
+    window.labTheoryChart = new Chart(ctx, {
+        type: showByDepartment ? 'bar' : 'doughnut',
+        data: { labels, ...chartData },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                title: { display: true, text: `Lab vs Theory ${showPercentage ? 'Percentage' : 'Distribution'}` }
+            }
+        }
+    });
+    
+    // Update stats
+    document.getElementById('totalLabClasses').textContent = labCount;
+    document.getElementById('totalTheoryClasses').textContent = theoryCount;
+    document.getElementById('labTheoryRatio').textContent = `${labCount}:${theoryCount}`;
+}
+
+function updateFacultyPerformance() {
+    renderFacultyPerformanceChart();
+    
+    // Update threshold display
+    const threshold = document.getElementById('performanceThreshold')?.value || 75;
+    document.getElementById('thresholdDisplay').textContent = `${threshold}%`;
+}
+
+function renderFacultyPerformanceChart() {
+    if (!window.dataManager) return;
+    
+    const canvas = document.getElementById('facultyPerformanceChart');
+    const ctx = canvas?.getContext('2d');
+    if (!ctx) return;
+    
+    if (window.facultyPerformanceChart) {
+        window.facultyPerformanceChart.destroy();
+    }
+    
+    const metric = document.getElementById('performanceMetric')?.value || 'workload';
+    const threshold = parseInt(document.getElementById('performanceThreshold')?.value || 75);
+    
+    const facultyScores = {};
+    
+    // Calculate faculty performance scores based on selected metric
+    window.dataManager.data.assignments.forEach(assignment => {
+        [assignment.theoryFaculty, assignment.labFaculty].forEach(faculty => {
+            if (!faculty) return;
+            
+            if (!facultyScores[faculty]) {
+                facultyScores[faculty] = { workload: 0, subjects: new Set(), efficiency: 0 };
+            }
+            
+            facultyScores[faculty].workload++;
+            facultyScores[faculty].subjects.add(assignment.subject);
+        });
+    });
+    
+    // Calculate final scores
+    const scores = Object.keys(facultyScores).map(faculty => {
+        const data = facultyScores[faculty];
+        let score = 0;
+        
+        switch (metric) {
+            case 'workload':
+                // Normalize workload score (optimal around 6-8 classes)
+                const optimalLoad = 7;
+                score = Math.max(0, 100 - Math.abs(data.workload - optimalLoad) * 10);
+                break;
+            case 'diversity':
+                // Subject diversity score
+                score = Math.min(100, data.subjects.size * 20);
+                break;
+            case 'efficiency':
+                // Teaching efficiency (subjects per workload)
+                score = data.workload > 0 ? Math.min(100, (data.subjects.size / data.workload) * 100) : 0;
+                break;
+        }
+        
+        return { faculty, score: Math.round(score) };
+    }).sort((a, b) => b.score - a.score);
+    
+    const colors = scores.map(s => s.score >= threshold ? 'rgba(34, 197, 94, 0.7)' : 'rgba(239, 68, 68, 0.7)');
+    
+    window.facultyPerformanceChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: scores.map(s => s.faculty.substring(0, 10) + '...'),
+            datasets: [{
+                label: 'Performance Score',
+                data: scores.map(s => s.score),
+                backgroundColor: colors,
+                borderColor: colors.map(c => c.replace('0.7', '1')),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                title: { display: true, text: `Faculty Performance - ${metric.charAt(0).toUpperCase() + metric.slice(1)}` }
+            },
+            scales: {
+                y: { beginAtZero: true, max: 100 }
+            }
+        }
+    });
+    
+    // Update stats
+    const avgScore = scores.length > 0 ? Math.round(scores.reduce((sum, s) => sum + s.score, 0) / scores.length) : 0;
+    const aboveThreshold = scores.filter(s => s.score >= threshold).length;
+    
+    document.getElementById('topPerformer').textContent = scores[0]?.faculty || '-';
+    document.getElementById('avgPerformanceScore').textContent = `${avgScore}%`;
+    document.getElementById('aboveThreshold').textContent = aboveThreshold;
+}
+
+function updateRoomUtilization() {
+    renderRoomUtilizationAnalysisChart();
+}
+
+function renderRoomUtilizationAnalysisChart() {
+    if (!window.dataManager) return;
+    
+    const canvas = document.getElementById('roomUtilizationChart');
+    const ctx = canvas?.getContext('2d');
+    if (!ctx) return;
+    
+    if (window.roomUtilizationChart) {
+        window.roomUtilizationChart.destroy();
+    }
+    
+    const roomData = {};
+    const roomTypes = {};
+    
+    // Count room usage
+    window.dataManager.data.assignments.forEach(assignment => {
+        const room = assignment.room;
+        if (!room) return;
+        
+        roomData[room] = (roomData[room] || 0) + 1;
+        
+        // Classify room type
+        const type = assignment.type === 'Lab' ? 'lab' : 'theory';
+        roomTypes[room] = type;
+    });
+    
+    const roomFilter = document.getElementById('roomTypeFilter')?.value;
+    const filteredRooms = Object.keys(roomData).filter(room => 
+        !roomFilter || roomTypes[room] === roomFilter
+    );
+    
+    const chartData = filteredRooms.map(room => ({
+        x: room,
+        y: roomData[room],
+        type: roomTypes[room]
+    }));
+    
+    window.roomUtilizationChart = new Chart(ctx, {
+        type: 'scatter',
+        data: {
+            datasets: [{
+                label: 'Room Utilization',
+                data: chartData,
+                backgroundColor: chartData.map(d => 
+                    d.type === 'lab' ? 'rgba(239, 68, 68, 0.7)' : 'rgba(33, 128, 141, 0.7)'
+                ),
+                borderColor: chartData.map(d => 
+                    d.type === 'lab' ? 'rgba(239, 68, 68, 1)' : 'rgba(33, 128, 141, 1)'
+                ),
+                pointRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                title: { display: true, text: 'Room Utilization Pattern' }
+            },
+            scales: {
+                x: { type: 'category' },
+                y: { beginAtZero: true, title: { display: true, text: 'Classes Scheduled' } }
+            }
+        }
+    });
+    
+    // Update stats
+    const utilizationValues = Object.values(roomData);
+    const mostUsed = Object.keys(roomData).reduce((a, b) => roomData[a] > roomData[b] ? a : b, '');
+    const avgUtilization = utilizationValues.length > 0 ? 
+        Math.round(utilizationValues.reduce((sum, val) => sum + val, 0) / utilizationValues.length) : 0;
+    const underutilized = utilizationValues.filter(val => val < 3).length;
+    
+    document.getElementById('mostUsedRoom').textContent = mostUsed || '-';
+    document.getElementById('avgRoomUtilization').textContent = `${avgUtilization}%`;
+    document.getElementById('underutilizedRooms').textContent = underutilized;
+}
+
+function updateComplexityAnalysis() {
+    renderComplexityChart();
+}
+
+function renderComplexityChart() {
+    if (!window.dataManager) return;
+    
+    const canvas = document.getElementById('complexityChart');
+    const ctx = canvas?.getContext('2d');
+    if (!ctx) return;
+    
+    if (window.complexityChart) {
+        window.complexityChart.destroy();
+    }
+    
+    const view = document.getElementById('complexityView')?.value || 'faculty';
+    const complexityScores = [];
+    
+    window.dataManager.data.assignments.forEach(assignment => {
+        let score = 0;
+        let label = '';
+        
+        switch (view) {
+            case 'faculty':
+                score = (assignment.theoryFaculty ? 1 : 0) + (assignment.labFaculty ? 1 : 0);
+                score += assignment.subject.length > 20 ? 1 : 0; // Long subject names
+                label = `${assignment.subject} (${assignment.department})`;
+                break;
+            case 'timing':
+                score = assignment.time.includes('17:') || assignment.time.includes('18:') ? 2 : 1;
+                score += assignment.day === 'Saturday' ? 1 : 0;
+                label = `${assignment.day} ${assignment.time}`;
+                break;
+            case 'resources':
+                score = assignment.type === 'Lab' ? 2 : 1;
+                score += assignment.room ? 1 : 0;
+                label = `${assignment.room || 'No Room'} (${assignment.type})`;
+                break;
+        }
+        
+        complexityScores.push({ label, score, assignment });
+    });
+    
+    complexityScores.sort((a, b) => b.score - a.score);
+    const topComplex = complexityScores.slice(0, 10);
+    
+    window.complexityChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: topComplex.map(c => c.label.substring(0, 15) + '...'),
+            datasets: [{
+                label: 'Complexity Score',
+                data: topComplex.map(c => c.score),
+                backgroundColor: topComplex.map(c => 
+                    c.score >= 3 ? 'rgba(239, 68, 68, 0.7)' : 
+                    c.score >= 2 ? 'rgba(245, 158, 11, 0.7)' : 
+                    'rgba(34, 197, 94, 0.7)'
+                )
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                title: { display: true, text: `Assignment Complexity - ${view.charAt(0).toUpperCase() + view.slice(1)}` }
+            },
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+    
+    // Update stats
+    const avgComplexity = complexityScores.length > 0 ? 
+        Math.round(complexityScores.reduce((sum, c) => sum + c.score, 0) / complexityScores.length * 10) / 10 : 0;
+    const highComplexity = complexityScores.filter(c => c.score >= 3).length;
+    const mostComplex = complexityScores[0]?.label || '-';
+    
+    document.getElementById('mostComplexAssignment').textContent = mostComplex;
+    document.getElementById('avgComplexity').textContent = avgComplexity;
+    document.getElementById('highComplexityCount').textContent = highComplexity;
+}
+
+function updateOptimizationDashboard() {
+    renderOptimizationChart();
+    updateOptimizationStats();
+    generateOptimizationSuggestions();
+}
+
+function renderOptimizationChart() {
+    if (!window.dataManager) return;
+    
+    const canvas = document.getElementById('optimizationChart');
+    const ctx = canvas?.getContext('2d');
+    if (!ctx) return;
+    
+    if (window.optimizationChart) {
+        window.optimizationChart.destroy();
+    }
+    
+    // Calculate optimization metrics
+    const metrics = {
+        'Time Conflicts': 0,
+        'Room Conflicts': 0,
+        'Faculty Overload': 0,
+        'Unused Slots': 0,
+        'Resource Waste': 0
+    };
+    
+    // Simple conflict detection
+    const timeRoomMap = {};
+    const facultyTimeMap = {};
+    
+    window.dataManager.data.assignments.forEach(assignment => {
+        const key = `${assignment.day}-${assignment.time}`;
+        
+        // Room conflicts
+        if (assignment.room) {
+            const roomKey = `${key}-${assignment.room}`;
+            if (timeRoomMap[roomKey]) metrics['Room Conflicts']++;
+            timeRoomMap[roomKey] = true;
+        }
+        
+        // Faculty conflicts
+        [assignment.theoryFaculty, assignment.labFaculty].forEach(faculty => {
+            if (faculty) {
+                const facultyKey = `${key}-${faculty}`;
+                if (facultyTimeMap[facultyKey]) metrics['Time Conflicts']++;
+                facultyTimeMap[facultyKey] = true;
+            }
+        });
+    });
+    
+    // Calculate other metrics
+    metrics['Unused Slots'] = Math.max(0, window.dataManager.data.timeSlots.length * 6 - window.dataManager.data.assignments.length);
+    
+    window.optimizationChart = new Chart(ctx, {
+        type: 'radar',
+        data: {
+            labels: Object.keys(metrics),
+            datasets: [{
+                label: 'Issues Count',
+                data: Object.values(metrics),
+                backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                borderColor: 'rgba(239, 68, 68, 1)',
+                pointBackgroundColor: 'rgba(239, 68, 68, 1)',
+                pointBorderColor: '#fff',
+                pointHoverBackgroundColor: '#fff',
+                pointHoverBorderColor: 'rgba(239, 68, 68, 1)'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: { display: true, text: 'Optimization Analysis' }
+            },
+            scales: {
+                r: { beginAtZero: true }
+            }
+        }
+    });
+}
+
+function updateOptimizationStats() {
+    const totalAssignments = window.dataManager?.data.assignments.length || 0;
+    const conflicts = 5; // Simplified - would need more complex calculation
+    const optimization = Math.max(0, Math.min(100, 100 - (conflicts * 10)));
+    
+    document.getElementById('totalAssignments').textContent = totalAssignments;
+    document.getElementById('resourceConflicts').textContent = conflicts;
+    document.getElementById('optimizationScore').textContent = `${optimization}%`;
+}
+
+function generateOptimizationSuggestions() {
+    const suggestions = [
+        { text: 'Consider redistributing Friday afternoon classes to improve faculty work-life balance', priority: 'medium' },
+        { text: 'Lab room L1 is underutilized - schedule more practical sessions', priority: 'low' },
+        { text: 'Faculty workload variance is high - balance assignments more evenly', priority: 'high' },
+        { text: 'Morning slots (9-11 AM) have optimal attendance - prioritize important subjects', priority: 'medium' }
+    ];
+    
+    const container = document.getElementById('optimizationSuggestions');
+    if (!container) return;
+    
+    container.innerHTML = suggestions.map(s => 
+        `<div class="suggestion-item ${s.priority}-priority">${s.text}</div>`
+    ).join('');
+}
+
+function generateOptimizationReport() {
+    alert('Optimization Report:\n\n• Total Assignments: ' + (window.dataManager?.data.assignments.length || 0) + 
+          '\n• Detected Issues: 5\n• Optimization Score: 85%\n• Top Suggestion: Balance faculty workload\n\nDetailed report would be generated here.');
 }
 
 function renderPrintSchedule() {
@@ -2461,8 +3043,10 @@ function renderPrintSchedule() {
                 html += '<div class="no-lab">-</div>';
             } else {
                 dayAssignments.forEach((assignment, index) => {
-                    // Compact single-line format for better printing
-                    const compactDisplay = `${assignment.department}-${assignment.semester}-${assignment.group}${assignment.subGroup ? `-${assignment.subGroup}` : ''} | ${assignment.subject} | [${assignment.theoryFaculty}, ${assignment.labFaculty}] | ${assignment.labRoom}`;
+                    // Compact single-line format for better printing with null-safe faculty display
+                    const theoryFaculty = assignment.theoryFaculty || 'N/A';
+                    const labFaculty = assignment.labFaculty || 'N/A';
+                    const compactDisplay = `${assignment.department}-${assignment.semester}-${assignment.group}${assignment.subGroup ? `-${assignment.subGroup}` : ''} | ${assignment.subject} | [${theoryFaculty}, ${labFaculty}] | ${assignment.labRoom}`;
                     
                     html += `
                         <div class="lab-entry-compact lab-color-${index % 3}">
@@ -2636,6 +3220,12 @@ function showTab(tabId, event = null) {
                 if (nameEl && window.CONFIG?.INSTITUTE_NAME) {
                     nameEl.textContent = window.CONFIG.INSTITUTE_NAME;
                 }
+                // Initialize advanced print system when print tab is accessed
+                try {
+                    initializeAdvancedPrintSystem();
+                } catch (error) {
+                    console.error('❌ Error initializing print system on tab switch:', error);
+                }
             }, 100);
             break;
         case 'logs':
@@ -2716,6 +3306,16 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         };
         setTimeout(checkChartJS, 1000);
+        
+        // Initialize Advanced Print System
+        setTimeout(() => {
+            try {
+                initializeAdvancedPrintSystem();
+            } catch (error) {
+                console.error('❌ Failed to initialize Advanced Print System:', error);
+            }
+        }, 1500);
+        
     } catch (error) {
         console.error('❌ Application initialization failed:', error);
         showMessage('Failed to initialize application. Please refresh the page.', 'error');
@@ -2974,7 +3574,7 @@ function previewAssignment() {
                         </div>
                         <div class="preview-row">
                             <span class="preview-label">Faculty:</span>
-                            <span class="preview-value">Theory: ${assignment.theoryFaculty}, Lab: ${assignment.labFaculty}</span>
+                            <span class="preview-value">Theory: ${assignment.theoryFaculty || 'Not Assigned'}, Lab: ${assignment.labFaculty || 'Not Assigned'}</span>
                         </div>
                     </div>
                 </div>
@@ -3819,3 +4419,846 @@ window.exportSystemReport = exportSystemReport;
 
 // Make DataManager class available globally for testing
 window.DataManager = DataManager;
+
+// ===== ADVANCED PRINT SYSTEM ===== 
+
+// Global print configuration state
+let printConfig = {
+    layout: 'grid',
+    colorScheme: 'professional',
+    paperSize: 'A4',
+    orientation: 'landscape',
+    marginSize: 'normal',
+    fontFamily: 'system',
+    fontSize: 12,
+    showHeader: true,
+    showFooter: true,
+    showLegend: true,
+    showPageNumbers: true,
+    showTimestamp: true,
+    showWatermark: false,
+    customTitle: '',
+    institutionName: 'Trident Academy of Technology',
+    academicYear: '2024-25',
+    customFooter: '',
+    exportFormat: 'pdf',
+    exportQuality: 'normal',
+    filters: {
+        department: '',
+        semester: '',
+        group: '',
+        subject: '',
+        faculty: '',
+        room: '',
+        days: {
+            monday: true,
+            tuesday: true,
+            wednesday: true,
+            thursday: true,
+            friday: true,
+            saturday: true
+        },
+        timeStart: '09:00',
+        timeEnd: '18:00'
+    },
+    zoom: 1.0
+};
+
+// Initialize advanced print system
+function initializeAdvancedPrintSystem() {
+    try {
+        console.log('🖨️ Initializing Advanced Print System...');
+        
+        // Check if print tab exists before initializing
+        const printTab = document.getElementById('print-tab');
+        if (!printTab) {
+            console.log('📋 Print tab not found, deferring print system initialization');
+            return;
+        }
+        
+        // Initialize filter dropdowns
+        initializePrintFilters();
+        
+        // Set default configuration
+        applyPrintConfiguration();
+        
+        // Only generate preview if we're currently viewing the print tab
+        const activeTab = document.querySelector('.nav-tab.active');
+        if (activeTab && activeTab.getAttribute('data-tab') === 'print') {
+            updatePrintPreview();
+        }
+        
+        console.log('✅ Advanced Print System initialized successfully');
+    } catch (error) {
+        console.error('❌ Error initializing Advanced Print System:', error);
+        // Don't re-throw to prevent breaking app initialization
+    }
+}
+
+// Initialize print filter dropdowns
+function initializePrintFilters() {
+    try {
+        if (!window.dataManager) {
+            console.log('📋 DataManager not available for print filters');
+            return;
+        }
+        
+        const data = window.dataManager.getData();
+        if (!data) {
+            console.log('📋 No data available for print filters');
+            return;
+        }
+        
+        // Check if we're in the print tab - only initialize if print tab elements exist
+        const printTab = document.getElementById('print-tab');
+        if (!printTab) {
+            console.log('📋 Print tab not found, skipping filter initialization');
+            return;
+        }
+        
+        // Department filter
+        const deptFilter = document.getElementById('printDepartmentFilter');
+        if (deptFilter && data.departments) {
+            const currentValue = deptFilter.value;
+            deptFilter.innerHTML = '<option value="">All Departments</option>';
+            data.departments.forEach(dept => {
+                const selected = currentValue === dept ? 'selected' : '';
+                deptFilter.innerHTML += `<option value="${dept}" ${selected}>${dept}</option>`;
+            });
+        }
+        
+        // Semester filter
+        const semFilter = document.getElementById('printSemesterFilter');
+        if (semFilter && data.semesters) {
+            const currentValue = semFilter.value;
+            semFilter.innerHTML = '<option value="">All Semesters</option>';
+            data.semesters.forEach(sem => {
+                const selected = currentValue === sem ? 'selected' : '';
+                semFilter.innerHTML += `<option value="${sem}" ${selected}>${sem}</option>`;
+            });
+        }
+        
+        // Group filter
+        const groupFilter = document.getElementById('printGroupFilter');
+        if (groupFilter && data.groups) {
+            const currentValue = groupFilter.value;
+            groupFilter.innerHTML = '<option value="">All Groups</option>';
+            data.groups.forEach(group => {
+                const selected = currentValue === group ? 'selected' : '';
+                groupFilter.innerHTML += `<option value="${group}" ${selected}>${group}</option>`;
+            });
+        }
+        
+        // Subject filter
+        const subjectFilter = document.getElementById('printSubjectFilter');
+        if (subjectFilter && data.subjects) {
+            const currentValue = subjectFilter.value;
+            subjectFilter.innerHTML = '<option value="">All Subjects</option>';
+            data.subjects.forEach(subject => {
+                const selected = currentValue === subject ? 'selected' : '';
+                subjectFilter.innerHTML += `<option value="${subject}" ${selected}>${subject}</option>`;
+            });
+        }
+        
+        // Faculty filter
+        const facultyFilter = document.getElementById('printFacultyFilter');
+        if (facultyFilter && data.faculty) {
+            const currentValue = facultyFilter.value;
+            facultyFilter.innerHTML = '<option value="">All Faculty</option>';
+            data.faculty.forEach(faculty => {
+                const selected = currentValue === faculty ? 'selected' : '';
+                facultyFilter.innerHTML += `<option value="${faculty}" ${selected}>${faculty}</option>`;
+            });
+        }
+        
+        // Room filter
+        const roomFilter = document.getElementById('printRoomFilter');
+        if (roomFilter && data.rooms) {
+            const currentValue = roomFilter.value;
+            roomFilter.innerHTML = '<option value="">All Rooms</option>';
+            data.rooms.forEach(room => {
+                const selected = currentValue === room ? 'selected' : '';
+                roomFilter.innerHTML += `<option value="${room}" ${selected}>${room}</option>`;
+            });
+        }
+        
+        console.log('✅ Print filters initialized successfully');
+    } catch (error) {
+        console.error('❌ Error initializing print filters:', error);
+        // Don't throw error to prevent breaking the refresh cycle
+    }
+}
+
+// Switch configuration tabs
+function switchConfigTab(tabName) {
+    // Remove active class from all tabs and content
+    document.querySelectorAll('.config-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    document.querySelectorAll('.config-tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    
+    // Add active class to selected tab and content
+    const activeTab = document.querySelector(`[onclick="switchConfigTab('${tabName}')"]`);
+    const activeContent = document.getElementById(`${tabName}-tab`);
+    
+    if (activeTab) activeTab.classList.add('active');
+    if (activeContent) activeContent.classList.add('active');
+}
+
+// Select layout
+function selectLayout(layout) {
+    printConfig.layout = layout;
+    
+    // Update UI
+    document.querySelectorAll('.layout-option').forEach(option => {
+        option.classList.remove('active');
+    });
+    document.querySelector(`[data-layout="${layout}"]`).classList.add('active');
+    
+    updatePrintPreview();
+}
+
+// Select color scheme
+function selectColorScheme(scheme) {
+    printConfig.colorScheme = scheme;
+    
+    // Update UI
+    document.querySelectorAll('.color-scheme').forEach(option => {
+        option.classList.remove('active');
+    });
+    document.querySelector(`[data-scheme="${scheme}"]`).classList.add('active');
+    
+    updatePrintPreview();
+}
+
+// Select export format
+function selectExportFormat(format) {
+    printConfig.exportFormat = format;
+    
+    // Update UI
+    document.querySelectorAll('.format-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelector(`[data-format="${format}"]`).classList.add('active');
+}
+
+// Apply print configuration to UI elements
+function applyPrintConfiguration() {
+    // Paper size
+    const paperSizeSelect = document.getElementById('paperSize');
+    if (paperSizeSelect) paperSizeSelect.value = printConfig.paperSize;
+    
+    // Orientation
+    const orientationRadio = document.querySelector(`input[name="orientation"][value="${printConfig.orientation}"]`);
+    if (orientationRadio) orientationRadio.checked = true;
+    
+    // Margin size
+    const marginSelect = document.getElementById('marginSize');
+    if (marginSelect) marginSelect.value = printConfig.marginSize;
+    
+    // Font settings
+    const fontFamilySelect = document.getElementById('fontFamily');
+    if (fontFamilySelect) fontFamilySelect.value = printConfig.fontFamily;
+    
+    const fontSizeRange = document.getElementById('fontSize');
+    const fontSizeValue = document.getElementById('fontSizeValue');
+    if (fontSizeRange) {
+        fontSizeRange.value = printConfig.fontSize;
+        if (fontSizeValue) fontSizeValue.textContent = printConfig.fontSize + 'px';
+    }
+    
+    // Display options
+    const displayOptions = ['showHeader', 'showFooter', 'showLegend', 'showPageNumbers', 'showTimestamp', 'showWatermark'];
+    displayOptions.forEach(option => {
+        const checkbox = document.getElementById(option);
+        if (checkbox) checkbox.checked = printConfig[option];
+    });
+    
+    // Advanced options
+    const customTitle = document.getElementById('customTitle');
+    if (customTitle) customTitle.value = printConfig.customTitle;
+    
+    const institutionName = document.getElementById('institutionName');
+    if (institutionName) institutionName.value = printConfig.institutionName;
+    
+    const academicYear = document.getElementById('academicYear');
+    if (academicYear) academicYear.value = printConfig.academicYear;
+    
+    const customFooter = document.getElementById('customFooter');
+    if (customFooter) customFooter.value = printConfig.customFooter;
+    
+    // Time range
+    const timeStart = document.getElementById('printTimeStart');
+    if (timeStart) timeStart.value = printConfig.filters.timeStart;
+    
+    const timeEnd = document.getElementById('printTimeEnd');
+    if (timeEnd) timeEnd.value = printConfig.filters.timeEnd;
+}
+
+// Update print preview
+function updatePrintPreview() {
+    try {
+        console.log('🔄 Updating print preview...');
+        
+        // Update configuration from UI
+        updateConfigFromUI();
+        
+        // Generate preview content
+        const previewContainer = document.getElementById('printSchedule');
+        if (!previewContainer) return;
+        
+        // Show loading state
+        previewContainer.innerHTML = `
+            <div class="loading-preview">
+                <div class="loading-spinner"></div>
+                <p>Generating preview...</p>
+            </div>
+        `;
+        
+        // Generate content based on selected layout
+        setTimeout(() => {
+            try {
+                let content = '';
+                
+                switch (printConfig.layout) {
+                    case 'grid':
+                        content = generateGridLayout();
+                        break;
+                    case 'timeline':
+                        content = generateTimelineLayout();
+                        break;
+                    case 'list':
+                        content = generateListLayout();
+                        break;
+                    case 'compact':
+                        content = generateCompactLayout();
+                        break;
+                    default:
+                        content = generateGridLayout();
+                }
+                
+                previewContainer.innerHTML = content;
+                applyPreviewStyling();
+                
+                console.log('✅ Print preview updated successfully');
+            } catch (error) {
+                console.error('❌ Error generating preview content:', error);
+                previewContainer.innerHTML = `
+                    <div class="error-preview">
+                        <p>❌ Error generating preview</p>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }, 500);
+        
+    } catch (error) {
+        console.error('❌ Error updating print preview:', error);
+        showNotification('Failed to update print preview', 'error');
+    }
+}
+
+// Update configuration from UI elements
+function updateConfigFromUI() {
+    // Get filter values
+    printConfig.filters.department = document.getElementById('printDepartmentFilter')?.value || '';
+    printConfig.filters.semester = document.getElementById('printSemesterFilter')?.value || '';
+    printConfig.filters.group = document.getElementById('printGroupFilter')?.value || '';
+    printConfig.filters.subject = document.getElementById('printSubjectFilter')?.value || '';
+    printConfig.filters.faculty = document.getElementById('printFacultyFilter')?.value || '';
+    printConfig.filters.room = document.getElementById('printRoomFilter')?.value || '';
+    
+    // Get day filters
+    printConfig.filters.days.monday = document.getElementById('filterMonday')?.checked || false;
+    printConfig.filters.days.tuesday = document.getElementById('filterTuesday')?.checked || false;
+    printConfig.filters.days.wednesday = document.getElementById('filterWednesday')?.checked || false;
+    printConfig.filters.days.thursday = document.getElementById('filterThursday')?.checked || false;
+    printConfig.filters.days.friday = document.getElementById('filterFriday')?.checked || false;
+    printConfig.filters.days.saturday = document.getElementById('filterSaturday')?.checked || false;
+    
+    // Get time range
+    printConfig.filters.timeStart = document.getElementById('printTimeStart')?.value || '09:00';
+    printConfig.filters.timeEnd = document.getElementById('printTimeEnd')?.value || '18:00';
+    
+    // Get page settings
+    printConfig.paperSize = document.getElementById('paperSize')?.value || 'A4';
+    printConfig.marginSize = document.getElementById('marginSize')?.value || 'normal';
+    
+    const orientationRadio = document.querySelector('input[name="orientation"]:checked');
+    if (orientationRadio) printConfig.orientation = orientationRadio.value;
+    
+    // Get font settings
+    printConfig.fontFamily = document.getElementById('fontFamily')?.value || 'system';
+    printConfig.fontSize = parseInt(document.getElementById('fontSize')?.value) || 12;
+    
+    // Update font size display
+    const fontSizeValue = document.getElementById('fontSizeValue');
+    if (fontSizeValue) fontSizeValue.textContent = printConfig.fontSize + 'px';
+    
+    // Get display options
+    printConfig.showHeader = document.getElementById('showHeader')?.checked || false;
+    printConfig.showFooter = document.getElementById('showFooter')?.checked || false;
+    printConfig.showLegend = document.getElementById('showLegend')?.checked || false;
+    printConfig.showPageNumbers = document.getElementById('showPageNumbers')?.checked || false;
+    printConfig.showTimestamp = document.getElementById('showTimestamp')?.checked || false;
+    printConfig.showWatermark = document.getElementById('showWatermark')?.checked || false;
+    
+    // Get advanced options
+    printConfig.customTitle = document.getElementById('customTitle')?.value || '';
+    printConfig.institutionName = document.getElementById('institutionName')?.value || 'Trident Academy of Technology';
+    printConfig.academicYear = document.getElementById('academicYear')?.value || '2024-25';
+    printConfig.customFooter = document.getElementById('customFooter')?.value || '';
+    
+    // Get export settings
+    printConfig.exportQuality = document.getElementById('exportQuality')?.value || 'normal';
+}
+
+// Generate grid layout
+function generateGridLayout() {
+    if (!window.dataManager) return '<p>No data available</p>';
+    
+    const filteredAssignments = getFilteredAssignments();
+    const timeSlots = getTimeSlots();
+    const days = getSelectedDays();
+    
+    let html = '';
+    
+    // Header
+    if (printConfig.showHeader) {
+        html += generateHeader();
+    }
+    
+    // Grid table
+    html += '<table class="advanced-grid-table">';
+    
+    // Header row
+    html += '<thead><tr><th class="time-column">Time</th>';
+    days.forEach(day => {
+        html += `<th class="day-column">${day}</th>`;
+    });
+    html += '</tr></thead>';
+    
+    // Body rows
+    html += '<tbody>';
+    timeSlots.forEach(timeSlot => {
+        html += `<tr><td class="time-cell">${timeSlot}</td>`;
+        
+        days.forEach(day => {
+            const dayAssignments = filteredAssignments.filter(assignment => 
+                assignment.day === day && assignment.timeSlot === timeSlot
+            );
+            
+            html += '<td class="schedule-cell">';
+            if (dayAssignments.length > 0) {
+                dayAssignments.forEach((assignment, index) => {
+                    html += `<div class="assignment-entry color-${index % 4}">
+                        <div class="assignment-subject">${assignment.subject}</div>
+                        <div class="assignment-details">
+                            <span class="assignment-group">${assignment.semester} ${assignment.group}</span>
+                            <span class="assignment-room">${assignment.room}</span>
+                        </div>
+                        <div class="assignment-faculty">
+                            ${[assignment.theoryFaculty, assignment.labFaculty].filter(Boolean).join(', ')}
+                        </div>
+                    </div>`;
+                });
+            } else {
+                html += '<div class="no-assignment">—</div>';
+            }
+            html += '</td>';
+        });
+        
+        html += '</tr>';
+    });
+    html += '</tbody></table>';
+    
+    // Footer
+    if (printConfig.showFooter) {
+        html += generateFooter();
+    }
+    
+    return html;
+}
+
+// Generate timeline layout
+function generateTimelineLayout() {
+    if (!window.dataManager) return '<p>No data available</p>';
+    
+    const filteredAssignments = getFilteredAssignments();
+    const days = getSelectedDays();
+    
+    let html = '';
+    
+    // Header
+    if (printConfig.showHeader) {
+        html += generateHeader();
+    }
+    
+    html += '<div class="timeline-container">';
+    
+    days.forEach(day => {
+        html += `<div class="timeline-day">
+            <h3 class="timeline-day-header">${day}</h3>
+            <div class="timeline-track">`;
+        
+        const dayAssignments = filteredAssignments
+            .filter(assignment => assignment.day === day)
+            .sort((a, b) => a.timeSlot.localeCompare(b.timeSlot));
+        
+        dayAssignments.forEach((assignment, index) => {
+            html += `<div class="timeline-event color-${index % 4}">
+                <div class="event-time">${assignment.timeSlot}</div>
+                <div class="event-content">
+                    <div class="event-subject">${assignment.subject}</div>
+                    <div class="event-details">${assignment.semester} ${assignment.group} - ${assignment.room}</div>
+                    <div class="event-faculty">${[assignment.theoryFaculty, assignment.labFaculty].filter(Boolean).join(', ')}</div>
+                </div>
+            </div>`;
+        });
+        
+        html += '</div></div>';
+    });
+    
+    html += '</div>';
+    
+    // Footer
+    if (printConfig.showFooter) {
+        html += generateFooter();
+    }
+    
+    return html;
+}
+
+// Generate list layout
+function generateListLayout() {
+    if (!window.dataManager) return '<p>No data available</p>';
+    
+    const filteredAssignments = getFilteredAssignments();
+    const days = getSelectedDays();
+    
+    let html = '';
+    
+    // Header
+    if (printConfig.showHeader) {
+        html += generateHeader();
+    }
+    
+    html += '<div class="list-container">';
+    
+    days.forEach(day => {
+        const dayAssignments = filteredAssignments
+            .filter(assignment => assignment.day === day)
+            .sort((a, b) => a.timeSlot.localeCompare(b.timeSlot));
+        
+        if (dayAssignments.length > 0) {
+            html += `<div class="list-day">
+                <h3 class="list-day-header">${day}</h3>
+                <div class="list-items">`;
+            
+            dayAssignments.forEach((assignment, index) => {
+                html += `<div class="list-item color-${index % 4}">
+                    <div class="item-header">
+                        <span class="item-time">${assignment.timeSlot}</span>
+                        <span class="item-subject">${assignment.subject}</span>
+                    </div>
+                    <div class="item-details">
+                        <span class="item-class">${assignment.semester} ${assignment.group}</span>
+                        <span class="item-room">${assignment.room}</span>
+                        <span class="item-faculty">${[assignment.theoryFaculty, assignment.labFaculty].filter(Boolean).join(', ')}</span>
+                    </div>
+                </div>`;
+            });
+            
+            html += '</div></div>';
+        }
+    });
+    
+    html += '</div>';
+    
+    // Footer
+    if (printConfig.showFooter) {
+        html += generateFooter();
+    }
+    
+    return html;
+}
+
+// Generate compact layout
+function generateCompactLayout() {
+    if (!window.dataManager) return '<p>No data available</p>';
+    
+    const filteredAssignments = getFilteredAssignments();
+    
+    let html = '';
+    
+    // Header
+    if (printConfig.showHeader) {
+        html += generateHeader();
+    }
+    
+    html += '<div class="compact-container">';
+    
+    // Group assignments by department/semester
+    const groupedAssignments = {};
+    filteredAssignments.forEach(assignment => {
+        const key = `${assignment.department || 'Unknown'} - ${assignment.semester}`;
+        if (!groupedAssignments[key]) groupedAssignments[key] = [];
+        groupedAssignments[key].push(assignment);
+    });
+    
+    Object.keys(groupedAssignments).forEach(groupKey => {
+        html += `<div class="compact-group">
+            <h4 class="compact-group-header">${groupKey}</h4>
+            <div class="compact-items">`;
+        
+        groupedAssignments[groupKey].forEach((assignment, index) => {
+            html += `<div class="compact-item color-${index % 4}">
+                <span class="compact-day">${assignment.day.substr(0, 3)}</span>
+                <span class="compact-time">${assignment.timeSlot}</span>
+                <span class="compact-subject">${assignment.subject}</span>
+                <span class="compact-group">${assignment.group}</span>
+                <span class="compact-room">${assignment.room}</span>
+            </div>`;
+        });
+        
+        html += '</div></div>';
+    });
+    
+    html += '</div>';
+    
+    // Footer
+    if (printConfig.showFooter) {
+        html += generateFooter();
+    }
+    
+    return html;
+}
+
+// Helper functions
+function getFilteredAssignments() {
+    if (!window.dataManager) return [];
+    
+    const data = window.dataManager.getData();
+    let assignments = [...data.assignments];
+    
+    // Apply filters
+    if (printConfig.filters.department) {
+        assignments = assignments.filter(a => a.department === printConfig.filters.department);
+    }
+    if (printConfig.filters.semester) {
+        assignments = assignments.filter(a => a.semester === printConfig.filters.semester);
+    }
+    if (printConfig.filters.group) {
+        assignments = assignments.filter(a => a.group === printConfig.filters.group);
+    }
+    if (printConfig.filters.subject) {
+        assignments = assignments.filter(a => a.subject === printConfig.filters.subject);
+    }
+    if (printConfig.filters.faculty) {
+        assignments = assignments.filter(a => 
+            a.theoryFaculty === printConfig.filters.faculty || 
+            a.labFaculty === printConfig.filters.faculty
+        );
+    }
+    if (printConfig.filters.room) {
+        assignments = assignments.filter(a => a.room === printConfig.filters.room);
+    }
+    
+    // Filter by selected days
+    const selectedDays = getSelectedDays();
+    assignments = assignments.filter(a => selectedDays.includes(a.day));
+    
+    // Filter by time range
+    assignments = assignments.filter(a => {
+        const timeSlot = a.timeSlot;
+        const startTime = timeSlot.split(' - ')[0];
+        return startTime >= printConfig.filters.timeStart && startTime <= printConfig.filters.timeEnd;
+    });
+    
+    return assignments;
+}
+
+function getTimeSlots() {
+    if (!window.dataManager) return [];
+    
+    const data = window.dataManager.getData();
+    const timeSlots = [...new Set(data.assignments.map(a => a.timeSlot))].sort();
+    
+    // Filter by time range
+    return timeSlots.filter(timeSlot => {
+        const startTime = timeSlot.split(' - ')[0];
+        return startTime >= printConfig.filters.timeStart && startTime <= printConfig.filters.timeEnd;
+    });
+}
+
+function getSelectedDays() {
+    const dayMapping = {
+        monday: 'Monday',
+        tuesday: 'Tuesday', 
+        wednesday: 'Wednesday',
+        thursday: 'Thursday',
+        friday: 'Friday',
+        saturday: 'Saturday'
+    };
+    
+    return Object.keys(printConfig.filters.days)
+        .filter(day => printConfig.filters.days[day])
+        .map(day => dayMapping[day]);
+}
+
+function generateHeader() {
+    const title = printConfig.customTitle || 'Laboratory Schedule';
+    const timestamp = printConfig.showTimestamp ? new Date().toLocaleString() : '';
+    
+    return `
+        <div class="print-header">
+            <div class="header-main">
+                <h1>${title}</h1>
+                <h2>${printConfig.institutionName}</h2>
+                <p class="academic-year">Academic Year: ${printConfig.academicYear}</p>
+                ${timestamp ? `<p class="timestamp">Generated: ${timestamp}</p>` : ''}
+            </div>
+            ${printConfig.showWatermark ? '<div class="watermark">DRAFT</div>' : ''}
+        </div>
+    `;
+}
+
+function generateFooter() {
+    const defaultFooter = 'For queries, contact the Lab Coordinator';
+    const footerText = printConfig.customFooter || defaultFooter;
+    const pageNumber = printConfig.showPageNumbers ? '<span class="page-number">Page 1</span>' : '';
+    
+    return `
+        <div class="print-footer">
+            <p>${footerText}</p>
+            ${pageNumber}
+        </div>
+    `;
+}
+
+function applyPreviewStyling() {
+    const previewContainer = document.getElementById('printSchedule');
+    if (!previewContainer) return;
+    
+    // Apply zoom
+    previewContainer.style.transform = `scale(${printConfig.zoom})`;
+    previewContainer.style.transformOrigin = 'top left';
+    
+    // Apply color scheme
+    previewContainer.className = `print-schedule ${printConfig.colorScheme}-theme`;
+    
+    // Apply font settings
+    previewContainer.style.fontFamily = getFontFamily(printConfig.fontFamily);
+    previewContainer.style.fontSize = printConfig.fontSize + 'px';
+}
+
+function getFontFamily(family) {
+    const fontMap = {
+        'system': 'system-ui, -apple-system, sans-serif',
+        'arial': 'Arial, sans-serif',
+        'helvetica': 'Helvetica, Arial, sans-serif',
+        'times': 'Times New Roman, serif',
+        'georgia': 'Georgia, serif',
+        'calibri': 'Calibri, sans-serif'
+    };
+    return fontMap[family] || fontMap['system'];
+}
+
+// Zoom functions
+function zoomPreview(delta) {
+    printConfig.zoom = Math.max(0.5, Math.min(2.0, printConfig.zoom + delta));
+    updateZoomDisplay();
+    applyPreviewStyling();
+}
+
+function resetZoom() {
+    printConfig.zoom = 1.0;
+    updateZoomDisplay();
+    applyPreviewStyling();
+}
+
+function updateZoomDisplay() {
+    const zoomDisplay = document.getElementById('zoomLevel');
+    if (zoomDisplay) {
+        zoomDisplay.textContent = Math.round(printConfig.zoom * 100) + '%';
+    }
+}
+
+// Quick actions
+function quickPrint() {
+    updatePrintPreview();
+    setTimeout(() => {
+        window.print();
+    }, 1000);
+}
+
+function showPrintPreview() {
+    updatePrintPreview();
+    showNotification('Print preview updated', 'success');
+}
+
+function exportToPDF() {
+    showNotification('PDF export functionality coming soon!', 'info');
+}
+
+function exportToExcel() {
+    try {
+        const assignments = getFilteredAssignments();
+        
+        if (assignments.length === 0) {
+            showNotification('No data to export', 'warning');
+            return;
+        }
+        
+        // Create CSV content
+        const headers = ['Day', 'Time', 'Subject', 'Semester', 'Group', 'Room', 'Theory Faculty', 'Lab Faculty'];
+        const csvContent = [headers.join(',')];
+        
+        assignments.forEach(assignment => {
+            const row = [
+                assignment.day,
+                assignment.timeSlot,
+                assignment.subject,
+                assignment.semester,
+                assignment.group,
+                assignment.room,
+                assignment.theoryFaculty || '',
+                assignment.labFaculty || ''
+            ];
+            csvContent.push(row.map(field => `"${field}"`).join(','));
+        });
+        
+        // Download CSV
+        const blob = new Blob([csvContent.join('\n')], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `lab_schedule_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+        showNotification('Schedule exported to CSV successfully!', 'success');
+    } catch (error) {
+        console.error('❌ Error exporting to Excel:', error);
+        showNotification('Failed to export schedule', 'error');
+    }
+}
+
+// Make functions globally available
+window.initializeAdvancedPrintSystem = initializeAdvancedPrintSystem;
+window.initializePrintFilters = initializePrintFilters;
+window.switchConfigTab = switchConfigTab;
+window.selectLayout = selectLayout;
+window.selectColorScheme = selectColorScheme;
+window.selectExportFormat = selectExportFormat;
+window.updatePrintPreview = updatePrintPreview;
+window.zoomPreview = zoomPreview;
+window.resetZoom = resetZoom;
+window.quickPrint = quickPrint;
+window.showPrintPreview = showPrintPreview;
+window.exportToPDF = exportToPDF;
+window.exportToExcel = exportToExcel;

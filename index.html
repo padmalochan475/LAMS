@@ -237,20 +237,25 @@
                     </div>
                     
                     <div class="form-section">
-                        <h3>Faculty Assignment</h3>
+                        <h3>Faculty Assignment <span style="font-size: 0.8rem; color: var(--color-text-secondary);">(At least one required)</span></h3>
                         <div class="form-row">
                             <div class="form-group">
-                                <label class="form-label">Theory Faculty</label>
-                                <select class="form-control" id="assignmentTheoryFaculty" required>
-                                    <option value="">Select Theory Faculty</option>
+                                <label class="form-label">Theory Faculty <span style="color: var(--color-text-secondary); font-size: 0.8rem;">(Optional)</span></label>
+                                <select class="form-control" id="assignmentTheoryFaculty">
+                                    <option value="">Select Theory Faculty (Optional)</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Lab Faculty</label>
-                                <select class="form-control" id="assignmentLabFaculty" required>
-                                    <option value="">Select Lab Faculty</option>
+                                <label class="form-label">Lab Faculty <span style="color: var(--color-text-secondary); font-size: 0.8rem;">(Optional)</span></label>
+                                <select class="form-control" id="assignmentLabFaculty">
+                                    <option value="">Select Lab Faculty (Optional)</option>
                                 </select>
                             </div>
+                        </div>
+                        <div class="faculty-assignment-note" style="background: var(--color-bg-1); padding: var(--space-8); border-radius: var(--radius-sm); margin-bottom: var(--space-12); border-left: 3px solid var(--color-info);">
+                            <small style="color: var(--color-text-secondary);">
+                                💡 <strong>Tip:</strong> Assign only the faculty needed for this class. For theory-only classes, assign only Theory Faculty. For lab-only classes, assign only Lab Faculty. For mixed classes, assign both.
+                            </small>
                         </div>
                     </div>
                     
@@ -534,14 +539,223 @@
                     </div>
                 </div>
                 
+                <!-- New Advanced Analytics -->
+                
+                <!-- Time Slot Efficiency Analysis -->
+                <div class="glass-card">
+                    <h3>⏰ Time Slot Efficiency Analysis</h3>
+                    <div class="analytics-filters">
+                        <select id="timeSlotFilter" class="form-control" onchange="updateTimeSlotAnalysis()">
+                            <option value="">All Time Slots</option>
+                            <option value="morning">Morning (9-12)</option>
+                            <option value="afternoon">Afternoon (12-16)</option>
+                            <option value="evening">Evening (16-18)</option>
+                        </select>
+                    </div>
+                    <div class="chart-container" style="position: relative; height: 300px;">
+                        <canvas id="timeSlotChart"></canvas>
+                    </div>
+                    <div class="analytics-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Most Utilized Time:</span>
+                            <span id="peakTimeSlot" class="stat-value">-</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Efficiency Rate:</span>
+                            <span id="timeEfficiency" class="stat-value">0%</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Free Slots:</span>
+                            <span id="availableSlots" class="stat-value">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lab vs Theory Distribution -->
+                <div class="glass-card">
+                    <h3>🔬 Lab vs Theory Distribution</h3>
+                    <div class="analytics-filters">
+                        <label>
+                            <input type="checkbox" id="showByDepartment" onchange="updateLabTheoryAnalysis()"> Group by Department
+                        </label>
+                        <label>
+                            <input type="checkbox" id="showPercentage" onchange="updateLabTheoryAnalysis()"> Show Percentages
+                        </label>
+                    </div>
+                    <div class="chart-container" style="position: relative; height: 300px;">
+                        <canvas id="labTheoryChart"></canvas>
+                    </div>
+                    <div class="analytics-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Lab Classes:</span>
+                            <span id="totalLabClasses" class="stat-value">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Theory Classes:</span>
+                            <span id="totalTheoryClasses" class="stat-value">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Lab/Theory Ratio:</span>
+                            <span id="labTheoryRatio" class="stat-value">0:0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Faculty Performance Metrics -->
+                <div class="glass-card">
+                    <h3>📈 Faculty Performance Metrics</h3>
+                    <div class="analytics-filters">
+                        <select id="performanceMetric" class="form-control" onchange="updateFacultyPerformance()">
+                            <option value="workload">Workload Distribution</option>
+                            <option value="diversity">Subject Diversity</option>
+                            <option value="efficiency">Teaching Efficiency</option>
+                        </select>
+                        <input type="range" id="performanceThreshold" min="0" max="100" value="75" oninput="updateFacultyPerformance()" style="flex: 1;">
+                        <span id="thresholdDisplay" class="threshold-display">75%</span>
+                    </div>
+                    <div class="chart-container" style="position: relative; height: 300px;">
+                        <canvas id="facultyPerformanceChart"></canvas>
+                    </div>
+                    <div class="analytics-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Top Performer:</span>
+                            <span id="topPerformer" class="stat-value">-</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Average Score:</span>
+                            <span id="avgPerformanceScore" class="stat-value">0%</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Above Threshold:</span>
+                            <span id="aboveThreshold" class="stat-value">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Room Utilization Heatmap -->
+                <div class="glass-card">
+                    <h3>🏫 Room Utilization Heatmap</h3>
+                    <div class="analytics-filters">
+                        <select id="roomTypeFilter" class="form-control" onchange="updateRoomUtilization()">
+                            <option value="">All Rooms</option>
+                            <option value="lab">Lab Rooms Only</option>
+                            <option value="theory">Theory Rooms Only</option>
+                        </select>
+                        <select id="dayFilter" class="form-control" onchange="updateRoomUtilization()">
+                            <option value="">All Days</option>
+                            <option value="monday">Monday</option>
+                            <option value="tuesday">Tuesday</option>
+                            <option value="wednesday">Wednesday</option>
+                            <option value="thursday">Thursday</option>
+                            <option value="friday">Friday</option>
+                            <option value="saturday">Saturday</option>
+                        </select>
+                    </div>
+                    <div class="chart-container" style="position: relative; height: 300px;">
+                        <canvas id="roomUtilizationChart"></canvas>
+                    </div>
+                    <div class="analytics-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Most Used Room:</span>
+                            <span id="mostUsedRoom" class="stat-value">-</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Average Utilization:</span>
+                            <span id="avgRoomUtilization" class="stat-value">0%</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Underutilized Rooms:</span>
+                            <span id="underutilizedRooms" class="stat-value">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Assignment Complexity Analysis -->
+                <div class="glass-card">
+                    <h3>🎯 Assignment Complexity Analysis</h3>
+                    <div class="analytics-filters">
+                        <select id="complexityView" class="form-control" onchange="updateComplexityAnalysis()">
+                            <option value="faculty">By Faculty Count</option>
+                            <option value="timing">By Time Conflicts</option>
+                            <option value="resources">By Resource Requirements</option>
+                        </select>
+                        <label>
+                            <input type="checkbox" id="showComplexityTrends" onchange="updateComplexityAnalysis()"> Show Trends
+                        </label>
+                    </div>
+                    <div class="chart-container" style="position: relative; height: 300px;">
+                        <canvas id="complexityChart"></canvas>
+                    </div>
+                    <div class="analytics-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Most Complex Assignment:</span>
+                            <span id="mostComplexAssignment" class="stat-value">-</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Avg Complexity Score:</span>
+                            <span id="avgComplexity" class="stat-value">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">High Complexity Count:</span>
+                            <span id="highComplexityCount" class="stat-value">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Resource Optimization Dashboard -->
+                <div class="glass-card" style="grid-column: 1 / -1;">
+                    <h3>🎛️ Resource Optimization Dashboard</h3>
+                    <div class="analytics-filters">
+                        <select id="optimizationView" class="form-control" onchange="updateOptimizationDashboard()">
+                            <option value="overview">Overview</option>
+                            <option value="conflicts">Conflict Analysis</option>
+                            <option value="suggestions">Optimization Suggestions</option>
+                        </select>
+                        <button class="btn btn--primary" onclick="generateOptimizationReport()">
+                            📊 Generate Report
+                        </button>
+                    </div>
+                    <div class="optimization-dashboard">
+                        <div class="optimization-grid">
+                            <div class="optimization-card">
+                                <h4>⚡ Quick Stats</h4>
+                                <div id="quickStats" class="quick-stats">
+                                    <div class="quick-stat">
+                                        <span class="quick-stat-value" id="totalAssignments">0</span>
+                                        <span class="quick-stat-label">Total Assignments</span>
+                                    </div>
+                                    <div class="quick-stat">
+                                        <span class="quick-stat-value" id="resourceConflicts">0</span>
+                                        <span class="quick-stat-label">Conflicts</span>
+                                    </div>
+                                    <div class="quick-stat">
+                                        <span class="quick-stat-value" id="optimizationScore">0%</span>
+                                        <span class="quick-stat-label">Optimization</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="optimization-card">
+                                <h4>🔧 Suggestions</h4>
+                                <div id="optimizationSuggestions" class="suggestions-list">
+                                    <p class="empty-state">Analyzing schedule for optimization opportunities...</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chart-container" style="position: relative; height: 250px; margin-top: 20px;">
+                            <canvas id="optimizationChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Faculty Workload Table -->
                 <div class="glass-card" style="grid-column: 1 / -1;">
                     <h3>👨‍🏫 Faculty Workload Analysis</h3>
                     <div class="analytics-filters">
                         <select id="facultyTypeFilter" class="form-control" onchange="updateFacultyWorkloadTable()">
                             <option value="all">All Faculty</option>
-                            <option value="theory">Theory Faculty Only</option>
-                            <option value="lab">Lab Faculty Only</option>
+                            <option value="theory">Theory Faculty</option>
+                            <option value="lab">Lab Faculty</option>
+                            <option value="mixed">Mixed Assignment Faculty</option>
                         </select>
                         <input type="text" id="facultySearchFilter" class="form-control" placeholder="Search faculty..." oninput="updateFacultyWorkloadTable()" style="flex: 1; min-width: 200px;">
                     </div>
@@ -552,68 +766,319 @@
             </div>
         </div>
 
-        <!-- Print Tab -->
+        <!-- Print Tab - Advanced Professional Print System -->
         <div class="tab-content" id="print-tab">
-            <div class="glass-card no-print">
-                <h2>Professional A4 Print System</h2>
-                <div class="print-controls">
-                    <div class="form-group">
-                        <label class="form-label">Department Filter</label>
-                        <select class="form-control" id="printDepartmentFilter">
-                            <option value="">All Departments</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Semester Filter</label>
-                        <select class="form-control" id="printSemesterFilter">
-                            <option value="">All Semesters</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Group Filter</label>
-                        <select class="form-control" id="printGroupFilter">
-                            <option value="">All Groups</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <button class="btn btn--secondary" onclick="toggleScheduleOrientation()">
-                            <span class="nav-icon">🔄</span> Swap View
-                        </button>
-                    </div>
-                    <div class="form-group">
-                        <button class="btn btn--secondary" onclick="editAcademicYear()">
-                            <span class="nav-icon">📅</span> Edit Academic Year
-                        </button>
-                    </div>
-                    <label class="form-group" style="display:flex; align-items:center; gap:8px;">
-                        <input type="checkbox" id="forceCondensedMode" onchange="renderPrintSchedule()">
-                        <span>Force Condensed Mode</span>
-                    </label>
-                    <label class="form-group" style="display:flex; align-items:center; gap:8px;">
-                        <input type="checkbox" id="fitOnePage" onchange="renderPrintSchedule()">
-                        <span>Fit to One Page</span>
-                    </label>
-                    <button class="btn btn--primary" onclick="window.print()">🖨️ Print Schedule</button>
+            <!-- Print Configuration Panel -->
+            <div class="print-config-panel no-print">
+                <div class="config-header">
+                    <h2>🖨️ Advanced Print & Export System</h2>
+                    <p class="config-subtitle">Professional lab schedule printing with customizable layouts and formats</p>
                 </div>
-            </div>
-            
-            <div id="printSchedule" class="print-schedule">
-                <div class="print-header">
-                    <div class="institute-header">
-                        <h1>INSTITUTE LAB SCHEDULE</h1>
-                        <p class="institute-name">Trident Academy of Technology</p>
-                        <div class="institute-details">
-                            <p>Academic Year: <span id="printAcademicYear">2024-25</span></p>
-                            <p id="printDepartmentTitle">All Departments</p>
-                            <p class="print-date">Generated on: <span id="printDate"></span></p>
+                
+                <!-- Quick Actions -->
+                <div class="quick-actions">
+                    <button class="btn btn--primary btn-large" onclick="quickPrint()">
+                        <span class="btn-icon">🖨️</span> Quick Print
+                    </button>
+                    <button class="btn btn--secondary btn-large" onclick="showPrintPreview()">
+                        <span class="btn-icon">👁️</span> Preview
+                    </button>
+                    <button class="btn btn--outline btn-large" onclick="exportToPDF()">
+                        <span class="btn-icon">📄</span> Export PDF
+                    </button>
+                    <button class="btn btn--outline btn-large" onclick="exportToExcel()">
+                        <span class="btn-icon">📊</span> Export Excel
+                    </button>
+                </div>
+
+                <!-- Configuration Tabs -->
+                <div class="config-tabs">
+                    <button class="config-tab active" onclick="switchConfigTab('filters')">
+                        <span class="tab-icon">🔍</span> Filters
+                    </button>
+                    <button class="config-tab" onclick="switchConfigTab('layout')">
+                        <span class="tab-icon">📋</span> Layout
+                    </button>
+                    <button class="config-tab" onclick="switchConfigTab('styling')">
+                        <span class="tab-icon">🎨</span> Styling
+                    </button>
+                    <button class="config-tab" onclick="switchConfigTab('export')">
+                        <span class="tab-icon">⚙️</span> Advanced
+                    </button>
+                </div>
+
+                <!-- Filters Tab -->
+                <div class="config-tab-content active" id="filters-tab">
+                    <div class="filter-section">
+                        <h3>📊 Data Filters</h3>
+                        <div class="filter-grid">
+                            <div class="filter-group">
+                                <label class="form-label">Department</label>
+                                <select class="form-control" id="printDepartmentFilter" onchange="updatePrintPreview()">
+                                    <option value="">All Departments</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label class="form-label">Semester</label>
+                                <select class="form-control" id="printSemesterFilter" onchange="updatePrintPreview()">
+                                    <option value="">All Semesters</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label class="form-label">Group</label>
+                                <select class="form-control" id="printGroupFilter" onchange="updatePrintPreview()">
+                                    <option value="">All Groups</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label class="form-label">Subject</label>
+                                <select class="form-control" id="printSubjectFilter" onchange="updatePrintPreview()">
+                                    <option value="">All Subjects</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label class="form-label">Faculty</label>
+                                <select class="form-control" id="printFacultyFilter" onchange="updatePrintPreview()">
+                                    <option value="">All Faculty</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label class="form-label">Room</label>
+                                <select class="form-control" id="printRoomFilter" onchange="updatePrintPreview()">
+                                    <option value="">All Rooms</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <h3>📅 Date & Time Filters</h3>
+                        <div class="filter-grid">
+                            <div class="filter-group">
+                                <label class="form-label">Days</label>
+                                <div class="checkbox-group">
+                                    <label><input type="checkbox" id="filterMonday" checked onchange="updatePrintPreview()"> Monday</label>
+                                    <label><input type="checkbox" id="filterTuesday" checked onchange="updatePrintPreview()"> Tuesday</label>
+                                    <label><input type="checkbox" id="filterWednesday" checked onchange="updatePrintPreview()"> Wednesday</label>
+                                    <label><input type="checkbox" id="filterThursday" checked onchange="updatePrintPreview()"> Thursday</label>
+                                    <label><input type="checkbox" id="filterFriday" checked onchange="updatePrintPreview()"> Friday</label>
+                                    <label><input type="checkbox" id="filterSaturday" checked onchange="updatePrintPreview()"> Saturday</label>
+                                </div>
+                            </div>
+                            <div class="filter-group">
+                                <label class="form-label">Time Range</label>
+                                <div class="time-range">
+                                    <input type="time" class="form-control" id="printTimeStart" value="09:00" onchange="updatePrintPreview()">
+                                    <span>to</span>
+                                    <input type="time" class="form-control" id="printTimeEnd" value="18:00" onchange="updatePrintPreview()">
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div id="printGrid" class="print-grid">
-                    <p class="empty-state">No assignments to print.</p>
+
+                <!-- Layout Tab -->
+                <div class="config-tab-content" id="layout-tab">
+                    <div class="layout-section">
+                        <h3>📋 Layout Options</h3>
+                        <div class="layout-selector">
+                            <div class="layout-option active" data-layout="grid" onclick="selectLayout('grid')">
+                                <div class="layout-preview">
+                                    <div class="preview-grid"></div>
+                                </div>
+                                <span class="layout-name">Grid View</span>
+                                <p class="layout-desc">Traditional time-slot grid layout</p>
+                            </div>
+                            <div class="layout-option" data-layout="timeline" onclick="selectLayout('timeline')">
+                                <div class="layout-preview">
+                                    <div class="preview-timeline"></div>
+                                </div>
+                                <span class="layout-name">Timeline View</span>
+                                <p class="layout-desc">Horizontal timeline format</p>
+                            </div>
+                            <div class="layout-option" data-layout="list" onclick="selectLayout('list')">
+                                <div class="layout-preview">
+                                    <div class="preview-list"></div>
+                                </div>
+                                <span class="layout-name">List View</span>
+                                <p class="layout-desc">Detailed list format</p>
+                            </div>
+                            <div class="layout-option" data-layout="compact" onclick="selectLayout('compact')">
+                                <div class="layout-preview">
+                                    <div class="preview-compact"></div>
+                                </div>
+                                <span class="layout-name">Compact View</span>
+                                <p class="layout-desc">Space-efficient format</p>
+                            </div>
+                        </div>
+
+                        <h3>📄 Page Settings</h3>
+                        <div class="page-settings">
+                            <div class="setting-group">
+                                <label class="form-label">Paper Size</label>
+                                <select class="form-control" id="paperSize" onchange="updatePrintPreview()">
+                                    <option value="A4">A4 (210 × 297 mm)</option>
+                                    <option value="A3">A3 (297 × 420 mm)</option>
+                                    <option value="Letter">Letter (8.5 × 11 in)</option>
+                                    <option value="Legal">Legal (8.5 × 14 in)</option>
+                                    <option value="Tabloid">Tabloid (11 × 17 in)</option>
+                                </select>
+                            </div>
+                            <div class="setting-group">
+                                <label class="form-label">Orientation</label>
+                                <div class="radio-group">
+                                    <label><input type="radio" name="orientation" value="portrait" onchange="updatePrintPreview()"> Portrait</label>
+                                    <label><input type="radio" name="orientation" value="landscape" checked onchange="updatePrintPreview()"> Landscape</label>
+                                </div>
+                            </div>
+                            <div class="setting-group">
+                                <label class="form-label">Margins</label>
+                                <select class="form-control" id="marginSize" onchange="updatePrintPreview()">
+                                    <option value="minimal">Minimal (5mm)</option>
+                                    <option value="normal" selected>Normal (20mm)</option>
+                                    <option value="wide">Wide (30mm)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="print-footer">
-                    <p>For any queries, contact the Lab Coordinator</p>
+
+                <!-- Styling Tab -->
+                <div class="config-tab-content" id="styling-tab">
+                    <div class="styling-section">
+                        <h3>🎨 Visual Styling</h3>
+                        <div class="styling-options">
+                            <div class="style-group">
+                                <label class="form-label">Color Scheme</label>
+                                <div class="color-scheme-selector">
+                                    <div class="color-scheme active" data-scheme="professional" onclick="selectColorScheme('professional')">
+                                        <div class="scheme-preview professional-preview"></div>
+                                        <span>Professional</span>
+                                    </div>
+                                    <div class="color-scheme" data-scheme="vibrant" onclick="selectColorScheme('vibrant')">
+                                        <div class="scheme-preview vibrant-preview"></div>
+                                        <span>Vibrant</span>
+                                    </div>
+                                    <div class="color-scheme" data-scheme="minimal" onclick="selectColorScheme('minimal')">
+                                        <div class="scheme-preview minimal-preview"></div>
+                                        <span>Minimal</span>
+                                    </div>
+                                    <div class="color-scheme" data-scheme="high-contrast" onclick="selectColorScheme('high-contrast')">
+                                        <div class="scheme-preview contrast-preview"></div>
+                                        <span>High Contrast</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="style-group">
+                                <label class="form-label">Font Settings</label>
+                                <div class="font-settings">
+                                    <select class="form-control" id="fontFamily" onchange="updatePrintPreview()">
+                                        <option value="system">System Default</option>
+                                        <option value="arial">Arial</option>
+                                        <option value="helvetica">Helvetica</option>
+                                        <option value="times">Times New Roman</option>
+                                        <option value="georgia">Georgia</option>
+                                        <option value="calibri">Calibri</option>
+                                    </select>
+                                    <div class="font-size-controls">
+                                        <label>Font Size:</label>
+                                        <input type="range" id="fontSize" min="8" max="16" value="12" onchange="updatePrintPreview()">
+                                        <span id="fontSizeValue">12px</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="style-group">
+                                <label class="form-label">Display Options</label>
+                                <div class="display-checkboxes">
+                                    <label><input type="checkbox" id="showHeader" checked onchange="updatePrintPreview()"> Show Header</label>
+                                    <label><input type="checkbox" id="showFooter" checked onchange="updatePrintPreview()"> Show Footer</label>
+                                    <label><input type="checkbox" id="showLegend" checked onchange="updatePrintPreview()"> Show Legend</label>
+                                    <label><input type="checkbox" id="showPageNumbers" checked onchange="updatePrintPreview()"> Page Numbers</label>
+                                    <label><input type="checkbox" id="showTimestamp" checked onchange="updatePrintPreview()"> Timestamp</label>
+                                    <label><input type="checkbox" id="showWatermark" onchange="updatePrintPreview()"> Watermark</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Advanced Tab -->
+                <div class="config-tab-content" id="export-tab">
+                    <div class="advanced-section">
+                        <h3>⚙️ Advanced Options</h3>
+                        <div class="advanced-options">
+                            <div class="option-group">
+                                <label class="form-label">Custom Title</label>
+                                <input type="text" class="form-control" id="customTitle" placeholder="Enter custom title..." onchange="updatePrintPreview()">
+                            </div>
+                            <div class="option-group">
+                                <label class="form-label">Institution Name</label>
+                                <input type="text" class="form-control" id="institutionName" value="Trident Academy of Technology" onchange="updatePrintPreview()">
+                            </div>
+                            <div class="option-group">
+                                <label class="form-label">Academic Year</label>
+                                <input type="text" class="form-control" id="academicYear" value="2024-25" onchange="updatePrintPreview()">
+                            </div>
+                            <div class="option-group">
+                                <label class="form-label">Custom Footer</label>
+                                <textarea class="form-control" id="customFooter" rows="2" placeholder="Enter custom footer text..." onchange="updatePrintPreview()"></textarea>
+                            </div>
+                        </div>
+
+                        <h3>📤 Export Settings</h3>
+                        <div class="export-settings">
+                            <div class="export-format">
+                                <label class="form-label">Export Format</label>
+                                <div class="format-buttons">
+                                    <button class="format-btn active" data-format="pdf" onclick="selectExportFormat('pdf')">
+                                        <span class="format-icon">📄</span> PDF
+                                    </button>
+                                    <button class="format-btn" data-format="excel" onclick="selectExportFormat('excel')">
+                                        <span class="format-icon">📊</span> Excel
+                                    </button>
+                                    <button class="format-btn" data-format="csv" onclick="selectExportFormat('csv')">
+                                        <span class="format-icon">📝</span> CSV
+                                    </button>
+                                    <button class="format-btn" data-format="image" onclick="selectExportFormat('image')">
+                                        <span class="format-icon">🖼️</span> Image
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="quality-settings">
+                                <label class="form-label">Quality Settings</label>
+                                <select class="form-control" id="exportQuality">
+                                    <option value="draft">Draft (Fast)</option>
+                                    <option value="normal" selected>Normal</option>
+                                    <option value="high">High Quality</option>
+                                    <option value="print">Print Ready</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Print Preview Area -->
+            <div class="print-preview-container">
+                <div class="preview-header no-print">
+                    <h3>📄 Live Preview</h3>
+                    <div class="preview-controls">
+                        <button class="btn btn--sm" onclick="zoomPreview(-0.1)">🔍-</button>
+                        <span id="zoomLevel">100%</span>
+                        <button class="btn btn--sm" onclick="zoomPreview(0.1)">🔍+</button>
+                        <button class="btn btn--sm" onclick="resetZoom()">Reset</button>
+                    </div>
+                </div>
+                
+                <div id="printSchedule" class="print-schedule">
+                    <!-- Dynamic content will be inserted here -->
+                    <div class="loading-preview">
+                        <div class="loading-spinner"></div>
+                        <p>Generating preview...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
                 </div>
             </div>
         </div>
