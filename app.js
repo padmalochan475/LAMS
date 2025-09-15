@@ -1687,6 +1687,45 @@ function renderFacultyList(type) {
     }).join('');
 }
 
+// Enhanced Chart.js validation function
+function validateChartJs() {
+    try {
+        // Check if Chart constructor exists
+        if (typeof Chart === 'undefined' || !window.Chart) {
+            return { valid: false, reason: 'Chart constructor not available' };
+        }
+        
+        // Check if Chart.register function exists (Chart.js 3+)
+        if (typeof Chart.register !== 'function') {
+            return { valid: false, reason: 'Chart.register function missing' };
+        }
+        
+        // Check if Chart version is available
+        if (!Chart.version) {
+            return { valid: false, reason: 'Chart version not detected' };
+        }
+        
+        // Try to create a minimal chart configuration
+        const testConfig = {
+            type: 'bar',
+            data: { labels: ['test'], datasets: [{ data: [1] }] },
+            options: { responsive: false }
+        };
+        
+        // Validate configuration without creating actual chart
+        if (!Chart.defaults) {
+            return { valid: false, reason: 'Chart defaults not available' };
+        }
+        
+        console.log(`✅ Chart.js validation passed - Version: ${Chart.version}`);
+        return { valid: true, version: Chart.version };
+        
+    } catch (error) {
+        console.error('❌ Chart.js validation failed:', error);
+        return { valid: false, reason: error.message };
+    }
+}
+
 function renderAnalytics() {
     if (!window.dataManager) return;
     
@@ -1724,25 +1763,50 @@ function renderAnalytics() {
             return;
         }
 
-        // Check if Chart.js is loaded with retry limit and enhanced validation
-        if (typeof Chart === 'undefined') {
+        // Enhanced Chart.js validation with comprehensive checks
+        const chartValidation = validateChartJs();
+        if (!chartValidation.valid) {
             if (!window.chartJsRetryCount) window.chartJsRetryCount = 0;
             window.chartJsRetryCount++;
             
+            console.log(`📊 Chart.js validation failed: ${chartValidation.reason}, retry ${window.chartJsRetryCount}/5...`);
+            
             if (window.chartJsRetryCount <= 5) {
-                console.log(`📊 Chart.js not loaded, retry ${window.chartJsRetryCount}/5...`);
                 showMessage('📊 Loading analytics library...', 'info');
                 
-                // Enhanced retry with validation
+                // Enhanced retry with multiple validation checks
                 setTimeout(() => {
-                    if (typeof Chart !== 'undefined') {
+                    const retryValidation = validateChartJs();
+                    
+                    if (retryValidation.valid) {
                         console.log('✅ Chart.js loaded successfully on retry');
                         window.chartJsRetryCount = 0;
                         renderAnalytics();
                     } else {
-                        renderAnalytics(); // Continue retrying
+                        // Try to reload the script if it's not available
+                        if (window.chartJsRetryCount === 3) {
+                            console.log('🔄 Attempting to reload Chart.js script...');
+                            const existingScript = document.querySelector('script[src*="chart.js"]');
+                            if (existingScript) {
+                                existingScript.remove();
+                            }
+                            
+                            const newScript = document.createElement('script');
+                            newScript.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.min.js';
+                            newScript.onload = () => {
+                                console.log('✅ Chart.js script reloaded');
+                                setTimeout(renderAnalytics, 500);
+                            };
+                            newScript.onerror = () => {
+                                console.error('❌ Chart.js script reload failed');
+                                renderAnalytics(); // Continue with regular retry
+                            };
+                            document.head.appendChild(newScript);
+                        } else {
+                            renderAnalytics(); // Continue retrying
+                        }
                     }
-                }, 1000);
+                }, 1500); // Increased timeout for better loading
                 return;
             } else {
                 console.warn('❌ Chart.js failed to load after 5 attempts. Displaying text-based analytics.');
@@ -1810,14 +1874,31 @@ function renderTextBasedAnalytics() {
 
         const data = window.dataManager.data;
         
+        // Safe data access with fallbacks
+        const assignments = data.assignments || [];
+        const labFaculty = data.labFaculty || [];
+        const theoryFaculty = data.theoryFaculty || [];
+        const rooms = data.rooms || [];
+        const timeSlots = data.timeSlots || [];
+        
         // Generate text-based analytics
-        const totalAssignments = data.assignments.length;
-        const totalFaculty = data.labFaculty.length + data.theoryFaculty.length;
-        const totalRooms = data.rooms.length;
-        const totalTimeSlots = data.timeSlots.length;
+        const totalAssignments = assignments.length;
+        const totalFaculty = labFaculty.length + theoryFaculty.length;
+        const totalRooms = rooms.length;
+        const totalTimeSlots = timeSlots.length;
+        
+        console.log('📊 Rendering text-based analytics with safe data access');
         
         // Calculate faculty workload
         const facultyWorkload = {};
+        assignments.forEach(assignment => {
+            if (assignment.theoryFaculty) {
+                facultyWorkload[assignment.theoryFaculty] = (facultyWorkload[assignment.theoryFaculty] || 0) + 1;
+            }
+            if (assignment.labFaculty) {
+                facultyWorkload[assignment.labFaculty] = (facultyWorkload[assignment.labFaculty] || 0) + 1;
+            }
+        });
         data.assignments.forEach(assignment => {
             const faculty = assignment.faculty;
             if (faculty) {
@@ -5521,10 +5602,10 @@ function generateCompactLayout() {
 
 // Helper functions
 function getFilteredAssignments() {
-    if (!window.dataManager) return [];
+    if (!window.dataManager || !window.dataManager.data) return [];
     
-    const data = window.dataManager.getData();
-    let assignments = [...data.assignments];
+    const data = window.dataManager.data;
+    let assignments = [...(data.assignments || [])];
     
     // Apply filters
     if (printConfig.filters.department) {
@@ -5683,7 +5764,38 @@ function showPrintPreview() {
 }
 
 function exportToPDF() {
-    showNotification('PDF export functionality coming soon!', 'info');
+    try {
+        // Use browser's print to PDF functionality
+        const assignments = getFilteredAssignments();
+        
+        if (assignments.length === 0) {
+            showNotification('No data to export', 'warning');
+            return;
+        }
+        
+        showNotification('Opening print dialog for PDF export...', 'info');
+        
+        // Store current layout and switch to a print-optimized layout
+        const originalLayout = printConfig.layout;
+        selectLayout('list'); // Use list layout for PDF
+        
+        // Trigger print preview update
+        updatePrintPreview();
+        
+        // Open browser print dialog after a brief delay
+        setTimeout(() => {
+            window.print();
+            
+            // Restore original layout after print
+            setTimeout(() => {
+                selectLayout(originalLayout);
+            }, 1000);
+        }, 500);
+        
+    } catch (error) {
+        console.error('❌ Error exporting to PDF:', error);
+        showNotification('Failed to export PDF. Try using browser print instead.', 'error');
+    }
 }
 
 function exportToExcel() {
@@ -5695,36 +5807,67 @@ function exportToExcel() {
             return;
         }
         
-        // Create CSV content
-        const headers = ['Day', 'Time', 'Subject', 'Semester', 'Group', 'Room', 'Theory Faculty', 'Lab Faculty'];
+        // Create comprehensive CSV content with better formatting
+        const headers = [
+            'Day', 'Time Slot', 'Subject', 'Semester', 'Group', 
+            'Lab Room', 'Theory Faculty', 'Lab Faculty', 'Department'
+        ];
         const csvContent = [headers.join(',')];
         
-        assignments.forEach(assignment => {
-            const row = [
-                assignment.day,
-                assignment.timeSlot,
-                assignment.subject,
-                assignment.semester,
-                assignment.group,
-                assignment.room,
-                assignment.theoryFaculty || '',
-                assignment.labFaculty || ''
-            ];
-            csvContent.push(row.map(field => `"${field}"`).join(','));
+        // Sort assignments by day and time for better readability
+        const sortedAssignments = assignments.sort((a, b) => {
+            const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const dayA = dayOrder.indexOf(a.day);
+            const dayB = dayOrder.indexOf(b.day);
+            if (dayA !== dayB) return dayA - dayB;
+            return (a.timeSlot || '').localeCompare(b.timeSlot || '');
         });
         
-        // Download CSV
-        const blob = new Blob([csvContent.join('\n')], { type: 'text/csv' });
+        sortedAssignments.forEach(assignment => {
+            const row = [
+                assignment.day || '',
+                assignment.timeSlot || '',
+                assignment.subject || '',
+                assignment.semester || '',
+                assignment.group || '',
+                assignment.labRoom || assignment.room || '',
+                assignment.theoryFaculty || '',
+                assignment.labFaculty || '',
+                assignment.department || ''
+            ];
+            // Escape quotes and wrap in quotes for CSV safety
+            csvContent.push(row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(','));
+        });
+        
+        // Add summary at the end
+        csvContent.push('');
+        csvContent.push('"=== SUMMARY ==="');
+        csvContent.push(`"Total Assignments:","${assignments.length}"`);
+        csvContent.push(`"Export Date:","${new Date().toLocaleString()}"`);
+        
+        // Create and download file with better filename
+        const blob = new Blob([csvContent.join('\n')], { type: 'text/csv;charset=utf-8;' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `lab_schedule_${new Date().toISOString().split('T')[0]}.csv`;
+        
+        // Generate descriptive filename
+        const date = new Date().toISOString().split('T')[0];
+        const filters = [];
+        if (printConfig.filters.department) filters.push(printConfig.filters.department);
+        if (printConfig.filters.semester) filters.push(`Sem${printConfig.filters.semester}`);
+        if (printConfig.filters.group) filters.push(printConfig.filters.group);
+        
+        const filterSuffix = filters.length > 0 ? `_${filters.join('_')}` : '';
+        a.download = `LAMS_Schedule${filterSuffix}_${date}.csv`;
+        
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
         
-        showNotification('Schedule exported to CSV successfully!', 'success');
+        showNotification(`Schedule exported successfully! ${assignments.length} assignments exported.`, 'success');
+        
     } catch (error) {
         console.error('❌ Error exporting to Excel:', error);
         showNotification('Failed to export schedule', 'error');
