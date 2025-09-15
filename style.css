@@ -2,12 +2,13 @@
   /* Primitive Color Tokens */
   --color-white: rgba(255, 255, 255, 1);
   --color-black: rgba(0, 0, 0, 1);
-  --color-cream-50: rgba(252, 252, 249, 1);
+  --color-cream-50: rgba(248, 248, 245, 1);
   --color-cream-100: rgba(255, 255, 253, 1);
   --color-gray-200: rgba(245, 245, 245, 1);
   --color-gray-300: rgba(167, 169, 169, 1);
   --color-gray-400: rgba(119, 124, 124, 1);
   --color-slate-500: rgba(98, 108, 113, 1);
+  --color-slate-600: rgba(78, 88, 93, 1);
   --color-brown-600: rgba(94, 82, 64, 1);
   --color-charcoal-700: rgba(31, 33, 33, 1);
   --color-charcoal-800: rgba(38, 40, 40, 1);
@@ -273,17 +274,17 @@
   --color-background: var(--color-cream-50);
   --color-surface: var(--color-cream-100);
   --color-text: var(--color-slate-900);
-  --color-text-secondary: var(--color-slate-500);
+  --color-text-secondary: var(--color-slate-600);
   --color-primary: var(--color-teal-500);
   --color-primary-hover: var(--color-teal-600);
   --color-primary-active: var(--color-teal-700);
-  --color-secondary: rgba(var(--color-brown-600-rgb), 0.12);
+  --color-secondary: rgba(var(--color-brown-600-rgb), 0.15);
   --color-secondary-hover: rgba(var(--color-brown-600-rgb), 0.2);
   --color-secondary-active: rgba(var(--color-brown-600-rgb), 0.25);
-  --color-border: rgba(var(--color-brown-600-rgb), 0.2);
+  --color-border: rgba(var(--color-brown-600-rgb), 0.25);
   --color-btn-primary-text: var(--color-cream-50);
-  --color-card-border: rgba(var(--color-brown-600-rgb), 0.12);
-  --color-card-border-inner: rgba(var(--color-brown-600-rgb), 0.12);
+  --color-card-border: rgba(var(--color-brown-600-rgb), 0.18);
+  --color-card-border-inner: rgba(var(--color-brown-600-rgb), 0.15);
   --color-error: var(--color-red-500);
   --color-success: var(--color-teal-500);
   --color-warning: var(--color-orange-500);
@@ -1272,17 +1273,31 @@ body {
   padding: var(--space-8) var(--space-12);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-base);
-  background: var(--color-bg-1);
-  color: var(--color-text-1);
-  font-size: var(--text-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family-base);
+  line-height: 1.5;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.analytics-filters select:hover {
+  border-color: var(--color-primary);
+}
+
+.analytics-filters select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(29, 184, 205, 0.1);
 }
 
 .analytics-filters label {
   display: flex;
   align-items: center;
   gap: var(--space-8);
-  font-size: var(--text-sm);
-  color: var(--color-text-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
   cursor: pointer;
 }
 
@@ -1312,14 +1327,14 @@ body {
 }
 
 .stat-label {
-  font-size: var(--text-sm);
-  color: var(--color-text-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
   font-weight: 500;
 }
 
 .stat-value {
-  font-size: var(--text-base);
-  color: var(--color-text-1);
+  font-size: var(--font-size-base);
+  color: var(--color-text);
   font-weight: 600;
   padding: var(--space-4) var(--space-8);
   background: rgba(29, 184, 205, 0.1);
@@ -3173,7 +3188,7 @@ html {
 
 .status-value {
   font-size: 0.9em;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .health-metrics {
@@ -3194,7 +3209,7 @@ html {
 
 .metric-label {
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--color-text);
 }
 
 .metric-value {
@@ -3215,7 +3230,7 @@ html {
 }
 
 .diagnostic-output .empty-state {
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   text-align: center;
   margin: 0;
   font-family: inherit;
