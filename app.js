@@ -1762,6 +1762,20 @@ function renderAnalytics() {
             return;
         }
 
+        // Ensure analytics tab is visible before validating charts
+        const analyticsTab = document.getElementById('analytics-tab');
+        const isTabVisible = analyticsTab && (analyticsTab.style.display !== 'none');
+        
+        if (!isTabVisible) {
+            console.log('📊 Analytics tab not visible, waiting for tab activation...');
+            // Store flag to render analytics when tab becomes visible
+            window.pendingAnalyticsRender = true;
+            return;
+        }
+        
+        // Clear pending render flag
+        window.pendingAnalyticsRender = false;
+
         // Enhanced Chart.js validation with comprehensive checks
         const chartValidation = validateChartJs();
         if (!chartValidation.valid) {
@@ -1853,8 +1867,24 @@ function renderAnalytics() {
             
             showMessage('📊 Analytics loaded successfully!', 'success');
         } else {
-            console.warn('⚠️ Chart validation failed, falling back to text analytics');
-            renderTextBasedAnalytics();
+            console.warn('⚠️ Chart validation failed, attempting direct chart rendering...');
+            
+            // Fallback: Try to render charts directly without strict validation
+            try {
+                console.log('🔄 Attempting fallback chart rendering...');
+                renderFacultyWorkloadChart();
+                renderSubjectDistributionChart();
+                renderRoomUtilizationChart();
+                renderDepartmentOverviewChart();
+                renderTimeSlotChart();
+                renderHeatmapChart();
+                
+                showMessage('📊 Analytics loaded (fallback mode)!', 'success');
+                console.log('✅ Fallback chart rendering succeeded');
+            } catch (fallbackError) {
+                console.error('❌ Fallback chart rendering failed:', fallbackError);
+                renderTextBasedAnalytics();
+            }
         }
     } catch (e) {
         console.error('Error rendering analytics:', e);
@@ -2127,7 +2157,7 @@ window.validateChartsSystem = function() {
         return false;
     }
     
-    // Check canvas elements
+    // Check canvas elements (with special handling for hidden tabs)
     const chartIds = [
         'facultyWorkloadChart', 'subjectDistributionChart', 'roomUtilizationChart',
         'departmentOverviewChart', 'timeSlotChart', 'heatmapChart'
@@ -2135,15 +2165,31 @@ window.validateChartsSystem = function() {
     
     console.log('🎯 CANVAS ELEMENTS:');
     const canvasResults = {};
+    let canvasValidationFailed = false;
+    
     chartIds.forEach(id => {
         const canvas = document.getElementById(id);
         const canvasOk = !!canvas;
-        const contextOk = canvasOk ? !!canvas.getContext('2d') : false;
+        let contextOk = false;
+        
+        if (canvasOk) {
+            try {
+                const context = canvas.getContext('2d');
+                contextOk = !!context;
+            } catch (error) {
+                console.warn(`⚠️ Context check failed for ${id}:`, error.message);
+                contextOk = false;
+            }
+        }
         
         console.log(`├── ${id}:`, canvasOk ? '✅' : '❌', 
                    `(Context: ${contextOk ? '✅' : '❌'})`);
         
         canvasResults[id] = { canvas: canvasOk, context: contextOk };
+        
+        if (!canvasOk) {
+            canvasValidationFailed = true;
+        }
     });
     
     // Check data availability
@@ -2160,13 +2206,29 @@ window.validateChartsSystem = function() {
     
     console.log('============================');
     
-    return {
-        chartJs: chartJsAvailable,
-        canvases: canvasResults,
-        dataManager: dataOk,
-        allSystemsReady: chartJsAvailable && dataOk && 
-                        Object.values(canvasResults).every(r => r.canvas && r.context)
-    };
+    // For analytics tab, prioritize Chart.js and data availability over canvas validation
+    // Canvas elements may not be fully accessible when tab is hidden
+    const analyticsTab = document.getElementById('analytics-tab');
+    const isAnalyticsTabVisible = analyticsTab && (analyticsTab.style.display !== 'none' || analyticsTab.classList.contains('active'));
+    
+    if (isAnalyticsTabVisible) {
+        // Full validation when tab is visible
+        return {
+            chartJs: chartJsAvailable,
+            canvases: canvasResults,
+            dataManager: dataOk,
+            allSystemsReady: chartJsAvailable && dataOk && 
+                            Object.values(canvasResults).every(r => r.canvas && r.context)
+        };
+    } else {
+        // Relaxed validation when tab might be hidden
+        return {
+            chartJs: chartJsAvailable,
+            canvases: canvasResults,
+            dataManager: dataOk,
+            allSystemsReady: chartJsAvailable && dataOk && !canvasValidationFailed
+        };
+    }
 };
 
 // Enhanced chart rendering with validation
@@ -3765,6 +3827,10 @@ function showTab(tabId, event = null) {
     switch (tabId) {
         case 'analytics':
             console.log(`🔄 Rendering analytics for tab: ${tabId}`);
+            // Check if there was a pending analytics render
+            if (window.pendingAnalyticsRender) {
+                console.log('📊 Processing pending analytics render...');
+            }
             setTimeout(renderAnalytics, 100);
             break;
         case 'dashboard':
