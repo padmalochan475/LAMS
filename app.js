@@ -1693,6 +1693,29 @@ function validateChartJs() {
             return { valid: false, reason: 'Chart defaults not available' };
         }
         
+        // Register Chart.js components if not already registered
+        try {
+            if (typeof Chart.register === 'function' && Chart.LinearScale && Chart.CategoryScale) {
+                Chart.register(
+                    Chart.ArcElement,
+                    Chart.LineElement,
+                    Chart.BarElement,
+                    Chart.PointElement,
+                    Chart.CategoryScale,
+                    Chart.LinearScale,
+                    Chart.RadialLinearScale,
+                    Chart.Title,
+                    Chart.Tooltip,
+                    Chart.Legend,
+                    Chart.Filler
+                );
+                console.log('📊 Chart.js components registered successfully');
+            }
+        } catch (registerError) {
+            console.warn('⚠️ Chart.js component registration failed:', registerError);
+            // Continue anyway, components might be auto-registered
+        }
+        
         console.log(`✅ Chart.js validation passed - Version: ${Chart.version}`);
         return { valid: true, version: Chart.version };
         
@@ -1768,7 +1791,7 @@ function renderAnalytics() {
                             }
                             
                             const newScript = document.createElement('script');
-                            newScript.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.min.js';
+                            newScript.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js';
                             newScript.onload = () => {
                                 console.log('✅ Chart.js script reloaded');
                                 setTimeout(renderAnalytics, 500);
@@ -1996,7 +2019,7 @@ function retryChartLoad() {
         }
         
         const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.min.js';
+        script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js';
         script.onload = () => {
             console.log('✅ Chart.js reloaded successfully');
             setTimeout(() => {
@@ -2092,7 +2115,7 @@ window.validateChartsSystem = function() {
     if (!chartJsAvailable) {
         console.log('🔄 Attempting to reload Chart.js...');
         const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.min.js';
+        script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js';
         script.onload = () => {
             console.log('✅ Chart.js reloaded successfully');
             window.validateChartsSystem();
