@@ -1724,53 +1724,279 @@ function renderAnalytics() {
             return;
         }
 
-        // Check if Chart.js is loaded
+        // Check if Chart.js is loaded with retry limit and enhanced validation
         if (typeof Chart === 'undefined') {
-            console.error('Chart.js is not loaded');
-            showMessage('📊 Loading analytics library...', 'info');
-            setTimeout(renderAnalytics, 1000); // Retry after 1 second
-            return;
+            if (!window.chartJsRetryCount) window.chartJsRetryCount = 0;
+            window.chartJsRetryCount++;
+            
+            if (window.chartJsRetryCount <= 5) {
+                console.log(`📊 Chart.js not loaded, retry ${window.chartJsRetryCount}/5...`);
+                showMessage('📊 Loading analytics library...', 'info');
+                
+                // Enhanced retry with validation
+                setTimeout(() => {
+                    if (typeof Chart !== 'undefined') {
+                        console.log('✅ Chart.js loaded successfully on retry');
+                        window.chartJsRetryCount = 0;
+                        renderAnalytics();
+                    } else {
+                        renderAnalytics(); // Continue retrying
+                    }
+                }, 1000);
+                return;
+            } else {
+                console.warn('❌ Chart.js failed to load after 5 attempts. Displaying text-based analytics.');
+                showMessage('📊 Charts unavailable - showing text analytics', 'warning');
+                renderTextBasedAnalytics();
+                return;
+            }
         }
+        
+        // Reset retry counter on successful load
+        window.chartJsRetryCount = 0;
         
         console.log('📊 Rendering analytics with data:', {
-            assignments: window.dataManager.data.assignments.length,
-            faculty: window.dataManager.data.theoryFaculty.length + window.dataManager.data.labFaculty.length
+            assignments: window.dataManager.data.assignments?.length || 0,
+            faculty: (window.dataManager.data.theoryFaculty?.length || 0) + (window.dataManager.data.labFaculty?.length || 0)
         });
         
-        renderFacultyWorkloadChart();
-        renderSubjectDistributionChart();
-        renderRoomUtilizationChart();
-        renderDepartmentOverviewChart();
-        renderTimeSlotChart();
-        renderHeatmapChart();
+        // Use enhanced validation system for core charts
+        const validationSuccess = window.renderChartsWithValidation();
         
-        // Enhanced Interactive Analytics
-        renderSubjectFacultyChart();
-        renderWeeklyWorkloadChart();
-        renderDepartmentResourceChart();
-        renderFacultyWorkloadTable();
-        updateAnalyticsFilters();
-        
-        // New Advanced Analytics
-        try {
-            renderTimeSlotAnalysisChart();
-            renderLabTheoryChart();
-            renderFacultyPerformanceChart();
-            renderRoomUtilizationAnalysisChart();
-            renderComplexityChart();
-            updateOptimizationDashboard();
-        } catch (chartError) {
-            console.warn('⚠️ Some advanced analytics failed:', chartError);
-            // Continue with basic analytics even if advanced charts fail
+        if (validationSuccess) {
+            // Enhanced Interactive Analytics (only if core charts succeed)
+            try {
+                renderSubjectFacultyChart();
+                renderWeeklyWorkloadChart();
+                renderDepartmentResourceChart();
+                renderFacultyWorkloadTable();
+                updateAnalyticsFilters();
+            } catch (interactiveError) {
+                console.warn('⚠️ Some interactive analytics failed:', interactiveError);
+            }
+            
+            // New Advanced Analytics (only if core charts succeed)
+            try {
+                renderTimeSlotAnalysisChart();
+                renderLabTheoryChart();
+                renderFacultyPerformanceChart();
+                renderRoomUtilizationAnalysisChart();
+                renderComplexityChart();
+                updateOptimizationDashboard();
+            } catch (advancedError) {
+                console.warn('⚠️ Some advanced analytics failed:', advancedError);
+                // Continue with basic analytics even if advanced charts fail
+            }
+            
+            showMessage('📊 Analytics loaded successfully!', 'success');
+        } else {
+            console.warn('⚠️ Chart validation failed, falling back to text analytics');
+            renderTextBasedAnalytics();
         }
-        
-        showMessage('📊 Analytics loaded successfully!', 'success');
     } catch (e) {
         console.error('Error rendering analytics:', e);
         showMessage('❌ Analytics failed to load. Please check console for details.', 'error');
         // Don't auto-retry to avoid infinite loops
     }
 }
+
+// Fallback text-based analytics when Chart.js is unavailable
+function renderTextBasedAnalytics() {
+    try {
+        if (!window.dataManager || !window.dataManager.data) {
+            console.log('📊 No data available for analytics');
+            return;
+        }
+
+        const data = window.dataManager.data;
+        
+        // Generate text-based analytics
+        const totalAssignments = data.assignments.length;
+        const totalFaculty = data.labFaculty.length + data.theoryFaculty.length;
+        const totalRooms = data.rooms.length;
+        const totalTimeSlots = data.timeSlots.length;
+        
+        // Calculate faculty workload
+        const facultyWorkload = {};
+        data.assignments.forEach(assignment => {
+            const faculty = assignment.faculty;
+            if (faculty) {
+                facultyWorkload[faculty] = (facultyWorkload[faculty] || 0) + 1;
+            }
+        });
+        
+        // Calculate room utilization
+        const roomUtilization = {};
+        data.assignments.forEach(assignment => {
+            const room = assignment.room;
+            if (room) {
+                roomUtilization[room] = (roomUtilization[room] || 0) + 1;
+            }
+        });
+        
+        // Generate HTML for text analytics
+        const analyticsContainer = document.getElementById('analytics-tab');
+        if (analyticsContainer) {
+            analyticsContainer.innerHTML = `
+                <div class="text-analytics">
+                    <h3>📊 System Analytics (Text Mode)</h3>
+                    <p class="analytics-note">Charts library unavailable. Showing summary statistics instead.</p>
+                    
+                    <div class="analytics-grid">
+                        <div class="analytics-card">
+                            <h4>📝 Total Assignments</h4>
+                            <div class="analytics-value">${totalAssignments}</div>
+                        </div>
+                        
+                        <div class="analytics-card">
+                            <h4>👨‍🏫 Total Faculty</h4>
+                            <div class="analytics-value">${totalFaculty}</div>
+                            <small>${data.labFaculty.length} Lab + ${data.theoryFaculty.length} Theory</small>
+                        </div>
+                        
+                        <div class="analytics-card">
+                            <h4>🏢 Total Rooms</h4>
+                            <div class="analytics-value">${totalRooms}</div>
+                        </div>
+                        
+                        <div class="analytics-card">
+                            <h4>⏰ Time Slots</h4>
+                            <div class="analytics-value">${totalTimeSlots}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="analytics-section">
+                        <h4>👨‍🏫 Faculty Workload Distribution</h4>
+                        <div class="workload-list">
+                            ${Object.entries(facultyWorkload)
+                                .sort((a, b) => b[1] - a[1])
+                                .slice(0, 10)
+                                .map(([faculty, count]) => 
+                                    `<div class="workload-item">
+                                        <span>${faculty}</span>
+                                        <span><strong>${count}</strong> assignments</span>
+                                    </div>`
+                                ).join('')}
+                            ${Object.keys(facultyWorkload).length === 0 ? '<div class="workload-item">No data available</div>' : ''}
+                        </div>
+                    </div>
+                    
+                    <div class="analytics-section">
+                        <h4>🏢 Room Utilization Analysis</h4>
+                        <div class="utilization-list">
+                            ${Object.entries(roomUtilization)
+                                .sort((a, b) => b[1] - a[1])
+                                .slice(0, 10)
+                                .map(([room, count]) => 
+                                    `<div class="utilization-item">
+                                        <span>${room}</span>
+                                        <span><strong>${count}</strong> sessions</span>
+                                    </div>`
+                                ).join('')}
+                            ${Object.keys(roomUtilization).length === 0 ? '<div class="utilization-item">No data available</div>' : ''}
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 6px; text-align: center;">
+                        <small style="color: #6c757d;">
+                            💡 Tip: For interactive charts, ensure Chart.js library loads correctly from CDN
+                        </small>
+                        <br><br>
+                        <button class="btn btn--secondary btn--sm" onclick="retryChartLoad()">
+                            🔄 Retry Loading Charts
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        console.log('📊 Text-based analytics rendered successfully');
+        showMessage('📊 Analytics loaded (text mode)', 'success');
+        
+    } catch (error) {
+        console.error('Error rendering text analytics:', error);
+        showMessage('❌ Analytics unavailable', 'error');
+    }
+}
+
+// Retry loading Chart.js and analytics
+function retryChartLoad() {
+    console.log('🔄 Retrying Chart.js load...');
+    showMessage('🔄 Retrying chart library...', 'info');
+    
+    // Reset retry counter
+    window.chartJsRetryCount = 0;
+    
+    // Check if Chart.js is now available
+    if (typeof Chart !== 'undefined') {
+        console.log('✅ Chart.js now available!');
+        renderAnalytics();
+    } else {
+        // Try to reload the Chart.js script
+        const existingScript = document.querySelector('script[src*="chart.js"]');
+        if (existingScript) {
+            existingScript.remove();
+        }
+        
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.min.js';
+        script.onload = () => {
+            console.log('✅ Chart.js reloaded successfully');
+            setTimeout(() => {
+                if (typeof Chart !== 'undefined') {
+                    renderAnalytics();
+                } else {
+                    showMessage('❌ Chart.js still unavailable. Check internet connection.', 'error');
+                }
+            }, 500);
+        };
+        script.onerror = () => {
+            console.error('❌ Failed to reload Chart.js');
+            showMessage('❌ Failed to load chart library. Check internet connection.', 'error');
+        };
+        document.head.appendChild(script);
+    }
+}
+
+// Manual Chart Refresh Function for User Troubleshooting
+window.refreshAnalyticsCharts = function() {
+    console.log('🔄 Manual chart refresh initiated...');
+    showMessage('🔄 Refreshing analytics charts...', 'info');
+    
+    // Reset retry counter
+    window.chartJsRetryCount = 0;
+    
+    // Clear existing charts
+    const chartIds = [
+        'facultyWorkloadChart', 'subjectDistributionChart', 'roomUtilizationChart',
+        'departmentOverviewChart', 'timeSlotChart', 'heatmapChart'
+    ];
+    
+    chartIds.forEach(id => {
+        const canvas = document.getElementById(id);
+        if (canvas && canvas.chart) {
+            try {
+                canvas.chart.destroy();
+                console.log(`🗑️ Destroyed existing chart: ${id}`);
+            } catch (e) {
+                console.warn(`⚠️ Could not destroy chart ${id}:`, e);
+            }
+        }
+    });
+    
+    // Clear empty state messages
+    document.querySelectorAll('.empty-chart-message').forEach(el => el.remove());
+    
+    // Attempt to re-render
+    setTimeout(() => {
+        if (typeof renderAnalytics === 'function') {
+            renderAnalytics();
+        } else {
+            console.error('❌ renderAnalytics function not available');
+            showMessage('❌ Chart refresh failed - function not available', 'error');
+        }
+    }, 500);
+};
 
 // Gate GitHub admin UI by feature flag and configuration
 function toggleFeatureVisibility() {
@@ -1797,6 +2023,107 @@ function toggleFeatureVisibility() {
     }
 }
 
+// Enhanced Chart Validation and Recovery System
+window.validateChartsSystem = function() {
+    console.log('🔍 CHART SYSTEM VALIDATION:');
+    console.log('============================');
+    
+    // Check Chart.js availability
+    const chartJsAvailable = typeof Chart !== 'undefined';
+    console.log('📊 Chart.js Available:', chartJsAvailable ? '✅' : '❌');
+    
+    if (!chartJsAvailable) {
+        console.log('🔄 Attempting to reload Chart.js...');
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.min.js';
+        script.onload = () => {
+            console.log('✅ Chart.js reloaded successfully');
+            window.validateChartsSystem();
+        };
+        script.onerror = () => {
+            console.error('❌ Failed to reload Chart.js from CDN');
+        };
+        document.head.appendChild(script);
+        return false;
+    }
+    
+    // Check canvas elements
+    const chartIds = [
+        'facultyWorkloadChart', 'subjectDistributionChart', 'roomUtilizationChart',
+        'departmentOverviewChart', 'timeSlotChart', 'heatmapChart'
+    ];
+    
+    console.log('🎯 CANVAS ELEMENTS:');
+    const canvasResults = {};
+    chartIds.forEach(id => {
+        const canvas = document.getElementById(id);
+        const canvasOk = !!canvas;
+        const contextOk = canvasOk ? !!canvas.getContext('2d') : false;
+        
+        console.log(`├── ${id}:`, canvasOk ? '✅' : '❌', 
+                   `(Context: ${contextOk ? '✅' : '❌'})`);
+        
+        canvasResults[id] = { canvas: canvasOk, context: contextOk };
+    });
+    
+    // Check data availability
+    const dataOk = !!(window.dataManager && window.dataManager.data);
+    console.log('📊 Data Manager:', dataOk ? '✅' : '❌');
+    
+    if (dataOk) {
+        const assignments = window.dataManager.data.assignments?.length || 0;
+        const faculty = (window.dataManager.data.theoryFaculty?.length || 0) + 
+                       (window.dataManager.data.labFaculty?.length || 0);
+        console.log(`├── Assignments: ${assignments}`);
+        console.log(`└── Faculty: ${faculty}`);
+    }
+    
+    console.log('============================');
+    
+    return {
+        chartJs: chartJsAvailable,
+        canvases: canvasResults,
+        dataManager: dataOk,
+        allSystemsReady: chartJsAvailable && dataOk && 
+                        Object.values(canvasResults).every(r => r.canvas && r.context)
+    };
+};
+
+// Enhanced chart rendering with validation
+window.renderChartsWithValidation = function() {
+    const validation = window.validateChartsSystem();
+    
+    if (!validation.allSystemsReady) {
+        console.warn('⚠️ Chart system not ready, using fallback');
+        if (typeof renderTextBasedAnalytics === 'function') {
+            renderTextBasedAnalytics();
+        }
+        return false;
+    }
+    
+    console.log('🚀 Starting validated chart rendering...');
+    
+    try {
+        // Clear any existing empty state messages
+        document.querySelectorAll('.empty-chart-message').forEach(el => el.remove());
+        
+        renderFacultyWorkloadChart();
+        renderSubjectDistributionChart();
+        renderRoomUtilizationChart();
+        renderDepartmentOverviewChart();
+        renderTimeSlotChart();
+        renderHeatmapChart();
+        
+        console.log('✅ All charts rendered successfully');
+        showMessage('📊 Analytics charts loaded successfully!', 'success');
+        return true;
+    } catch (error) {
+        console.error('❌ Error in chart rendering:', error);
+        showMessage('⚠️ Some charts failed to load', 'warning');
+        return false;
+    }
+};
+
 // Runtime safe mode toggle handling
 function applySafeModeFromStorage() {
     try {
@@ -1822,106 +2149,243 @@ function toggleSafeModeRuntime() {
 }
 
 function renderFacultyWorkloadChart() {
-    const ctx = document.getElementById('facultyWorkloadChart');
-    if (!ctx || !window.dataManager) {
-        console.log('📊 Faculty workload chart: missing element or data manager');
-        return;
-    }
-
-    // Check if Chart.js is available
-    if (typeof Chart === 'undefined') {
-        console.log('📊 Chart.js not ready, retrying in 1 second...');
-        setTimeout(renderFacultyWorkloadChart, 1000);
-        return;
-    }
-
-    const facultyWorkload = {};
-    
-    window.dataManager.data.assignments.forEach(assignment => {
-        if (assignment.theoryFaculty) {
-            facultyWorkload[assignment.theoryFaculty] = (facultyWorkload[assignment.theoryFaculty] || 0) + 1;
+    try {
+        const ctx = document.getElementById('facultyWorkloadChart');
+        if (!ctx) {
+            console.warn('📊 Faculty workload chart: canvas element not found');
+            return;
         }
-        if (assignment.labFaculty) {
-            facultyWorkload[assignment.labFaculty] = (facultyWorkload[assignment.labFaculty] || 0) + 1;
+        
+        if (!window.dataManager) {
+            console.warn('📊 Faculty workload chart: data manager not available');
+            return;
         }
-    });
 
-    if (ctx.chart) ctx.chart.destroy();
-    
-    console.log('📊 Rendering faculty workload chart with data:', facultyWorkload);
+        // Check if Chart.js is available
+        if (typeof Chart === 'undefined') {
+            console.log('📊 Chart.js not ready, retrying in 1 second...');
+            setTimeout(renderFacultyWorkloadChart, 1000);
+            return;
+        }
 
-    ctx.chart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: Object.keys(facultyWorkload),
-            datasets: [{
-                label: 'Number of Assignments',
-                data: Object.values(facultyWorkload),
-                backgroundColor: ['#1FB8CD', '#FFC185', '#B4413C', '#ECEBD5', '#5D878F', '#DB4545', '#D2BA4C', '#964325', '#944454', '#13343B']
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
+        // Get canvas context and validate
+        const context = ctx.getContext('2d');
+        if (!context) {
+            console.error('📊 Unable to get 2D context for faculty workload chart');
+            return;
+        }
+
+        const facultyWorkload = {};
+        
+        // Safely process assignments data
+        const assignments = window.dataManager.data?.assignments || [];
+        assignments.forEach(assignment => {
+            if (assignment.theoryFaculty) {
+                facultyWorkload[assignment.theoryFaculty] = (facultyWorkload[assignment.theoryFaculty] || 0) + 1;
             }
+            if (assignment.labFaculty) {
+                facultyWorkload[assignment.labFaculty] = (facultyWorkload[assignment.labFaculty] || 0) + 1;
+            }
+        });
+
+        // Destroy existing chart if it exists
+        if (ctx.chart && typeof ctx.chart.destroy === 'function') {
+            ctx.chart.destroy();
         }
-    });
+        
+        console.log('📊 Rendering faculty workload chart with data:', facultyWorkload);
+
+        // Handle empty data case
+        if (Object.keys(facultyWorkload).length === 0) {
+            const container = ctx.closest('.glass-card');
+            if (container) {
+                container.querySelector('.empty-chart-message')?.remove();
+                const emptyMsg = document.createElement('div');
+                emptyMsg.className = 'empty-chart-message';
+                emptyMsg.innerHTML = '<p style="text-align: center; color: #666; margin-top: 100px;">No faculty workload data available</p>';
+                container.appendChild(emptyMsg);
+            }
+            return;
+        }
+
+        ctx.chart = new Chart(context, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(facultyWorkload),
+                datasets: [{
+                    label: 'Number of Assignments',
+                    data: Object.values(facultyWorkload),
+                    backgroundColor: ['#1FB8CD', '#FFC185', '#B4413C', '#ECEBD5', '#5D878F', '#DB4545', '#D2BA4C', '#964325', '#944454', '#13343B']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+        
+        console.log('✅ Faculty workload chart rendered successfully');
+    } catch (error) {
+        console.error('❌ Error rendering faculty workload chart:', error);
+        showMessage('⚠️ Faculty workload chart failed to load', 'warning');
+    }
 }
 
 function renderSubjectDistributionChart() {
-    const ctx = document.getElementById('subjectDistributionChart');
-    if (!ctx || !window.dataManager) return;
-
-    const subjectCount = {};
-    window.dataManager.data.assignments.forEach(assignment => {
-        subjectCount[assignment.subject] = (subjectCount[assignment.subject] || 0) + 1;
-    });
-
-    if (ctx.chart) ctx.chart.destroy();
-
-    ctx.chart = new Chart(ctx, {
-        type: 'pie',
-        data: {
-            labels: Object.keys(subjectCount),
-            datasets: [{
-                data: Object.values(subjectCount),
-                backgroundColor: ['#1FB8CD', '#FFC185', '#B4413C', '#ECEBD5', '#5D878F', '#DB4545', '#D2BA4C', '#964325', '#944454', '#13343B']
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false
+    try {
+        const ctx = document.getElementById('subjectDistributionChart');
+        if (!ctx) {
+            console.warn('📊 Subject distribution chart: canvas element not found');
+            return;
         }
-    });
+        
+        if (!window.dataManager) {
+            console.warn('📊 Subject distribution chart: data manager not available');
+            return;
+        }
+
+        // Check if Chart.js is available
+        if (typeof Chart === 'undefined') {
+            console.log('📊 Chart.js not ready for subject distribution, retrying in 1 second...');
+            setTimeout(renderSubjectDistributionChart, 1000);
+            return;
+        }
+
+        // Get canvas context and validate
+        const context = ctx.getContext('2d');
+        if (!context) {
+            console.error('📊 Unable to get 2D context for subject distribution chart');
+            return;
+        }
+
+        const subjectCount = {};
+        const assignments = window.dataManager.data?.assignments || [];
+        assignments.forEach(assignment => {
+            if (assignment.subject) {
+                subjectCount[assignment.subject] = (subjectCount[assignment.subject] || 0) + 1;
+            }
+        });
+
+        // Destroy existing chart if it exists
+        if (ctx.chart && typeof ctx.chart.destroy === 'function') {
+            ctx.chart.destroy();
+        }
+
+        console.log('📊 Rendering subject distribution chart with data:', subjectCount);
+
+        // Handle empty data case
+        if (Object.keys(subjectCount).length === 0) {
+            const container = ctx.closest('.glass-card');
+            if (container) {
+                container.querySelector('.empty-chart-message')?.remove();
+                const emptyMsg = document.createElement('div');
+                emptyMsg.className = 'empty-chart-message';
+                emptyMsg.innerHTML = '<p style="text-align: center; color: #666; margin-top: 100px;">No subject distribution data available</p>';
+                container.appendChild(emptyMsg);
+            }
+            return;
+        }
+
+        ctx.chart = new Chart(context, {
+            type: 'pie',
+            data: {
+                labels: Object.keys(subjectCount),
+                datasets: [{
+                    data: Object.values(subjectCount),
+                    backgroundColor: ['#1FB8CD', '#FFC185', '#B4413C', '#ECEBD5', '#5D878F', '#DB4545', '#D2BA4C', '#964325', '#944454', '#13343B']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+        
+        console.log('✅ Subject distribution chart rendered successfully');
+    } catch (error) {
+        console.error('❌ Error rendering subject distribution chart:', error);
+        showMessage('⚠️ Subject distribution chart failed to load', 'warning');
+    }
 }
 
 function renderRoomUtilizationChart() {
-    const ctx = document.getElementById('roomUtilizationChart');
-    if (!ctx || !window.dataManager) return;
-
-    const roomCount = {};
-    window.dataManager.data.assignments.forEach(assignment => {
-        roomCount[assignment.labRoom] = (roomCount[assignment.labRoom] || 0) + 1;
-    });
-
-    if (ctx.chart) ctx.chart.destroy();
-
-    ctx.chart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: Object.keys(roomCount),
-            datasets: [{
-                data: Object.values(roomCount),
-                backgroundColor: ['#1FB8CD', '#FFC185', '#B4413C', '#ECEBD5', '#5D878F', '#DB4545', '#D2BA4C', '#964325', '#944454', '#13343B']
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false
+    try {
+        const ctx = document.getElementById('roomUtilizationChart');
+        if (!ctx) {
+            console.warn('📊 Room utilization chart: canvas element not found');
+            return;
         }
-    });
+        
+        if (!window.dataManager) {
+            console.warn('📊 Room utilization chart: data manager not available');
+            return;
+        }
+
+        // Check if Chart.js is available
+        if (typeof Chart === 'undefined') {
+            console.log('📊 Chart.js not ready for room utilization, retrying in 1 second...');
+            setTimeout(renderRoomUtilizationChart, 1000);
+            return;
+        }
+
+        // Get canvas context and validate
+        const context = ctx.getContext('2d');
+        if (!context) {
+            console.error('📊 Unable to get 2D context for room utilization chart');
+            return;
+        }
+
+        const roomCount = {};
+        const assignments = window.dataManager.data?.assignments || [];
+        assignments.forEach(assignment => {
+            if (assignment.labRoom) {
+                roomCount[assignment.labRoom] = (roomCount[assignment.labRoom] || 0) + 1;
+            }
+        });
+
+        // Destroy existing chart if it exists
+        if (ctx.chart && typeof ctx.chart.destroy === 'function') {
+            ctx.chart.destroy();
+        }
+
+        console.log('📊 Rendering room utilization chart with data:', roomCount);
+
+        // Handle empty data case
+        if (Object.keys(roomCount).length === 0) {
+            const container = ctx.closest('.glass-card');
+            if (container) {
+                container.querySelector('.empty-chart-message')?.remove();
+                const emptyMsg = document.createElement('div');
+                emptyMsg.className = 'empty-chart-message';
+                emptyMsg.innerHTML = '<p style="text-align: center; color: #666; margin-top: 100px;">No room utilization data available</p>';
+                container.appendChild(emptyMsg);
+            }
+            return;
+        }
+
+        ctx.chart = new Chart(context, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(roomCount),
+                datasets: [{
+                    data: Object.values(roomCount),
+                    backgroundColor: ['#1FB8CD', '#FFC185', '#B4413C', '#ECEBD5', '#5D878F', '#DB4545', '#D2BA4C', '#964325', '#944454', '#13343B']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+        
+        console.log('✅ Room utilization chart rendered successfully');
+    } catch (error) {
+        console.error('❌ Error rendering room utilization chart:', error);
+        showMessage('⚠️ Room utilization chart failed to load', 'warning');
+    }
 }
 
 function renderDepartmentOverviewChart() {
@@ -3262,6 +3726,20 @@ function toggleTheme() {
 document.addEventListener('DOMContentLoaded', async function() {
     try {
         console.log('🚀 LAMS Application Starting...');
+        
+        // System Health Check
+        console.log('🔍 SYSTEM HEALTH CHECK:');
+        console.log('├── DOM Ready:', document.readyState);
+        console.log('├── Config Available:', typeof window.CONFIG !== 'undefined');
+        console.log('├── Chart.js Available:', typeof Chart !== 'undefined');
+        console.log('├── Google API Available:', typeof gapi !== 'undefined');
+        console.log('├── HTML Elements:');
+        console.log('│   ├── Dashboard Tab:', !!document.getElementById('dashboard-tab'));
+        console.log('│   ├── Analytics Tab:', !!document.getElementById('analytics-tab'));
+        console.log('│   ├── Print Tab:', !!document.getElementById('print-tab'));
+        console.log('│   └── Print Schedule:', !!document.getElementById('printSchedule'));
+        console.log('└── System Ready for Initialization');
+        
         // Initialize managers
     window.notificationManager = new NotificationManager();
     window.dataManager = new DataManager();
@@ -5267,3 +5745,57 @@ window.quickPrint = quickPrint;
 window.showPrintPreview = showPrintPreview;
 window.exportToPDF = exportToPDF;
 window.exportToExcel = exportToExcel;
+window.retryChartLoad = retryChartLoad;
+
+// System validation function for debugging
+window.validateSystem = function() {
+    console.log('🔍 LAMS SYSTEM VALIDATION REPORT:');
+    console.log('=====================================');
+    
+    // Core Components
+    console.log('📦 CORE COMPONENTS:');
+    console.log('├── DataManager:', typeof window.dataManager, window.dataManager ? '✅' : '❌');
+    console.log('├── NotificationManager:', typeof window.notificationManager, window.notificationManager ? '✅' : '❌');
+    console.log('├── AuthManager:', typeof window.authManager, window.authManager ? '✅' : '❌');
+    console.log('└── Config:', typeof window.CONFIG, window.CONFIG ? '✅' : '❌');
+    
+    // External Libraries
+    console.log('\n📚 EXTERNAL LIBRARIES:');
+    console.log('├── Chart.js:', typeof Chart !== 'undefined' ? '✅' : '❌');
+    console.log('├── Google API:', typeof gapi !== 'undefined' ? '✅' : '❌');
+    console.log('└── Google Auth:', typeof google !== 'undefined' ? '✅' : '❌');
+    
+    // Core Functions
+    console.log('\n🔧 CORE FUNCTIONS:');
+    console.log('├── showTab:', typeof window.showTab, window.showTab ? '✅' : '❌');
+    console.log('├── renderAnalytics:', typeof window.renderAnalytics, typeof renderAnalytics !== 'undefined' ? '✅' : '❌');
+    console.log('├── renderDashboard:', typeof window.renderDashboard, typeof renderDashboard !== 'undefined' ? '✅' : '❌');
+    console.log('├── initializeAdvancedPrintSystem:', typeof window.initializeAdvancedPrintSystem, window.initializeAdvancedPrintSystem ? '✅' : '❌');
+    console.log('└── retryChartLoad:', typeof window.retryChartLoad, window.retryChartLoad ? '✅' : '❌');
+    
+    // DOM Elements
+    console.log('\n🎯 DOM ELEMENTS:');
+    const tabs = ['dashboard', 'assignment', 'schedule', 'master-data', 'analytics', 'print', 'activity'];
+    tabs.forEach(tab => {
+        const element = document.getElementById(`${tab}-tab`);
+        console.log(`├── ${tab}-tab:`, element ? '✅' : '❌');
+    });
+    
+    // Print System
+    console.log('\n🖨️ PRINT SYSTEM:');
+    console.log('├── Print Schedule Container:', document.getElementById('printSchedule') ? '✅' : '❌');
+    console.log('├── Print Filters:', document.getElementById('printDepartmentFilter') ? '✅' : '❌');
+    console.log('└── Layout Options:', document.querySelector('.layout-option') ? '✅' : '❌');
+    
+    console.log('\n=====================================');
+    console.log('💡 Use validateSystem() anytime to check system health');
+    
+    return {
+        dataManager: !!window.dataManager,
+        notificationManager: !!window.notificationManager,
+        chartJs: typeof Chart !== 'undefined',
+        googleApi: typeof gapi !== 'undefined',
+        coreTabsPresent: tabs.every(tab => !!document.getElementById(`${tab}-tab`)),
+        printSystemReady: !!document.getElementById('printSchedule')
+    };
+};
