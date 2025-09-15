@@ -1468,12 +1468,80 @@ body {
     margin: 0 !important;
   }
   
+  /* Print Table Styles */
   .print-table.optimized-print {
     width: 100% !important;
     border-collapse: collapse !important;
     table-layout: fixed !important;
     margin: 0 !important;
   }
+  
+  /* NEW: Compact Print Layout */
+  .print-table.compact-print {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    table-layout: fixed !important;
+    margin: 0 !important;
+    font-family: 'Arial', sans-serif !important;
+  }
+  
+  .print-table.compact-print .print-header-row th {
+    background-color: #e8e8e8 !important;
+    border: 1px solid #333 !important;
+    padding: 4px 2px !important;
+    text-align: center !important;
+    font-weight: bold !important;
+    font-size: 11px !important;
+    color: #000 !important;
+    white-space: nowrap !important;
+  }
+  
+  .print-table.compact-print .time-column {
+    width: 12% !important;
+  }
+  
+  .print-table.compact-print .day-column {
+    width: 14.66% !important; /* (100% - 12%) / 6 days */
+  }
+  
+  .print-table.compact-print .time-cell {
+    background-color: #f8f8f8 !important;
+    border: 1px solid #333 !important;
+    padding: 3px 2px !important;
+    text-align: center !important;
+    vertical-align: middle !important;
+    font-weight: bold !important;
+    font-size: 10px !important;
+    color: #000 !important;
+    white-space: nowrap !important;
+  }
+  
+  .print-table.compact-print .schedule-cell {
+    border: 1px solid #333 !important;
+    padding: 1px !important;
+    vertical-align: top !important;
+    text-align: left !important;
+    overflow: hidden !important;
+    height: auto !important;
+  }
+  
+  .lab-entry-compact {
+    margin: 1px 0 !important;
+    padding: 1px 2px !important;
+    font-size: inherit !important;
+    line-height: inherit !important;
+    color: #000 !important;
+    text-align: left !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    border-left: 2px solid #333 !important;
+    background-color: #fff !important;
+  }
+  
+  .lab-color-0 { border-left-color: #2563eb !important; }
+  .lab-color-1 { border-left-color: #dc2626 !important; }
+  .lab-color-2 { border-left-color: #16a34a !important; }
   
   .print-header-row th {
     background-color: #e8e8e8 !important;
@@ -1568,10 +1636,11 @@ body {
   }
   
   .no-lab {
-    text-align: center !important;
+    text-align: left !important; /* Changed from center to left */
     color: #999 !important;
     font-style: italic !important;
-    padding: 10px !important;
+    padding: 2px 4px !important; /* Reduced padding */
+    font-size: 9px !important;
   }
   
   .lab-entry {
@@ -1628,15 +1697,23 @@ body {
   
   @page {
     size: A4 landscape !important;
-    margin: 12mm 8mm !important;
+    margin: 8mm 6mm !important; /* Reduced margins for more content space */
   }
   
-  /* Ensure proper page breaks */
-  .print-table {
-    page-break-inside: auto !important;
+  /* Ensure single-page layout for compact printing */
+  .print-table.compact-print {
+    page-break-inside: avoid !important;
+    max-height: 90vh !important;
   }
-  .print-table thead { 
+  
+  .print-table.compact-print thead { 
     display: table-header-group !important; 
+  }
+  
+  .print-table.compact-print .time-row {
+    page-break-inside: avoid !important;
+    height: auto !important;
+    min-height: 15px !important;
   }
   .print-table tfoot { 
     display: table-footer-group !important; 

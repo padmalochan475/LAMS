@@ -350,7 +350,8 @@ class DataManager {
         this.approvedUsers = this.approvedUsers || [];
         this.syncInterval = this.syncInterval || null;
         // Prefer configured interval, fallback to 10s
-        this.syncIntervalMs = this.syncIntervalMs || (window.CONFIG?.REALTIME_SYNC_INTERVAL) || 10000;
+        // Real-time sync configuration
+        this.syncIntervalMs = this.syncIntervalMs || (window.CONFIG?.REALTIME_SYNC_INTERVAL) || 5000; // Reduced from 10s to 5s
         this.unsyncedChanges = this.unsyncedChanges || false;
         this.syncFailureCount = this.syncFailureCount || 0;
         this.waitingForPermission = this.waitingForPermission || false;
@@ -528,15 +529,12 @@ class DataManager {
             element === document.activeElement || (typeof element.value === 'string' && element.value.trim() !== '')
         );
         
-        // Skip if any of these conditions are true:
+        // Skip if any of these conditions are true (reduced interference):
         const shouldSkip = (
-            timeSinceActivity < 3000 ||  // User active in last 3 seconds (increased)
+            timeSinceActivity < 1000 ||  // User active in last 1 second (reduced from 3)
             this.isSyncInProgress ||     // Sync already running
-            document.activeElement?.tagName === 'SELECT' ||  // Select element focused
             document.activeElement?.tagName === 'INPUT' ||   // Input element focused
-            document.querySelector('select:focus') ||        // Any select has focus
-            document.querySelector('input:focus') ||         // Any input has focus
-            !!document.querySelector('.dropdown-open') ||   // Custom dropdown open
+            document.activeElement?.type === 'text' ||       // Text input focused
             isFillingForm                                    // User filling assignment form
         );
         
@@ -767,8 +765,11 @@ class DataManager {
         this.unsyncedChanges = true;
         this.lastChangeAt = Date.now();
         
+        // Force immediate UI refresh first
+        this.doRefresh();
+        
         if (window.authManager && window.authManager.isSignedIn) {
-            // Sync to Google Drive immediately
+            // Sync to Google Drive immediately without delays
             this.syncWithCloud().then(() => {
                 this.updateSyncStatus('✅ Synced to all devices');
                 showMessage('✅ Changes synced to Google Drive!', 'success');
@@ -973,7 +974,13 @@ class DataManager {
         if (index >= 0 && index < this.data.assignments.length) {
             this.data.assignments.splice(index, 1);
             this.save();
+            
+            // Force immediate UI update before sync
+            this.refreshAllComponents();
+            
+            // Force immediate sync without delays
             this.triggerImmediateSync();
+            
             showMessage('Assignment deleted successfully!', 'success');
             return true;
         }
@@ -1021,12 +1028,11 @@ class DataManager {
         
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => {
-                // Add small delay to ensure all DOM elements are available
-                setTimeout(() => this.doRefresh(), 100);
+                this.doRefresh();
             });
         } else {
-            // Add small delay to ensure all elements are rendered
-            setTimeout(() => this.doRefresh(), 50);
+            // Immediate refresh for responsive UI
+            this.doRefresh();
         }
     }
 
@@ -2408,61 +2414,29 @@ function renderPrintSchedule() {
         });
     });
 
-    // Dynamic sizing based on content density
-    let fontSize, cellHeight, condensed = false, onePage = false;
-    if (maxAssignmentsPerCell <= 2) {
-        fontSize = '12px';
-        cellHeight = '90px';
-    } else if (maxAssignmentsPerCell <= 5) {
+    // Optimized sizing for single-page printing with better text layout
+    let fontSize = '9px';
+    let cellHeight = 'auto';
+    let lineHeight = '1.1';
+    
+    // Adjust based on content density but prioritize single-page fit
+    if (maxAssignmentsPerCell <= 3) {
         fontSize = '10px';
-        cellHeight = '110px';
-    } else if (maxAssignmentsPerCell <= 8) {
+        lineHeight = '1.2';
+    } else if (maxAssignmentsPerCell <= 6) {
         fontSize = '9px';
-        cellHeight = '130px';
-    } else if (maxAssignmentsPerCell <= 10) {
+        lineHeight = '1.1';
+    } else if (maxAssignmentsPerCell <= 9) {
         fontSize = '8px';
-        cellHeight = '150px';
-        condensed = true;
+        lineHeight = '1.0';
     } else {
-        // 11+ entries in a cell: go into condensed mode and allow auto height
         fontSize = '7px';
-        cellHeight = null; // omit fixed height for auto expansion
-        condensed = true;
+        lineHeight = '1.0';
     }
 
-    // Allow user to force condensed mode & one-page fit
-    try {
-        const forced = document.getElementById('forceCondensedMode');
-        if (forced && forced.checked) {
-            condensed = true;
-        }
-        const fit = document.getElementById('fitOnePage');
-        if (fit && fit.checked) {
-            onePage = true;
-            condensed = true;
-            // apply more compact font tiers
-            if (maxAssignmentsPerCell <= 2) {
-                fontSize = '11px';
-                cellHeight = '80px';
-            } else if (maxAssignmentsPerCell <= 5) {
-                fontSize = '9px';
-                cellHeight = '100px';
-            } else if (maxAssignmentsPerCell <= 8) {
-                fontSize = '8px';
-                cellHeight = '110px';
-            } else if (maxAssignmentsPerCell <= 10) {
-                fontSize = '7px';
-                cellHeight = '120px';
-            } else {
-                fontSize = '6.5px';
-                cellHeight = null; // allow auto height if needed
-            }
-        }
-    } catch {}
-
-    // Always use time slots as rows for better A4 layout
+    // Always use time slots as rows for better A4 landscape layout
     let html = `
-        <table class="print-table optimized-print${condensed ? ' condensed' : ''}${onePage ? ' one-page' : ''}" style="font-size: ${fontSize}">
+        <table class="print-table compact-print" style="font-size: ${fontSize}; line-height: ${lineHeight};">
             <thead>
                 <tr class="print-header-row">
                     <th class="time-column">Time Slot</th>
@@ -2473,8 +2447,7 @@ function renderPrintSchedule() {
     `;
 
     window.dataManager.data.timeSlots.forEach(timeSlot => {
-        const rowStyle = cellHeight ? ` style=\"height: ${cellHeight}\"` : '';
-        html += `<tr class="time-row"${rowStyle}>`;
+        html += `<tr class="time-row">`;
         html += `<td class="time-cell"><strong>${timeSlot}</strong></td>`;
         
         window.dataManager.data.days.forEach(day => {
@@ -2488,11 +2461,12 @@ function renderPrintSchedule() {
                 html += '<div class="no-lab">-</div>';
             } else {
                 dayAssignments.forEach((assignment, index) => {
-                    const printDisplay = window.dataManager.getAssignmentPrintDisplay(assignment);
+                    // Compact single-line format for better printing
+                    const compactDisplay = `${assignment.department}-${assignment.semester}-${assignment.group}${assignment.subGroup ? `-${assignment.subGroup}` : ''} | ${assignment.subject} | [${assignment.theoryFaculty}, ${assignment.labFaculty}] | ${assignment.labRoom}`;
                     
                     html += `
-                        <div class="lab-entry lab-entry-${index % 3}">
-                            <div class="lab-display">${printDisplay}</div>
+                        <div class="lab-entry-compact lab-color-${index % 3}">
+                            ${compactDisplay}
                         </div>
                     `;
                 });
@@ -2549,6 +2523,10 @@ function addFaculty(type) {
 async function deleteMasterDataItem(type, value) {
     if (!window.dataManager) return;
     
+    // Prevent double-clicks with debouncing
+    if (deleteMasterDataItem.isDeleting) return;
+    deleteMasterDataItem.isDeleting = true;
+    
     const confirmed = confirm(`Are you sure you want to delete "${value}"?`);
     if (confirmed) {
         if (window.dataManager.removeMasterDataItem(type, value)) {
@@ -2561,10 +2539,19 @@ async function deleteMasterDataItem(type, value) {
             ]);
         }
     }
+    
+    // Reset debounce flag after operation
+    setTimeout(() => {
+        deleteMasterDataItem.isDeleting = false;
+    }, 500);
 }
 
 async function deleteFaculty(type, shortName) {
     if (!window.dataManager) return;
+    
+    // Prevent double-clicks with debouncing
+    if (deleteFaculty.isDeleting) return;
+    deleteFaculty.isDeleting = true;
     
     const confirmed = confirm(`Are you sure you want to delete faculty "${shortName}"?`);
     if (confirmed) {
@@ -2578,10 +2565,19 @@ async function deleteFaculty(type, shortName) {
             ]);
         }
     }
+    
+    // Reset debounce flag after operation
+    setTimeout(() => {
+        deleteFaculty.isDeleting = false;
+    }, 500);
 }
 
 async function deleteAssignment(index) {
     if (!window.dataManager) return;
+    
+    // Prevent double-clicks with debouncing
+    if (deleteAssignment.isDeleting) return;
+    deleteAssignment.isDeleting = true;
     
     const confirmed = confirm('Are you sure you want to delete this assignment?');
     if (confirmed) {
@@ -2596,6 +2592,11 @@ async function deleteAssignment(index) {
             ]);
         }
     }
+    
+    // Reset debounce flag after operation
+    setTimeout(() => {
+        deleteAssignment.isDeleting = false;
+    }, 500);
 }
 
 // Simple tab management for production
