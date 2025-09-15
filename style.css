@@ -1280,6 +1280,16 @@ body {
   line-height: 1.5;
   cursor: pointer;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  
+  /* Add dropdown arrow styling */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: var(--select-caret-light);
+  background-repeat: no-repeat;
+  background-position: right var(--space-12) center;
+  background-size: 16px;
+  padding-right: var(--space-32);
 }
 
 .analytics-filters select:hover {
@@ -1290,6 +1300,21 @@ body {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px rgba(29, 184, 205, 0.1);
+}
+
+/* Dark mode caret for analytics dropdowns */
+@media (prefers-color-scheme: dark) {
+  .analytics-filters select {
+    background-image: var(--select-caret-dark);
+  }
+}
+
+[data-color-scheme="dark"] .analytics-filters select {
+  background-image: var(--select-caret-dark);
+}
+
+[data-color-scheme="light"] .analytics-filters select {
+  background-image: var(--select-caret-light);
 }
 
 .analytics-filters label {
@@ -1305,6 +1330,29 @@ body {
   width: 16px;
   height: 16px;
   accent-color: var(--color-primary);
+}
+
+.analytics-filters input[type="text"] {
+  padding: var(--space-8) var(--space-12);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family-base);
+  line-height: 1.5;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.analytics-filters input[type="text"]:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(29, 184, 205, 0.1);
+}
+
+.analytics-filters input[type="text"]::placeholder {
+  color: var(--color-text-secondary);
+  opacity: 0.7;
 }
 
 .analytics-stats {
