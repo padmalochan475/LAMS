@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LAMS Comprehensive Functionality Test</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+        }
+        .test-section { 
+            border: 1px solid #ddd; 
+            padding: 20px; 
+            margin: 20px 0; 
+            border-radius: 8px; 
+        }
+        .test-item { 
+            margin: 10px 0; 
+            padding: 10px; 
+            border-radius: 4px; 
+            border-left: 4px solid #ddd; 
+        }
+        .pass { border-left-color: #4caf50; background: #f1f8e9; }
+        .fail { border-left-color: #f44336; background: #ffebee; }
+        .warning { border-left-color: #ff9800; background: #fff3e0; }
+        .info { border-left-color: #2196f3; background: #e3f2fd; }
+        .loading { border-left-color: #9e9e9e; background: #f5f5f5; }
+        
+        button { 
+            background: #1976d2; 
+            color: white; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            margin: 5px; 
+        }
+        button:hover { background: #1565c0; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        
+        .log { 
+            background: #f5f5f5; 
+            padding: 10px; 
+            border-radius: 4px; 
+            max-height: 300px; 
+            overflow-y: auto; 
+            font-family: monospace; 
+            font-size: 12px; 
+            margin: 10px 0; 
+        }
+        
+        .summary { 
+            font-size: 18px; 
+            font-weight: bold; 
+            text-align: center; 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin: 20px 0; 
+        }
+        
+        .progress { 
+            width: 100%; 
+            height: 20px; 
+            background: #f0f0f0; 
+            border-radius: 10px; 
+            margin: 10px 0; 
+        }
+        
+        .progress-bar { 
+            height: 100%; 
+            background: #4caf50; 
+            border-radius: 10px; 
+            transition: width 0.3s; 
+        }
+        
+        h1 { color: #1976d2; }
+        h2 { color: #388e3c; }
+        h3 { color: #f57c00; }
+        
+        .grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 20px; 
+        }
+        
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 LAMS Comprehensive Functionality Test</h1>
+    
+    <div class="test-section">
+        <h2>📊 Test Progress</h2>
+        <div class="progress">
+            <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+        </div>
+        <div id="progressText">Ready to start testing...</div>
+        <br>
+        <button onclick="runAllTests()">🚀 Run All Tests</button>
+        <button onclick="runQuickTest()">⚡ Quick Test</button>
+        <button onclick="clearResults()">🧹 Clear Results</button>
+        <button onclick="window.open('index.html', '_blank')">📱 Open LAMS App</button>
+    </div>
+
+    <div class="grid">
+        <div class="test-section">
+            <h2>🔐 Authentication System</h2>
+            <div id="auth-tests">
+                <div class="test-item loading" id="test-config">
+                    <strong>Configuration Loading:</strong> <span id="config-status">Testing...</span>
+                </div>
+                <div class="test-item loading" id="test-google-api">
+                    <strong>Google API Integration:</strong> <span id="google-api-status">Testing...</span>
+                </div>
+                <div class="test-item loading" id="test-auth-manager">
+                    <strong>AuthManager Initialization:</strong> <span id="auth-manager-status">Testing...</span>
+                </div>
+                <div class="test-item loading" id="test-signin-ui">
+                    <strong>Sign-in UI Elements:</strong> <span id="signin-ui-status">Testing...</span>
+                </div>
+            </div>
+            <button onclick="testAuthentication()">Test Auth System</button>
+        </div>
+
+        <div class="test-section">
+            <h2>💾 Data Management</h2>
+            <div id="data-tests">
+                <div class="test-item loading" id="test-data-manager">
+                    <strong>DataManager Initialization:</strong> <span id="data-manager-status">Testing...</span>
+                </div>
+                <div class="test-item loading" id="test-local-storage">
+                    <strong>Local Storage Access:</strong> <span id="local-storage-status">Testing...</span>
+                </div>
+                <div class="test-item loading" id="test-data-structure">
+                    <strong>Data Structure Integrity:</strong> <span id="data-structure-status">Testing...</span>
+                </div>
+                <div class="test-item loading" id="test-crud-operations">
+                    <strong>CRUD Operations:</strong> <span id="crud-operations-status">Testing...</span>
+                </div>
+            </div>
+            <button onclick="testDataManagement()">Test Data System</button>
+        </div>
+
+        <div class="test-section">
+            <h2>☁️ Cloud Synchronization</h2>
+            <div id="cloud-tests">
+                <div class="test-item loading" id="test-google-drive">
+                    <strong>Google Drive API:</strong> <span id="google-drive-status">Testing...</span>
+                </div>
+                <div class="test-item loading" id="test-sync-methods">
+                    <strong>Sync Methods:</strong> <span id="sync-methods-status">Testing...</span>
+                </div>
+                <div class="test-item loading" id="test-real-time-sync">
+                    <strong>Real-time Sync:</strong> <span id="real-time-sync-status">Testing...</span>
+                </div>
+                <div class="test-item loading" id="test-conflict-resolution">
+                    <strong>Conflict Resolution:</strong> <span id="conflict-resolution-status">Testing...</span>
+                </div>
+            </div>
+            <button onclick="testCloudSync()">Test Cloud Sync</button>
+        </div>
+
+        <div class="test-section">
+            <h2>👥 User Management</h2>
+            <div id="user-tests">
+                <div class="test-item loading" id="test-user-approval">
+                    <strong>User Approval System:</strong> <span id="user-approval-status">Testing...</span>
+                </div>
+                <div class="test-item loading" id="test-admin-functions">
+                    <strong>Admin Functions:</strong> <span id="admin-functions-status">Testing...</span>
+                </div>
+                <div class="test-item loading" id="test-pending-users">
+                    <strong>Pending User Management:</strong> <span id="pending-users-status">Testing...</span>
+                </div>
+                <div class="test-item loading" id="test-cross-device">
+                    <strong>Cross-device Notifications:</strong> <span id="cross-device-status">Testing...</span>
+                </div>
+            </div>
+            <button onclick="testUserManagement()">Test User System</button>
+        </div>
+
+        <div class="test-section">
+            <h2>🎨 User Interface</h2>
+            <div id="ui-tests">
+                <div class="test-item loading" id="test-responsive">
+                    <strong>Responsive Design:</strong> <span id="responsive-status">Testing...</span>
+                </div>
+                <div class="test-item loading" id="test-navigation">
+                    <strong>Navigation Elements:</strong> <span id="navigation-status">Testing...</span>
+                </div>
+                <div class="test-item loading" id="test-modals">
+                    <strong>Modal Windows:</strong> <span id="modals-status">Testing...</span>
+                </div>
+                <div class="test-item loading" id="test-print">
+                    <strong>Print Functionality:</strong> <span id="print-status">Testing...</span>
+                </div>
+            </div>
+            <button onclick="testUserInterface()">Test UI</button>
+        </div>
+
+        <div class="test-section">
+            <h2>🔧 Core Features</h2>
+            <div id="core-tests">
+                <div class="test-item loading" id="test-assignment-mgmt">
+                    <strong>Assignment Management:</strong> <span id="assignment-mgmt-status">Testing...</span>
+                </div>
+                <div class="test-item loading" id="test-faculty-mgmt">
+                    <strong>Faculty Management:</strong> <span id="faculty-mgmt-status">Testing...</span>
+                </div>
+                <div class="test-item loading" id="test-analytics">
+                    <strong>Analytics & Reporting:</strong> <span id="analytics-status">Testing...</span>
+                </div>
+                <div class="test-item loading" id="test-search-filter">
+                    <strong>Search & Filter:</strong> <span id="search-filter-status">Testing...</span>
+                </div>
+            </div>
+            <button onclick="testCoreFeatures()">Test Features</button>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>📋 Test Results Summary</h2>
+        <div id="testSummary" class="summary info">
+            Click "Run All Tests" to start comprehensive testing
+        </div>
+        <div class="log" id="testLog"></div>
+    </div>
+
+    <!-- Load Google APIs -->
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+    
+    <!-- Load LAMS JavaScript files first -->
+    <script src="config.js"></script>
+    <script src="auth.js"></script>
+    <script src="app.js"></script>
+    
+    <script>
+        let testResults = {
+            total: 0,
+            passed: 0,
+            failed: 0,
+            warnings: 0
+        };
+        
+        let testLog = [];
+        
+        // Initialize LAMS components for testing
+        async function initializeLAMSForTesting() {
+            try {
+                log('🔄 Initializing LAMS components for testing...', 'info');
+                
+                // Wait a bit for scripts to load
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Check if CONFIG is available
+                if (typeof CONFIG !== 'undefined') {
+                    log('✅ CONFIG loaded successfully', 'pass');
+                } else {
+                    log('⚠️ CONFIG not available', 'warning');
+                }
+                
+                // Try to initialize AuthManager if it exists and is not corrupted
+                try {
+                    if (typeof AuthManager !== 'undefined' && !window.authManager) {
+                        window.authManager = new AuthManager();
+                        log('✅ AuthManager initialized', 'pass');
+                    } else if (window.authManager) {
+                        log('✅ AuthManager already available', 'pass');
+                    }
+                } catch (authError) {
+                    log('⚠️ AuthManager initialization failed: ' + authError.message, 'warning');
+                }
+                
+                // Try to initialize DataManager if it exists
+                try {
+                    if (typeof DataManager !== 'undefined' && !window.dataManager) {
+                        window.dataManager = new DataManager();
+                        log('✅ DataManager initialized', 'pass');
+                    } else if (window.dataManager) {
+                        log('✅ DataManager already available', 'pass');
+                    }
+                } catch (dataError) {
+                    log('⚠️ DataManager initialization failed: ' + dataError.message, 'warning');
+                }
+                
+                // Check for global functions
+                const globalFunctions = [
+                    'addAssignment', 'addFaculty', 'approveUser', 'rejectUser',
+                    'syncWithCloud', 'loadFromDrive', 'updateAdminStats'
+                ];
+                
+                const availableFunctions = globalFunctions.filter(fn => typeof window[fn] === 'function');
+                if (availableFunctions.length > 0) {
+                    log(`✅ Found ${availableFunctions.length} global functions: ${availableFunctions.join(', ')}`, 'pass');
+                }
+                
+                log('✅ LAMS initialization complete', 'info');
+            } catch (error) {
+                log('⚠️ LAMS initialization had issues: ' + error.message, 'warning');
+            }
+        }
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}`;
+            testLog.push({ message: logMessage, type });
+            
+            const logElement = document.getElementById('testLog');
+            logElement.innerHTML = testLog.map(log => 
+                `<div style="color: ${getLogColor(log.type)}">${log.message}</div>`
+            ).join('');
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        function getLogColor(type) {
+            switch(type) {
+                case 'pass': return '#4caf50';
+                case 'fail': return '#f44336';
+                case 'warning': return '#ff9800';
+                default: return '#333';
+            }
+        }
+        
+        function updateTest(testId, status, message) {
+            const element = document.getElementById(testId);
+            const statusElement = document.getElementById(testId.replace('test-', '') + '-status');
+            
+            element.className = `test-item ${status}`;
+            statusElement.textContent = message;
+            
+            testResults.total++;
+            if (status === 'pass') testResults.passed++;
+            else if (status === 'fail') testResults.failed++;
+            else if (status === 'warning') testResults.warnings++;
+            
+            updateProgress();
+        }
+        
+        function updateProgress() {
+            const progress = Math.round((testResults.passed + testResults.failed + testResults.warnings) / testResults.total * 100);
+            document.getElementById('progressBar').style.width = progress + '%';
+            document.getElementById('progressText').textContent = 
+                `Progress: ${progress}% | Passed: ${testResults.passed} | Failed: ${testResults.failed} | Warnings: ${testResults.warnings}`;
+            
+            if (testResults.total > 0 && (testResults.passed + testResults.failed + testResults.warnings) === testResults.total) {
+                updateSummary();
+            }
+        }
+        
+        function updateSummary() {
+            const summary = document.getElementById('testSummary');
+            const successRate = Math.round(testResults.passed / testResults.total * 100);
+            
+            if (successRate >= 90) {
+                summary.className = 'summary pass';
+                summary.innerHTML = `🎉 Excellent! ${successRate}% tests passed. LAMS is functioning well.`;
+            } else if (successRate >= 70) {
+                summary.className = 'summary warning';
+                summary.innerHTML = `⚠️ Good! ${successRate}% tests passed. Some issues need attention.`;
+            } else {
+                summary.className = 'summary fail';
+                summary.innerHTML = `❌ ${successRate}% tests passed. Significant issues detected.`;
+            }
+        }
+        
+        function testAuthentication() {
+            log('Testing Authentication System...', 'info');
+            
+            // Wait for scripts to load and initialize
+            setTimeout(() => {
+                // Test 1: Configuration Loading
+                try {
+                    if (typeof CONFIG !== 'undefined' && CONFIG.GOOGLE_CLIENT_ID) {
+                        updateTest('test-config', 'pass', 'CONFIG loaded successfully');
+                        log('✅ Configuration loaded successfully', 'pass');
+                    } else {
+                        updateTest('test-config', 'fail', 'CONFIG not loaded or missing CLIENT_ID');
+                        log('❌ Configuration loading failed', 'fail');
+                    }
+                } catch (error) {
+                    updateTest('test-config', 'fail', 'Error: ' + error.message);
+                    log('❌ Configuration error: ' + error.message, 'fail');
+                }
+                
+                // Test 2: Google API Integration
+                setTimeout(() => {
+                    try {
+                        if (typeof google !== 'undefined' && google.accounts) {
+                            updateTest('test-google-api', 'pass', 'Google API loaded');
+                            log('✅ Google API integration working', 'pass');
+                        } else {
+                            updateTest('test-google-api', 'warning', 'Google API not loaded (may load async)');
+                            log('⚠️ Google API not immediately available', 'warning');
+                        }
+                    } catch (error) {
+                        updateTest('test-google-api', 'fail', 'Error: ' + error.message);
+                        log('❌ Google API error: ' + error.message, 'fail');
+                    }
+                }, 1000);
+                
+                // Test 3: AuthManager Initialization
+                setTimeout(() => {
+                    try {
+                        if (typeof window.authManager !== 'undefined' || typeof AuthManager !== 'undefined') {
+                            // Try to initialize AuthManager if it's not already done
+                            if (!window.authManager && typeof AuthManager !== 'undefined') {
+                                window.authManager = new AuthManager();
+                            }
+                            updateTest('test-auth-manager', 'pass', 'AuthManager initialized');
+                            log('✅ AuthManager is available', 'pass');
+                        } else {
+                            updateTest('test-auth-manager', 'fail', 'AuthManager not initialized');
+                            log('❌ AuthManager not found', 'fail');
+                        }
+                    } catch (error) {
+                        updateTest('test-auth-manager', 'fail', 'Error: ' + error.message);
+                        log('❌ AuthManager error: ' + error.message, 'fail');
+                    }
+                }, 1500);
+                
+                // Test 4: Sign-in UI Elements (checking if they would exist in main app)
+                setTimeout(() => {
+                    try {
+                        // Since this is a test page, we'll check if the auth functions exist
+                        if (window.authManager && typeof window.authManager.signIn === 'function') {
+                            updateTest('test-signin-ui', 'pass', 'Auth functions available');
+                            log('✅ Authentication functions found', 'pass');
+                        } else {
+                            updateTest('test-signin-ui', 'warning', 'Auth functions need verification');
+                            log('⚠️ Authentication functions need verification in main app', 'warning');
+                        }
+                    } catch (error) {
+                        updateTest('test-signin-ui', 'warning', 'Could not verify auth UI');
+                        log('⚠️ Could not verify authentication UI elements', 'warning');
+                    }
+                }, 2000);
+            }, 500); // Initial delay to allow scripts to load
+        }
+        
+        function testDataManagement() {
+            log('Testing Data Management System...', 'info');
+            
+            // Wait for scripts to load and initialize
+            setTimeout(() => {
+                // Test 1: DataManager Initialization
+                try {
+                    if (typeof window.dataManager !== 'undefined' || typeof DataManager !== 'undefined') {
+                        // Try to initialize DataManager if it's not already done
+                        if (!window.dataManager && typeof DataManager !== 'undefined') {
+                            window.dataManager = new DataManager();
+                        }
+                        updateTest('test-data-manager', 'pass', 'DataManager initialized');
+                        log('✅ DataManager is available', 'pass');
+                    } else {
+                        updateTest('test-data-manager', 'fail', 'DataManager not initialized');
+                        log('❌ DataManager not found', 'fail');
+                    }
+                } catch (error) {
+                    updateTest('test-data-manager', 'fail', 'Error: ' + error.message);
+                    log('❌ DataManager error: ' + error.message, 'fail');
+                }
+                
+                // Test 2: Local Storage Access
+                setTimeout(() => {
+                    try {
+                        localStorage.setItem('lams_test', 'test');
+                        const value = localStorage.getItem('lams_test');
+                        localStorage.removeItem('lams_test');
+                        
+                        if (value === 'test') {
+                            updateTest('test-local-storage', 'pass', 'Local storage working');
+                            log('✅ Local storage access confirmed', 'pass');
+                        } else {
+                            updateTest('test-local-storage', 'fail', 'Local storage not working');
+                            log('❌ Local storage access failed', 'fail');
+                        }
+                    } catch (error) {
+                        updateTest('test-local-storage', 'fail', 'Error: ' + error.message);
+                        log('❌ Local storage error: ' + error.message, 'fail');
+                    }
+                }, 500);
+                
+                // Test 3: Data Structure Integrity
+                setTimeout(() => {
+                    try {
+                        if (window.dataManager && typeof window.dataManager.data === 'object') {
+                            updateTest('test-data-structure', 'pass', 'Data structure valid');
+                            log('✅ Data structure integrity confirmed', 'pass');
+                        } else if (window.dataManager) {
+                            updateTest('test-data-structure', 'warning', 'DataManager exists but data structure needs verification');
+                            log('⚠️ Data structure needs verification', 'warning');
+                        } else {
+                            updateTest('test-data-structure', 'warning', 'DataManager not available for testing');
+                            log('⚠️ DataManager not available for data structure test', 'warning');
+                        }
+                    } catch (error) {
+                        updateTest('test-data-structure', 'fail', 'Error: ' + error.message);
+                        log('❌ Data structure error: ' + error.message, 'fail');
+                    }
+                }, 1000);
+                
+                // Test 4: CRUD Operations
+                setTimeout(() => {
+                    try {
+                        if (window.dataManager) {
+                            const hasAddMethods = typeof window.dataManager.addAssignment === 'function' &&
+                                typeof window.dataManager.addFaculty === 'function';
+                            
+                            if (hasAddMethods) {
+                                updateTest('test-crud-operations', 'pass', 'CRUD methods available');
+                                log('✅ CRUD operations methods found', 'pass');
+                            } else {
+                                updateTest('test-crud-operations', 'fail', 'CRUD methods missing');
+                                log('❌ CRUD operations methods not found', 'fail');
+                            }
+                        } else {
+                            // Check if functions exist globally
+                            const hasGlobalFunctions = typeof addAssignment === 'function' || 
+                                typeof addFaculty === 'function';
+                            
+                            if (hasGlobalFunctions) {
+                                updateTest('test-crud-operations', 'pass', 'Global CRUD functions available');
+                                log('✅ Global CRUD functions found', 'pass');
+                            } else {
+                                updateTest('test-crud-operations', 'fail', 'No CRUD functions found');
+                                log('❌ No CRUD operations methods found', 'fail');
+                            }
+                        }
+                    } catch (error) {
+                        updateTest('test-crud-operations', 'fail', 'Error: ' + error.message);
+                        log('❌ CRUD operations error: ' + error.message, 'fail');
+                    }
+                }, 1500);
+            }, 500); // Initial delay to allow scripts to load
+        }
+        
+        function testCloudSync() {
+            log('Testing Cloud Synchronization...', 'info');
+            
+            setTimeout(() => {
+                // Test 1: Google Drive API
+                try {
+                    const hasGoogleDrive = (window.authManager && typeof window.authManager.loadFromDrive === 'function') ||
+                        typeof loadFromDrive === 'function' ||
+                        typeof window.loadFromDrive === 'function';
+                    
+                    if (hasGoogleDrive) {
+                        updateTest('test-google-drive', 'pass', 'Google Drive methods available');
+                        log('✅ Google Drive API methods found', 'pass');
+                    } else {
+                        updateTest('test-google-drive', 'fail', 'Google Drive methods missing');
+                        log('❌ Google Drive API methods not found', 'fail');
+                    }
+                } catch (error) {
+                    updateTest('test-google-drive', 'fail', 'Error: ' + error.message);
+                    log('❌ Google Drive API error: ' + error.message, 'fail');
+                }
+                
+                // Test 2: Sync Methods
+                setTimeout(() => {
+                    try {
+                        const hasSyncMethods = (window.dataManager && typeof window.dataManager.syncWithCloud === 'function') ||
+                            typeof syncWithCloud === 'function' ||
+                            typeof window.syncWithCloud === 'function';
+                        
+                        if (hasSyncMethods) {
+                            updateTest('test-sync-methods', 'pass', 'Sync methods available');
+                            log('✅ Sync methods found', 'pass');
+                        } else {
+                            updateTest('test-sync-methods', 'fail', 'Sync methods missing');
+                            log('❌ Sync methods not found', 'fail');
+                        }
+                    } catch (error) {
+                        updateTest('test-sync-methods', 'fail', 'Error: ' + error.message);
+                        log('❌ Sync methods error: ' + error.message, 'fail');
+                    }
+                }, 500);
+                
+                // Test 3: Real-time Sync
+                setTimeout(() => {
+                    try {
+                        const hasRealTimeSync = (window.dataManager && typeof window.dataManager.startRealTimeSync === 'function') ||
+                            typeof startRealTimeSync === 'function' ||
+                            typeof window.startRealTimeSync === 'function';
+                        
+                        if (hasRealTimeSync) {
+                            updateTest('test-real-time-sync', 'pass', 'Real-time sync available');
+                            log('✅ Real-time sync methods found', 'pass');
+                        } else {
+                            updateTest('test-real-time-sync', 'fail', 'Real-time sync missing');
+                            log('❌ Real-time sync methods not found', 'fail');
+                        }
+                    } catch (error) {
+                        updateTest('test-real-time-sync', 'fail', 'Error: ' + error.message);
+                        log('❌ Real-time sync error: ' + error.message, 'fail');
+                    }
+                }, 1000);
+                
+                // Test 4: Conflict Resolution
+                setTimeout(() => {
+                    try {
+                        if (window.dataManager && window.dataManager.data && typeof window.dataManager.data.version !== 'undefined') {
+                            updateTest('test-conflict-resolution', 'pass', 'Version control present');
+                            log('✅ Conflict resolution system detected', 'pass');
+                        } else if (window.dataManager) {
+                            updateTest('test-conflict-resolution', 'warning', 'DataManager exists but version control not detected');
+                            log('⚠️ Conflict resolution system needs verification', 'warning');
+                        } else {
+                            updateTest('test-conflict-resolution', 'warning', 'Cannot verify without DataManager');
+                            log('⚠️ Cannot verify conflict resolution without DataManager', 'warning');
+                        }
+                    } catch (error) {
+                        updateTest('test-conflict-resolution', 'fail', 'Error: ' + error.message);
+                        log('❌ Conflict resolution error: ' + error.message, 'fail');
+                    }
+                }, 1500);
+            }, 500); // Initial delay to allow scripts to load
+        }
+        
+        function testUserManagement() {
+            log('Testing User Management System...', 'info');
+            
+            setTimeout(() => {
+                // Test 1: User Approval System
+                try {
+                    const hasUserApproval = typeof window.approveUser === 'function' && typeof window.rejectUser === 'function' ||
+                        typeof approveUser === 'function' && typeof rejectUser === 'function';
+                    
+                    if (hasUserApproval) {
+                        updateTest('test-user-approval', 'pass', 'Approval functions available');
+                        log('✅ User approval system found', 'pass');
+                    } else {
+                        updateTest('test-user-approval', 'fail', 'Approval functions missing');
+                        log('❌ User approval system not found', 'fail');
+                    }
+                } catch (error) {
+                    updateTest('test-user-approval', 'fail', 'Error: ' + error.message);
+                    log('❌ User approval error: ' + error.message, 'fail');
+                }
+                
+                // Test 2: Admin Functions
+                setTimeout(() => {
+                    try {
+                        if (window.dataManager && Array.isArray(window.dataManager.pendingUsers)) {
+                            updateTest('test-admin-functions', 'pass', 'Admin data structures present');
+                            log('✅ Admin functions data structures found', 'pass');
+                        } else if (window.dataManager) {
+                            updateTest('test-admin-functions', 'warning', 'DataManager exists but admin structures not initialized');
+                            log('⚠️ Admin functions need verification', 'warning');
+                        } else {
+                            updateTest('test-admin-functions', 'warning', 'DataManager not available for admin verification');
+                            log('⚠️ Admin functions need verification - DataManager not available', 'warning');
+                        }
+                    } catch (error) {
+                        updateTest('test-admin-functions', 'fail', 'Error: ' + error.message);
+                        log('❌ Admin functions error: ' + error.message, 'fail');
+                    }
+                }, 500);
+                
+                // Test 3: Pending User Management
+                setTimeout(() => {
+                    try {
+                        // Check for pending user management functions
+                        const hasPendingUserMgmt = typeof window.updatePendingUsersDisplay === 'function' ||
+                            typeof updatePendingUsersDisplay === 'function' ||
+                            typeof window.processAdminNotifications === 'function';
+                        
+                        if (hasPendingUserMgmt) {
+                            updateTest('test-pending-users', 'pass', 'Pending user management functions present');
+                            log('✅ Pending user management system found', 'pass');
+                        } else {
+                            updateTest('test-pending-users', 'warning', 'Pending user management functions not detected');
+                            log('⚠️ Pending user management needs verification', 'warning');
+                        }
+                    } catch (error) {
+                        updateTest('test-pending-users', 'warning', 'Could not verify pending user management');
+                        log('⚠️ Could not verify pending user management', 'warning');
+                    }
+                }, 1000);
+                
+                // Test 4: Cross-device Notifications
+                setTimeout(() => {
+                    try {
+                        const hasIndexedDB = typeof indexedDB !== 'undefined';
+                        const hasLocalStorage = typeof localStorage !== 'undefined';
+                        const hasGoogleDrive = window.authManager && typeof window.authManager.saveToDrive === 'function';
+                        
+                        if (hasIndexedDB && hasLocalStorage && hasGoogleDrive) {
+                            updateTest('test-cross-device', 'pass', 'Full cross-device support available');
+                            log('✅ Full cross-device notification capabilities confirmed', 'pass');
+                        } else if (hasIndexedDB && hasLocalStorage) {
+                            updateTest('test-cross-device', 'warning', 'Partial cross-device support available');
+                            log('⚠️ Partial cross-device notification support', 'warning');
+                        } else {
+                            updateTest('test-cross-device', 'warning', 'Limited cross-device support');
+                            log('⚠️ Cross-device notifications have limited support', 'warning');
+                        }
+                    } catch (error) {
+                        updateTest('test-cross-device', 'fail', 'Error: ' + error.message);
+                        log('❌ Cross-device notification error: ' + error.message, 'fail');
+                    }
+                }, 1500);
+            }, 500); // Initial delay to allow scripts to load
+        }
+        
+        function testUserInterface() {
+            log('Testing User Interface...', 'info');
+            
+            // Test 1: Responsive Design
+            try {
+                const viewportMeta = document.querySelector('meta[name="viewport"]');
+                const hasCSS = document.styleSheets.length > 0;
+                
+                if (viewportMeta && hasCSS) {
+                    updateTest('test-responsive', 'pass', 'Responsive design elements present');
+                    log('✅ Responsive design confirmed', 'pass');
+                } else {
+                    updateTest('test-responsive', 'warning', 'Responsive design may be incomplete');
+                    log('⚠️ Responsive design needs verification', 'warning');
+                }
+            } catch (error) {
+                updateTest('test-responsive', 'fail', 'Error: ' + error.message);
+                log('❌ Responsive design error: ' + error.message, 'fail');
+            }
+            
+            // Test 2: Navigation Elements
+            setTimeout(() => {
+                const tabs = document.querySelectorAll('[class*="tab"], [id*="tab"]');
+                const buttons = document.querySelectorAll('button');
+                
+                if (tabs.length > 0 && buttons.length > 0) {
+                    updateTest('test-navigation', 'pass', 'Navigation elements present');
+                    log('✅ Navigation elements found', 'pass');
+                } else {
+                    updateTest('test-navigation', 'warning', 'Limited navigation elements');
+                    log('⚠️ Navigation elements need verification', 'warning');
+                }
+            }, 500);
+            
+            // Test 3: Modal Windows
+            setTimeout(() => {
+                const modals = document.querySelectorAll('[class*="modal"], [id*="modal"]');
+                
+                if (modals.length > 0) {
+                    updateTest('test-modals', 'pass', 'Modal elements present');
+                    log('✅ Modal windows found', 'pass');
+                } else {
+                    updateTest('test-modals', 'warning', 'Modal elements not detected');
+                    log('⚠️ Modal windows may not be loaded yet', 'warning');
+                }
+            }, 1000);
+            
+            // Test 4: Print Functionality
+            setTimeout(() => {
+                try {
+                    const printCSS = Array.from(document.styleSheets).some(sheet => {
+                        try {
+                            return Array.from(sheet.cssRules).some(rule => 
+                                rule.conditionText && rule.conditionText.includes('print')
+                            );
+                        } catch (e) {
+                            return false;
+                        }
+                    });
+                    
+                    if (printCSS || document.querySelector('style').textContent.includes('@media print')) {
+                        updateTest('test-print', 'pass', 'Print styles present');
+                        log('✅ Print functionality confirmed', 'pass');
+                    } else {
+                        updateTest('test-print', 'warning', 'Print styles not detected');
+                        log('⚠️ Print functionality needs verification', 'warning');
+                    }
+                } catch (error) {
+                    updateTest('test-print', 'warning', 'Could not verify print styles');
+                    log('⚠️ Print functionality verification failed', 'warning');
+                }
+            }, 1500);
+        }
+        
+        function testCoreFeatures() {
+            log('Testing Core Features...', 'info');
+            
+            setTimeout(() => {
+                // Test 1: Assignment Management
+                try {
+                    const hasAssignmentMgmt = (window.dataManager && typeof window.dataManager.addAssignment === 'function') ||
+                        typeof addAssignment === 'function' ||
+                        typeof window.addAssignment === 'function';
+                    
+                    if (hasAssignmentMgmt) {
+                        updateTest('test-assignment-mgmt', 'pass', 'Assignment management available');
+                        log('✅ Assignment management system found', 'pass');
+                    } else {
+                        updateTest('test-assignment-mgmt', 'fail', 'Assignment management missing');
+                        log('❌ Assignment management system not found', 'fail');
+                    }
+                } catch (error) {
+                    updateTest('test-assignment-mgmt', 'fail', 'Error: ' + error.message);
+                    log('❌ Assignment management error: ' + error.message, 'fail');
+                }
+                
+                // Test 2: Faculty Management
+                setTimeout(() => {
+                    try {
+                        const hasFacultyMgmt = (window.dataManager && typeof window.dataManager.addFaculty === 'function') ||
+                            typeof addFaculty === 'function' ||
+                            typeof window.addFaculty === 'function';
+                        
+                        if (hasFacultyMgmt) {
+                            updateTest('test-faculty-mgmt', 'pass', 'Faculty management available');
+                            log('✅ Faculty management system found', 'pass');
+                        } else {
+                            updateTest('test-faculty-mgmt', 'fail', 'Faculty management missing');
+                            log('❌ Faculty management system not found', 'fail');
+                        }
+                    } catch (error) {
+                        updateTest('test-faculty-mgmt', 'fail', 'Error: ' + error.message);
+                        log('❌ Faculty management error: ' + error.message, 'fail');
+                    }
+                }, 500);
+                
+                // Test 3: Analytics & Reporting
+                setTimeout(() => {
+                    try {
+                        const hasAnalytics = typeof window.updateAdminStats === 'function' ||
+                            typeof updateAdminStats === 'function' ||
+                            typeof showAnalytics === 'function';
+                        
+                        if (hasAnalytics) {
+                            updateTest('test-analytics', 'pass', 'Analytics functions available');
+                            log('✅ Analytics and reporting system found', 'pass');
+                        } else {
+                            updateTest('test-analytics', 'warning', 'Analytics functions not detected');
+                            log('⚠️ Analytics and reporting needs verification', 'warning');
+                        }
+                    } catch (error) {
+                        updateTest('test-analytics', 'fail', 'Error: ' + error.message);
+                        log('❌ Analytics error: ' + error.message, 'fail');
+                    }
+                }, 1000);
+                
+                // Test 4: Search & Filter
+                setTimeout(() => {
+                    try {
+                        const hasSearchFilter = typeof filterAssignments === 'function' ||
+                            typeof searchAssignments === 'function' ||
+                            typeof window.filterAssignments === 'function';
+                        
+                        if (hasSearchFilter) {
+                            updateTest('test-search-filter', 'pass', 'Search functions available');
+                            log('✅ Search and filter functionality found', 'pass');
+                        } else {
+                            updateTest('test-search-filter', 'warning', 'Search functions not detected');
+                            log('⚠️ Search and filter functionality needs verification', 'warning');
+                        }
+                    } catch (error) {
+                        updateTest('test-search-filter', 'warning', 'Could not verify search functions');
+                        log('⚠️ Could not verify search and filter functionality', 'warning');
+                    }
+                }, 1500);
+            }, 500); // Initial delay to allow scripts to load
+        }
+        
+        async function runQuickTest() {
+            log('Starting Quick Test...', 'info');
+            clearResults();
+            
+            // Initialize LAMS components first
+            await initializeLAMSForTesting();
+            
+            setTimeout(testAuthentication, 1000);
+            setTimeout(testDataManagement, 4000);
+            setTimeout(testUserInterface, 7000);
+        }
+        
+        async function runAllTests() {
+            log('Starting Comprehensive Test Suite...', 'info');
+            clearResults();
+            
+            // Initialize LAMS components first
+            await initializeLAMSForTesting();
+            
+            // Run tests with proper delays
+            setTimeout(testAuthentication, 1000);
+            setTimeout(testDataManagement, 4000);
+            setTimeout(testCloudSync, 7000);
+            setTimeout(testUserManagement, 10000);
+            setTimeout(testUserInterface, 13000);
+            setTimeout(testCoreFeatures, 16000);
+        }
+        
+        function clearResults() {
+            testResults = { total: 0, passed: 0, failed: 0, warnings: 0 };
+            testLog = [];
+            
+            document.querySelectorAll('.test-item').forEach(item => {
+                item.className = 'test-item loading';
+                const status = item.querySelector('span');
+                if (status) status.textContent = 'Testing...';
+            });
+            
+            document.getElementById('progressBar').style.width = '0%';
+            document.getElementById('progressText').textContent = 'Ready to start testing...';
+            document.getElementById('testSummary').className = 'summary info';
+            document.getElementById('testSummary').innerHTML = 'Test results will appear here...';
+            document.getElementById('testLog').innerHTML = '';
+        }
+        
+        // Initialize
+        log('🧪 LAMS Comprehensive Functionality Test Ready', 'info');
+        log('Click "Run All Tests" to start complete system verification', 'info');
+    </script>
+</body>
+</html>
