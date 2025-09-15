@@ -1069,6 +1069,50 @@ body {
 
 .loading-spinner {
   animation: spin 1s linear infinite;
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(var(--color-primary-rgb), 0.3);
+  border-top: 4px solid var(--color-primary);
+  border-radius: 50%;
+  margin: 0 auto;
+}
+
+.chart-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-12);
+  color: var(--color-text-secondary);
+}
+
+.empty-chart-state,
+.chart-error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-12);
+  padding: var(--space-24);
+  text-align: center;
+}
+
+.empty-icon,
+.error-icon {
+  font-size: 3rem;
+  opacity: 0.6;
+}
+
+.analytics-description {
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-16);
+  font-size: var(--font-size-sm);
+}
+
+.analytics-actions {
+  display: flex;
+  gap: var(--space-8);
+  margin-top: var(--space-16);
 }
 
 /* Dashboard */
@@ -1338,8 +1382,97 @@ body {
   transform: scale(1.05);
 }
 
-/* Analytics */
-.analytics-grid {
+/* Analytics - Dynamic Layout System */
+.analytics-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-24);
+  padding: var(--space-20);
+  background: var(--glass-bg);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+}
+
+.analytics-controls {
+  display: flex;
+  gap: var(--space-12);
+  align-items: center;
+}
+
+/* Row Layout (Default - Better for data analysis) */
+.analytics-row-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-20);
+}
+
+.analytics-row-layout .analytics-card {
+  display: flex;
+  width: 100%;
+  min-height: 200px;
+  background: var(--glass-bg);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.analytics-row-layout .analytics-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.analytics-card-info {
+  flex: 1;
+  padding: var(--space-20);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.analytics-card-visual {
+  flex: 2;
+  padding: var(--space-16);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.analytics-card h3 {
+  margin: 0 0 var(--space-8) 0;
+  color: var(--color-primary);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+}
+
+.analytics-card-stats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.analytics-stat {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-8);
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border-radius: var(--radius-sm);
+}
+
+.analytics-stat-label {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.analytics-stat-value {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+}
+
+/* Grid Layout (Alternative) */
+.analytics-grid-layout {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
   gap: var(--space-24);
@@ -1347,26 +1480,79 @@ body {
   width: 100%;
 }
 
-/* Ensure analytics cards have proper spacing and sizing */
-.analytics-grid .glass-card {
+.analytics-grid-layout .analytics-card {
   min-height: 400px;
+  background: var(--glass-bg);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
   padding: var(--space-20);
   display: flex;
   flex-direction: column;
 }
 
-.analytics-grid .glass-card h3 {
-  margin-bottom: var(--space-16);
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text);
-}
-
+/* Chart containers */
 .chart-container {
   padding: var(--space-16);
   flex: 1;
   position: relative;
-  min-height: 300px;
+  min-height: 250px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chart-container canvas {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* Analytics Error State */
+.analytics-error {
+  text-align: center;
+  padding: var(--space-32);
+  background: var(--glass-bg);
+  border-radius: var(--radius-lg);
+  border: 2px dashed var(--color-error);
+}
+
+.analytics-error h3 {
+  color: var(--color-error);
+  margin-bottom: var(--space-16);
+}
+
+.error-actions {
+  display: flex;
+  gap: var(--space-12);
+  justify-content: center;
+  margin-top: var(--space-20);
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .analytics-header {
+    flex-direction: column;
+    gap: var(--space-16);
+    text-align: center;
+  }
+  
+  .analytics-controls {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .analytics-row-layout .analytics-card {
+    flex-direction: column;
+    min-height: auto;
+  }
+  
+  .analytics-card-info,
+  .analytics-card-visual {
+    flex: none;
+  }
+  
+  .analytics-grid-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Enhanced Chart State Management */

@@ -428,76 +428,36 @@
 
         <!-- Analytics Tab -->
         <div class="tab-content" id="analytics-tab">
-            <div class="analytics-grid">
-                <div class="glass-card">
-                    <h3>Faculty Workload Distribution</h3>
-                    <div class="chart-container" style="position: relative; height: 300px;">
-                        <canvas id="facultyWorkloadChart"></canvas>
+            <!-- Analytics Controls -->
+            <div class="analytics-header">
+                <h2>📊 Laboratory Analytics Dashboard</h2>
+                <div class="analytics-controls">
+                    <select id="analyticsViewMode" class="form-control" onchange="switchAnalyticsView()">
+                        <option value="row">Row View (Recommended)</option>
+                        <option value="grid">Grid View</option>
+                    </select>
+                    <button class="btn btn--secondary" onclick="refreshAllAnalytics()">🔄 Refresh</button>
+                    <button class="btn btn--primary" onclick="exportAnalytics()">📁 Export</button>
+                </div>
+            </div>
+
+            <!-- Dynamic Analytics Container -->
+            <div id="analytics-container" class="analytics-row-layout">
+                <!-- This will be dynamically populated -->
+            </div>
+
+            <!-- Analytics Error Container -->
+            <div id="analytics-error" class="analytics-error" style="display: none;">
+                <div class="error-content">
+                    <h3>⚠️ Analytics Unavailable</h3>
+                    <p>There seems to be an issue loading the analytics. Let's try to fix it:</p>
+                    <div class="error-actions">
+                        <button class="btn btn--primary" onclick="forceAnalyticsReload()">� Force Reload</button>
+                        <button class="btn btn--secondary" onclick="showTextAnalytics()">📋 Show Text Summary</button>
                     </div>
                 </div>
-                <div class="glass-card">
-                    <h3>Subject Popularity</h3>
-                    <div class="chart-container" style="position: relative; height: 300px;">
-                        <canvas id="subjectDistributionChart"></canvas>
-                    </div>
-                </div>
-                <div class="glass-card">
-                    <h3>Room Utilization Analysis</h3>
-                    <div class="chart-container" style="position: relative; height: 300px;">
-                        <canvas id="roomUtilizationChart"></canvas>
-                    </div>
-                </div>
-                <div class="glass-card">
-                    <h3>Department Comparison</h3>
-                    <div class="chart-container" style="position: relative; height: 300px;">
-                        <canvas id="departmentOverviewChart"></canvas>
-                    </div>
-                </div>
-                <div class="glass-card">
-                    <h3>Time Slot Efficiency</h3>
-                    <div class="chart-container" style="position: relative; height: 300px;">
-                        <canvas id="timeSlotChart"></canvas>
-                    </div>
-                </div>
-                <div class="glass-card">
-                    <h3>Weekly Schedule Heatmap</h3>
-                    <div class="chart-container" style="position: relative; height: 300px;">
-                        <canvas id="heatmapChart"></canvas>
-                    </div>
-                </div>
-                
-                <!-- New Interactive Analytics -->
-                <div class="glass-card">
-                    <h3>📚 Subject-Faculty Assignment Analysis</h3>
-                    <div class="analytics-filters">
-                        <select id="subjectFilter" class="form-control" onchange="updateSubjectFacultyAnalysis()">
-                            <option value="">All Subjects</option>
-                        </select>
-                    </div>
-                    <div class="chart-container" style="position: relative; height: 300px;">
-                        <canvas id="subjectFacultyChart"></canvas>
-                    </div>
-                    <div class="analytics-stats">
-                        <div class="stat-item">
-                            <span class="stat-label">Average Faculty per Subject:</span>
-                            <span id="avgFacultyPerSubject" class="stat-value">0</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Most Popular Subject:</span>
-                            <span id="mostPopularSubject" class="stat-value">-</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="glass-card">
-                    <h3>📊 Weekly Workload Distribution</h3>
-                    <div class="analytics-filters">
-                        <label>
-                            <input type="checkbox" id="showTheoryOnly" onchange="updateWeeklyWorkload()"> Theory Only
-                        </label>
-                        <label>
-                            <input type="checkbox" id="showLabOnly" onchange="updateWeeklyWorkload()"> Lab Only
-                        </label>
+            </div>
+        </div>
                     </div>
                     <div class="chart-container" style="position: relative; height: 300px;">
                         <canvas id="weeklyWorkloadChart"></canvas>

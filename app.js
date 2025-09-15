@@ -1725,173 +1725,874 @@ function validateChartJs() {
     }
 }
 
-function renderAnalytics() {
-    if (!window.dataManager) return;
+// ================================
+// DYNAMIC ANALYTICS SYSTEM
+// ================================
+
+// Analytics configuration
+const ANALYTICS_CONFIG = {
+    defaultView: 'row',
+    maxRetries: 3,
+    retryDelay: 1000,
+    chartTimeout: 5000,
+    charts: [
+        {
+            id: 'facultyWorkload',
+            title: 'Faculty Workload Distribution',
+            description: 'Shows how assignments are distributed among faculty members',
+            type: 'doughnut',
+            priority: 1
+        },
+        {
+            id: 'subjectDistribution', 
+            title: 'Subject Popularity',
+            description: 'Most frequently assigned subjects',
+            type: 'bar',
+            priority: 2
+        },
+        {
+            id: 'roomUtilization',
+            title: 'Room Utilization Analysis', 
+            description: 'How efficiently rooms are being used',
+            type: 'bar',
+            priority: 3
+        },
+        {
+            id: 'departmentOverview',
+            title: 'Department Comparison',
+            description: 'Assignment distribution across departments',
+            type: 'pie',
+            priority: 4
+        },
+        {
+            id: 'timeSlotAnalysis',
+            title: 'Time Slot Efficiency',
+            description: 'Peak and low usage time slots',
+            type: 'line',
+            priority: 5
+        },
+        {
+            id: 'weeklyHeatmap',
+            title: 'Weekly Schedule Heatmap',
+            description: 'Visual representation of weekly activity',
+            type: 'heatmap',
+            priority: 6
+        }
+    ]
+};
+
+// Dynamic analytics system
+// ================================
+// ROBUST ERROR HANDLING SYSTEM
+// ================================
+
+// Global error handler to prevent application crashes
+window.addEventListener('error', (event) => {
+    console.error('🚨 Global Error Caught:', event.error);
+    showMessage(`❌ Application Error: ${event.error.message}`, 'error');
     
+    // Try to recover gracefully
+    if (event.error.message.includes('Chart')) {
+        console.log('🔄 Attempting to recover from Chart error...');
+        setTimeout(forceAnalyticsReload, 1000);
+    }
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+    console.error('🚨 Unhandled Promise Rejection:', event.reason);
+    showMessage('❌ Operation failed - trying to recover...', 'warning');
+    event.preventDefault();
+});
+
+// Safe function wrapper
+function safeExecute(func, fallback = null, context = 'Unknown') {
     try {
-        // Feature flag: Disable analytics entirely if turned off
-        if (!window.CONFIG?.FEATURES?.ANALYTICS) {
-            const analyticsTab = document.getElementById('analytics-tab');
-            if (analyticsTab) analyticsTab.style.display = 'none';
-            console.log('📊 Analytics feature disabled via config.');
-            return;
-        }
-
-        // Safe mode: Skip charts if no data available
-        const hasAnyData = (window.dataManager.data.assignments?.length || 0) > 0
-            || (window.dataManager.data.subjects?.length || 0) > 0
-            || ((window.dataManager.data.theoryFaculty?.length || 0) + (window.dataManager.data.labFaculty?.length || 0)) > 0;
-        if (window.CONFIG?.FEATURES?.ANALYTICS_SAFE_MODE && !hasAnyData) {
-            console.log('🛟 Analytics Safe Mode: Skipping chart rendering due to empty dataset.');
-            const containers = [
-                'facultyWorkloadChart','subjectDistributionChart','roomUtilizationChart','departmentOverviewChart','timeSlotChart','heatmapChart','subjectFacultyChart','weeklyWorkloadChart','departmentResourceChart'
-            ];
-            containers.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) {
-                    const parent = el.closest('.glass-card') || el.parentElement;
-                    if (parent) {
-                        parent.querySelector('.empty-state')?.remove();
-                        const note = document.createElement('p');
-                        note.className = 'empty-state';
-                        note.textContent = 'Charts will appear when data is added.';
-                        parent.appendChild(note);
-                    }
-                }
-            });
-            return;
-        }
-
-        // Ensure analytics tab is visible before validating charts
-        const analyticsTab = document.getElementById('analytics-tab');
-        const isTabVisible = analyticsTab && (analyticsTab.style.display !== 'none');
-        
-        if (!isTabVisible) {
-            console.log('📊 Analytics tab not visible, waiting for tab activation...');
-            // Store flag to render analytics when tab becomes visible
-            window.pendingAnalyticsRender = true;
-            return;
-        }
-        
-        // Clear pending render flag
-        window.pendingAnalyticsRender = false;
-
-        // Enhanced Chart.js validation with comprehensive checks
-        const chartValidation = validateChartJs();
-        if (!chartValidation.valid) {
-            if (!window.chartJsRetryCount) window.chartJsRetryCount = 0;
-            window.chartJsRetryCount++;
-            
-            console.log(`📊 Chart.js validation failed: ${chartValidation.reason}, retry ${window.chartJsRetryCount}/5...`);
-            
-            if (window.chartJsRetryCount <= 5) {
-                showMessage('📊 Loading analytics library...', 'info');
-                
-                // Enhanced retry with multiple validation checks
-                setTimeout(() => {
-                    const retryValidation = validateChartJs();
-                    
-                    if (retryValidation.valid) {
-                        console.log('✅ Chart.js loaded successfully on retry');
-                        window.chartJsRetryCount = 0;
-                        renderAnalytics();
-                    } else {
-                        // Try to reload the script if it's not available
-                        if (window.chartJsRetryCount === 3) {
-                            console.log('🔄 Attempting to reload Chart.js script...');
-                            const existingScript = document.querySelector('script[src*="chart.js"]');
-                            if (existingScript) {
-                                existingScript.remove();
-                            }
-                            
-                            const newScript = document.createElement('script');
-                            newScript.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js';
-                            newScript.onload = () => {
-                                console.log('✅ Chart.js script reloaded');
-                                setTimeout(renderAnalytics, 500);
-                            };
-                            newScript.onerror = () => {
-                                console.error('❌ Chart.js script reload failed');
-                                renderAnalytics(); // Continue with regular retry
-                            };
-                            document.head.appendChild(newScript);
-                        } else {
-                            renderAnalytics(); // Continue retrying
-                        }
-                    }
-                }, 1500); // Increased timeout for better loading
-                return;
-            } else {
-                console.warn('❌ Chart.js failed to load after 5 attempts. Displaying text-based analytics.');
-                showMessage('📊 Charts unavailable - showing text analytics', 'warning');
-                renderTextBasedAnalytics();
-                return;
-            }
-        }
-        
-        // Reset retry counter on successful load
-        window.chartJsRetryCount = 0;
-        
-        console.log('📊 Rendering analytics with data:', {
-            assignments: window.dataManager.data.assignments?.length || 0,
-            faculty: (window.dataManager.data.theoryFaculty?.length || 0) + (window.dataManager.data.labFaculty?.length || 0)
-        });
-        
-        // Use enhanced validation system for core charts
-        const validationSuccess = window.renderChartsWithValidation();
-        
-        if (validationSuccess) {
-            // Enhanced Interactive Analytics (only if core charts succeed)
+        return func();
+    } catch (error) {
+        console.error(`❌ Error in ${context}:`, error);
+        if (fallback) {
             try {
-                renderSubjectFacultyChart();
-                renderWeeklyWorkloadChart();
-                renderDepartmentResourceChart();
-                renderFacultyWorkloadTable();
-                updateAnalyticsFilters();
-            } catch (interactiveError) {
-                console.warn('⚠️ Some interactive analytics failed:', interactiveError);
-            }
-            
-            // New Advanced Analytics (only if core charts succeed)
-            try {
-                renderTimeSlotAnalysisChart();
-                renderLabTheoryChart();
-                renderFacultyPerformanceChart();
-                renderRoomUtilizationAnalysisChart();
-                renderComplexityChart();
-                updateOptimizationDashboard();
-            } catch (advancedError) {
-                console.warn('⚠️ Some advanced analytics failed:', advancedError);
-                // Continue with basic analytics even if advanced charts fail
-            }
-            
-            showMessage('📊 Analytics loaded successfully!', 'success');
-        } else {
-            console.warn('⚠️ Chart validation failed, attempting direct chart rendering...');
-            
-            // Fallback: Try to render charts directly without strict validation
-            try {
-                console.log('🔄 Attempting fallback chart rendering...');
-                renderFacultyWorkloadChart();
-                renderSubjectDistributionChart();
-                renderRoomUtilizationChart();
-                renderDepartmentOverviewChart();
-                renderTimeSlotChart();
-                renderHeatmapChart();
-                
-                showMessage('📊 Analytics loaded (fallback mode)!', 'success');
-                console.log('✅ Fallback chart rendering succeeded');
+                return fallback();
             } catch (fallbackError) {
-                console.error('❌ Fallback chart rendering failed:', fallbackError);
-                renderTextBasedAnalytics();
+                console.error(`❌ Fallback also failed in ${context}:`, fallbackError);
             }
         }
-    } catch (e) {
-        console.error('Error rendering analytics:', e);
-        showMessage('❌ Analytics failed to load. Please check console for details.', 'error');
-        // Don't auto-retry to avoid infinite loops
+        return null;
     }
 }
+
+// Validation utilities
+function validateDataStructure(data) {
+    if (!data || typeof data !== 'object') {
+        return { valid: false, reason: 'Data is not an object' };
+    }
+    
+    const requiredFields = ['assignments', 'timeSlots', 'days'];
+    for (const field of requiredFields) {
+        if (!Array.isArray(data[field])) {
+            return { valid: false, reason: `Missing or invalid ${field} array` };
+        }
+    }
+    
+    return { valid: true };
+}
+
+// Enhanced print system with error handling
+function quickPrint() {
+    safeExecute(() => {
+        console.log('🖨️ Starting quick print...');
+        
+        // Validate data first
+        if (!window.dataManager || !window.dataManager.data) {
+            throw new Error('No data available for printing');
+        }
+        
+        const validation = validateDataStructure(window.dataManager.data);
+        if (!validation.valid) {
+            throw new Error(`Invalid data structure: ${validation.reason}`);
+        }
+        
+        // Generate print content safely
+        const printContent = generatePrintContent();
+        if (!printContent) {
+            throw new Error('Failed to generate print content');
+        }
+        
+        // Trigger print
+        window.print();
+        showMessage('🖨️ Print dialog opened successfully', 'success');
+        
+    }, () => {
+        showMessage('❌ Print failed - please check your data and try again', 'error');
+    }, 'Quick Print');
+}
+
+function generatePrintContent() {
+    return safeExecute(() => {
+        const data = window.dataManager.data;
+        const assignments = data.assignments || [];
+        
+        if (assignments.length === 0) {
+            return '<div class="print-message">No assignments available to print</div>';
+        }
+        
+        // Generate print table safely
+        let html = `
+            <div class="print-container">
+                <div class="print-header">
+                    <h1>${window.CONFIG?.INSTITUTE_NAME || 'Laboratory Management System'}</h1>
+                    <p>Generated on: ${new Date().toLocaleDateString()}</p>
+                </div>
+                <table class="print-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            ${data.days.map(day => `<th>${day}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        data.timeSlots.forEach(timeSlot => {
+            html += `<tr><td class="time-cell">${timeSlot}</td>`;
+            
+            data.days.forEach(day => {
+                const dayAssignments = assignments.filter(a => 
+                    a.day === day && a.timeSlot === timeSlot
+                );
+                
+                html += '<td class="schedule-cell">';
+                dayAssignments.forEach(assignment => {
+                    html += `<div class="assignment-entry">${getAssignmentDisplay(assignment)}</div>`;
+                });
+                html += '</td>';
+            });
+            
+            html += '</tr>';
+        });
+        
+        html += '</tbody></table></div>';
+        
+        // Update print area
+        const printArea = document.getElementById('printSchedule');
+        if (printArea) {
+            printArea.innerHTML = html;
+        }
+        
+        return html;
+        
+    }, null, 'Generate Print Content');
+}
+
+function getAssignmentDisplay(assignment) {
+    return safeExecute(() => {
+        const parts = [];
+        
+        if (assignment.subject) parts.push(assignment.subject);
+        if (assignment.department) parts.push(`(${assignment.department})`);
+        if (assignment.semester) parts.push(`S${assignment.semester}`);
+        if (assignment.group) parts.push(`G${assignment.group}`);
+        if (assignment.room) parts.push(`Room: ${assignment.room}`);
+        
+        const faculty = assignment.theoryFaculty || assignment.labFaculty || assignment.faculty;
+        if (faculty) parts.push(`Faculty: ${faculty}`);
+        
+        return parts.join(' ');
+        
+    }, () => 'Assignment Data Error', 'Assignment Display');
+}
+
+// Enhanced tab switching with error handling
+function showTab(tabId, event = null) {
+    return safeExecute(() => {
+        console.log(`🔄 Switching to tab: ${tabId}`);
+        
+        // Remove active states
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        
+        // Add active states
+        const selectedTab = event ? event.target.closest('.nav-tab') : document.querySelector(`[onclick*="showTab('${tabId}')"]`);
+        const selectedContent = document.getElementById(`${tabId}-tab`);
+        
+        if (selectedTab) {
+            selectedTab.classList.add('active');
+        }
+        if (selectedContent) {
+            selectedContent.classList.add('active');
+        }
+        
+        // Tab-specific actions with error handling
+        switch (tabId) {
+            case 'analytics':
+                setTimeout(() => {
+                    safeExecute(() => {
+                        renderAnalytics();
+                    }, () => {
+                        showAnalyticsError('Render Failed', 'Analytics could not be loaded');
+                    }, 'Analytics Tab Switch');
+                }, 100);
+                break;
+                
+            case 'dashboard':
+                setTimeout(() => {
+                    safeExecute(() => {
+                        renderDashboard();
+                    }, null, 'Dashboard Tab Switch');
+                }, 100);
+                break;
+                
+            case 'schedule':
+                setTimeout(() => {
+                    safeExecute(() => {
+                        renderSchedule();
+                    }, null, 'Schedule Tab Switch');
+                }, 100);
+                break;
+                
+            case 'print':
+                setTimeout(() => {
+                    safeExecute(() => {
+                        renderPrintSchedule();
+                        updatePrintFilters();
+                    }, null, 'Print Tab Switch');
+                }, 100);
+                break;
+        }
+        
+    }, () => {
+        showMessage(`❌ Failed to switch to ${tabId} tab`, 'error');
+    }, 'Tab Switch');
+}
+
+function updatePrintFilters() {
+    return safeExecute(() => {
+        if (!window.dataManager || !window.dataManager.data) return;
+        
+        const data = window.dataManager.data;
+        
+        // Update department filter
+        const deptFilter = document.getElementById('printDepartmentFilter');
+        if (deptFilter) {
+            const departments = [...new Set(data.assignments?.map(a => a.department).filter(Boolean))];
+            deptFilter.innerHTML = '<option value="">All Departments</option>' +
+                departments.map(dept => `<option value="${dept}">${dept}</option>`).join('');
+        }
+        
+        // Update semester filter
+        const semFilter = document.getElementById('printSemesterFilter');
+        if (semFilter) {
+            const semesters = [...new Set(data.assignments?.map(a => a.semester).filter(Boolean))];
+            semFilter.innerHTML = '<option value="">All Semesters</option>' +
+                semesters.map(sem => `<option value="${sem}">Semester ${sem}</option>`).join('');
+        }
+        
+        // Update subject filter
+        const subjectFilter = document.getElementById('printSubjectFilter');
+        if (subjectFilter) {
+            const subjects = [...new Set(data.assignments?.map(a => a.subject).filter(Boolean))];
+            subjectFilter.innerHTML = '<option value="">All Subjects</option>' +
+                subjects.map(subject => `<option value="${subject}">${subject}</option>`).join('');
+        }
+        
+    }, null, 'Update Print Filters');
+}
+
+// Make functions globally available
+window.safeExecute = safeExecute;
+window.validateDataStructure = validateDataStructure;
+window.quickPrint = quickPrint;
+window.generatePrintContent = generatePrintContent;
+window.getAssignmentDisplay = getAssignmentDisplay;
+window.showTab = showTab;
+window.updatePrintFilters = updatePrintFilters;
+
+// ================================
+// DYNAMIC ANALYTICS SYSTEM
+// ================================
+
+// Dynamic analytics system (using existing ANALYTICS_CONFIG)
+function renderAnalytics() {
+    console.log('🚀 Starting Dynamic Analytics System...');
+    
+    try {
+        // Clear any existing error states
+        hideAnalyticsError();
+        
+        // Validate prerequisites
+        if (!validateAnalyticsPrerequisites()) {
+            showAnalyticsError('Prerequisites not met', 'System requirements for analytics are not satisfied');
+            return;
+        }
+
+        // Get current view mode (default to row for better data visibility)
+        const viewMode = document.getElementById('analyticsViewMode')?.value || 'row';
+        
+        // Generate analytics dynamically
+        generateDynamicAnalytics(viewMode);
+        
+    } catch (error) {
+        console.error('❌ Analytics rendering failed:', error);
+        showAnalyticsError('Rendering Failed', error.message);
+    }
+}
+
+function validateAnalyticsPrerequisites() {
+    console.log('🔍 Validating analytics prerequisites...');
+    
+    // Check data manager
+    if (!window.dataManager || !window.dataManager.data) {
+        console.error('❌ Data manager not available');
+        return false;
+    }
+    
+    // Check Chart.js availability
+    if (typeof Chart === 'undefined') {
+        console.error('❌ Chart.js not loaded');
+        return false;
+    }
+    
+    // Check analytics container
+    const container = document.getElementById('analytics-container');
+    if (!container) {
+        console.error('❌ Analytics container not found');
+        return false;
+    }
+    
+    console.log('✅ All prerequisites validated');
+    return true;
+}
+
+function generateDynamicAnalytics(viewMode = 'row') {
+    console.log(`📊 Generating analytics in ${viewMode} mode...`);
+    
+    const container = document.getElementById('analytics-container');
+    if (!container) return;
+    
+    // Set layout class
+    container.className = viewMode === 'row' ? 'analytics-row-layout' : 'analytics-grid-layout';
+    
+    // Clear existing content
+    container.innerHTML = '';
+    
+    // Generate analytics cards
+    ANALYTICS_CONFIG.charts.forEach((chartConfig, index) => {
+        try {
+            const cardElement = createAnalyticsCard(chartConfig, viewMode);
+            container.appendChild(cardElement);
+            
+            // Render chart with delay for better UX
+            setTimeout(() => {
+                renderAnalyticsChart(chartConfig);
+            }, index * 200);
+            
+        } catch (error) {
+            console.error(`❌ Failed to create card for ${chartConfig.id}:`, error);
+        }
+    });
+    
+    console.log('✅ Analytics cards generated successfully');
+}
+
+function createAnalyticsCard(chartConfig, viewMode) {
+    const card = document.createElement('div');
+    card.className = 'analytics-card';
+    card.id = `card-${chartConfig.id}`;
+    
+    if (viewMode === 'row') {
+        card.innerHTML = `
+            <div class="analytics-card-info">
+                <h3>${chartConfig.title}</h3>
+                <p class="analytics-description">${chartConfig.description}</p>
+                <div class="analytics-card-stats" id="stats-${chartConfig.id}">
+                    <!-- Stats will be populated dynamically -->
+                </div>
+                <div class="analytics-actions">
+                    <button class="btn btn--sm" onclick="refreshChart('${chartConfig.id}')">🔄 Refresh</button>
+                    <button class="btn btn--sm btn--secondary" onclick="exportChart('${chartConfig.id}')">📊 Export</button>
+                </div>
+            </div>
+            <div class="analytics-card-visual">
+                <div class="chart-container">
+                    <canvas id="${chartConfig.id}Chart"></canvas>
+                    <div class="chart-loading" id="loading-${chartConfig.id}">
+                        <div class="loading-spinner"></div>
+                        <p>Loading chart...</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else {
+        card.innerHTML = `
+            <div class="analytics-card-header">
+                <h3>${chartConfig.title}</h3>
+                <p class="analytics-description">${chartConfig.description}</p>
+            </div>
+            <div class="chart-container">
+                <canvas id="${chartConfig.id}Chart"></canvas>
+                <div class="chart-loading" id="loading-${chartConfig.id}">
+                    <div class="loading-spinner"></div>
+                    <p>Loading chart...</p>
+                </div>
+            </div>
+            <div class="analytics-card-stats" id="stats-${chartConfig.id}">
+                <!-- Stats will be populated dynamically -->
+            </div>
+        `;
+    }
+    
+    return card;
+}
+
+function renderAnalyticsChart(chartConfig) {
+    const canvasId = `${chartConfig.id}Chart`;
+    const loadingId = `loading-${chartConfig.id}`;
+    const statsId = `stats-${chartConfig.id}`;
+    
+    try {
+        // Show loading state
+        const loadingElement = document.getElementById(loadingId);
+        if (loadingElement) loadingElement.style.display = 'flex';
+        
+        // Get data for this chart
+        const chartData = getChartData(chartConfig.id);
+        
+        if (!chartData || chartData.datasets[0].data.length === 0) {
+            showEmptyChartState(canvasId, loadingId, chartConfig.title);
+            return;
+        }
+        
+        // Create chart with timeout
+        const chartPromise = createChartWithTimeout(canvasId, chartConfig.type, chartData);
+        
+        chartPromise.then((chart) => {
+            // Hide loading state
+            if (loadingElement) loadingElement.style.display = 'none';
+            
+            // Update stats
+            updateChartStats(statsId, chartData, chartConfig);
+            
+            console.log(`✅ Chart ${chartConfig.id} rendered successfully`);
+            
+        }).catch((error) => {
+            console.error(`❌ Chart ${chartConfig.id} failed:`, error);
+            showChartError(canvasId, loadingId, chartConfig.title, error.message);
+        });
+        
+    } catch (error) {
+        console.error(`❌ Error rendering chart ${chartConfig.id}:`, error);
+        showChartError(canvasId, loadingId, chartConfig.title, error.message);
+    }
+}
+
+function getChartData(chartId) {
+    const data = window.dataManager.data;
+    
+    switch (chartId) {
+        case 'facultyWorkload':
+            return generateFacultyWorkloadData(data);
+        case 'subjectDistribution':
+            return generateSubjectDistributionData(data);
+        case 'roomUtilization':
+            return generateRoomUtilizationData(data);
+        case 'departmentOverview':
+            return generateDepartmentOverviewData(data);
+        case 'timeSlotAnalysis':
+            return generateTimeSlotAnalysisData(data);
+        case 'weeklyHeatmap':
+            return generateWeeklyHeatmapData(data);
+        default:
+            return null;
+    }
+}
+
+function generateFacultyWorkloadData(data) {
+    const facultyWorkload = {};
+    
+    // Count assignments per faculty
+    (data.assignments || []).forEach(assignment => {
+        const faculty = assignment.theoryFaculty || assignment.labFaculty || assignment.faculty;
+        if (faculty) {
+            facultyWorkload[faculty] = (facultyWorkload[faculty] || 0) + 1;
+        }
+    });
+    
+    const labels = Object.keys(facultyWorkload).slice(0, 10); // Top 10
+    const values = labels.map(label => facultyWorkload[label]);
+    
+    return {
+        labels,
+        datasets: [{
+            data: values,
+            backgroundColor: [
+                '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
+                '#FF9F40', '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0'
+            ]
+        }]
+    };
+}
+
+function generateSubjectDistributionData(data) {
+    const subjectCount = {};
+    
+    (data.assignments || []).forEach(assignment => {
+        const subject = assignment.subject;
+        if (subject) {
+            subjectCount[subject] = (subjectCount[subject] || 0) + 1;
+        }
+    });
+    
+    const labels = Object.keys(subjectCount);
+    const values = labels.map(label => subjectCount[label]);
+    
+    return {
+        labels,
+        datasets: [{
+            label: 'Number of Assignments',
+            data: values,
+            backgroundColor: '#36A2EB'
+        }]
+    };
+}
+
+function generateRoomUtilizationData(data) {
+    const roomUsage = {};
+    
+    (data.assignments || []).forEach(assignment => {
+        const room = assignment.room;
+        if (room) {
+            roomUsage[room] = (roomUsage[room] || 0) + 1;
+        }
+    });
+    
+    const labels = Object.keys(roomUsage);
+    const values = labels.map(label => roomUsage[label]);
+    
+    return {
+        labels,
+        datasets: [{
+            label: 'Room Usage Count',
+            data: values,
+            backgroundColor: '#4BC0C0'
+        }]
+    };
+}
+
+function generateDepartmentOverviewData(data) {
+    const deptCount = {};
+    
+    (data.assignments || []).forEach(assignment => {
+        const dept = assignment.department;
+        if (dept) {
+            deptCount[dept] = (deptCount[dept] || 0) + 1;
+        }
+    });
+    
+    const labels = Object.keys(deptCount);
+    const values = labels.map(label => deptCount[label]);
+    
+    return {
+        labels,
+        datasets: [{
+            data: values,
+            backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF']
+        }]
+    };
+}
+
+function generateTimeSlotAnalysisData(data) {
+    const timeSlotUsage = {};
+    
+    (data.assignments || []).forEach(assignment => {
+        const timeSlot = assignment.timeSlot;
+        if (timeSlot) {
+            timeSlotUsage[timeSlot] = (timeSlotUsage[timeSlot] || 0) + 1;
+        }
+    });
+    
+    const labels = Object.keys(timeSlotUsage).sort();
+    const values = labels.map(label => timeSlotUsage[label]);
+    
+    return {
+        labels,
+        datasets: [{
+            label: 'Usage Count',
+            data: values,
+            borderColor: '#36A2EB',
+            backgroundColor: 'rgba(54, 162, 235, 0.1)',
+            fill: true
+        }]
+    };
+}
+
+function generateWeeklyHeatmapData(data) {
+    // For now, return basic data - can be enhanced for actual heatmap
+    const dayUsage = {};
+    
+    (data.assignments || []).forEach(assignment => {
+        const day = assignment.day;
+        if (day) {
+            dayUsage[day] = (dayUsage[day] || 0) + 1;
+        }
+    });
+    
+    const labels = Object.keys(dayUsage);
+    const values = labels.map(label => dayUsage[label]);
+    
+    return {
+        labels,
+        datasets: [{
+            label: 'Daily Usage',
+            data: values,
+            backgroundColor: '#FFCE56'
+        }]
+    };
+}
+
+function createChartWithTimeout(canvasId, chartType, chartData) {
+    return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+            reject(new Error('Chart creation timeout'));
+        }, ANALYTICS_CONFIG.chartTimeout);
+        
+        try {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) {
+                clearTimeout(timeout);
+                reject(new Error('Canvas not found'));
+                return;
+            }
+            
+            const ctx = canvas.getContext('2d');
+            const chart = new Chart(ctx, {
+                type: chartType,
+                data: chartData,
+                options: getChartOptions(chartType)
+            });
+            
+            clearTimeout(timeout);
+            resolve(chart);
+            
+        } catch (error) {
+            clearTimeout(timeout);
+            reject(error);
+        }
+    });
+}
+
+function getChartOptions(chartType) {
+    const baseOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    };
+    
+    if (chartType === 'line') {
+        return {
+            ...baseOptions,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        };
+    }
+    
+    if (chartType === 'bar') {
+        return {
+            ...baseOptions,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        };
+    }
+    
+    return baseOptions;
+}
+
+function updateChartStats(statsId, chartData, chartConfig) {
+    const statsContainer = document.getElementById(statsId);
+    if (!statsContainer) return;
+    
+    const data = chartData.datasets[0].data;
+    const labels = chartData.labels;
+    
+    const total = data.reduce((sum, val) => sum + val, 0);
+    const average = total / data.length;
+    const max = Math.max(...data);
+    const maxIndex = data.indexOf(max);
+    
+    statsContainer.innerHTML = `
+        <div class="analytics-stat">
+            <span class="analytics-stat-label">Total:</span>
+            <span class="analytics-stat-value">${total}</span>
+        </div>
+        <div class="analytics-stat">
+            <span class="analytics-stat-label">Average:</span>
+            <span class="analytics-stat-value">${average.toFixed(1)}</span>
+        </div>
+        <div class="analytics-stat">
+            <span class="analytics-stat-label">Highest:</span>
+            <span class="analytics-stat-value">${labels[maxIndex] || 'N/A'} (${max})</span>
+        </div>
+    `;
+}
+
+function showEmptyChartState(canvasId, loadingId, title) {
+    const loadingElement = document.getElementById(loadingId);
+    if (loadingElement) {
+        loadingElement.innerHTML = `
+            <div class="empty-chart-state">
+                <div class="empty-icon">📊</div>
+                <h4>No Data Available</h4>
+                <p>Add some assignments to see ${title.toLowerCase()}</p>
+            </div>
+        `;
+    }
+}
+
+function showChartError(canvasId, loadingId, title, errorMessage) {
+    const loadingElement = document.getElementById(loadingId);
+    if (loadingElement) {
+        loadingElement.innerHTML = `
+            <div class="chart-error-state">
+                <div class="error-icon">⚠️</div>
+                <h4>Chart Error</h4>
+                <p>Failed to render ${title}</p>
+                <small>${errorMessage}</small>
+                <button class="btn btn--sm" onclick="retryChart('${canvasId}')">🔄 Retry</button>
+            </div>
+        `;
+    }
+}
+
+function showAnalyticsError(title, message) {
+    const errorContainer = document.getElementById('analytics-error');
+    if (errorContainer) {
+        errorContainer.style.display = 'block';
+        errorContainer.querySelector('h3').textContent = `⚠️ ${title}`;
+        errorContainer.querySelector('p').textContent = message;
+    }
+}
+
+function hideAnalyticsError() {
+    const errorContainer = document.getElementById('analytics-error');
+    if (errorContainer) {
+        errorContainer.style.display = 'none';
+    }
+}
+
+// Analytics control functions
+function switchAnalyticsView() {
+    const viewMode = document.getElementById('analyticsViewMode')?.value || 'row';
+    generateDynamicAnalytics(viewMode);
+}
+
+function refreshAllAnalytics() {
+    renderAnalytics();
+    showMessage('📊 Analytics refreshed successfully', 'success');
+}
+
+function forceAnalyticsReload() {
+    // Force reload Chart.js if needed
+    if (typeof Chart === 'undefined') {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js';
+        script.onload = () => {
+            renderAnalytics();
+        };
+        document.head.appendChild(script);
+    } else {
+        renderAnalytics();
+    }
+}
+
+function showTextAnalytics() {
+    // Fallback to text-based analytics
+    renderTextBasedAnalytics();
+}
+
+function refreshChart(chartId) {
+    const chartConfig = ANALYTICS_CONFIG.charts.find(c => c.id === chartId);
+    if (chartConfig) {
+        renderAnalyticsChart(chartConfig);
+    }
+}
+
+function exportChart(chartId) {
+    const canvas = document.getElementById(`${chartId}Chart`);
+    if (canvas) {
+        const link = document.createElement('a');
+        link.download = `${chartId}-chart.png`;
+        link.href = canvas.toDataURL();
+        link.click();
+    }
+}
+
+function exportAnalytics() {
+    showMessage('📁 Analytics export feature coming soon!', 'info');
+}
+
+// Make sure renderAnalytics is available globally
+window.renderAnalytics = renderAnalytics;
+window.switchAnalyticsView = switchAnalyticsView;
+window.refreshAllAnalytics = refreshAllAnalytics;
+window.forceAnalyticsReload = forceAnalyticsReload;
+window.showTextAnalytics = showTextAnalytics;
+window.refreshChart = refreshChart;
+window.exportChart = exportChart;
+window.exportAnalytics = exportAnalytics;
 
 // Fallback text-based analytics when Chart.js is unavailable
 function renderTextBasedAnalytics() {
