@@ -195,32 +195,8 @@ class DataManager {
             }
         });
         
-        // Ensure tab content switching works
-        if (!window.showTab) {
-            window.showTab = (tabId) => {
-                console.log(`🔄 Switching to tab: ${tabId}`);
-                
-                // Hide all tab contents
-                const tabContents = document.querySelectorAll('.tab-content');
-                tabContents.forEach(content => content.style.display = 'none');
-                
-                // Remove active class from all tabs
-                const allTabs = document.querySelectorAll('.nav-tab');
-                allTabs.forEach(tab => tab.classList.remove('active'));
-                
-                // Show selected tab content
-                const targetTab = document.getElementById(`${tabId}-tab`);
-                if (targetTab) {
-                    targetTab.style.display = 'block';
-                }
-                
-                // Set active tab
-                const activeTab = document.querySelector(`.nav-tab[onclick*="${tabId}"]`);
-                if (activeTab) {
-                    activeTab.classList.add('active');
-                }
-            };
-        }
+        // Tab switching is handled by the main showTab function later in the file
+        // This ensures consistent behavior across all tabs
     }
 
     initializePendingUserManagement() {
@@ -3735,6 +3711,8 @@ async function deleteAssignment(index) {
 
 // Simple tab management for production
 function showTab(tabId, event = null) {
+    console.log(`🔄 showTab called with: ${tabId}`);
+    
     // Remove active states
     document.querySelectorAll('.nav-tab').forEach(tab => {
         tab.classList.remove('active');
@@ -3748,12 +3726,22 @@ function showTab(tabId, event = null) {
     const selectedTab = event ? event.target.closest('.nav-tab') : document.querySelector(`[onclick="showTab('${tabId}')"]`);
     const selectedContent = document.getElementById(`${tabId}-tab`);
     
-    if (selectedTab) selectedTab.classList.add('active');
-    if (selectedContent) selectedContent.classList.add('active');
+    console.log(`📍 Selected tab element:`, selectedTab);
+    console.log(`📍 Selected content element:`, selectedContent);
+    
+    if (selectedTab) {
+        selectedTab.classList.add('active');
+        console.log(`✅ Added active class to tab: ${tabId}`);
+    }
+    if (selectedContent) {
+        selectedContent.classList.add('active');
+        console.log(`✅ Added active class to content: ${tabId}-tab`);
+    }
     
     // Special handling for different tabs
     switch (tabId) {
         case 'analytics':
+            console.log(`🔄 Rendering analytics for tab: ${tabId}`);
             setTimeout(renderAnalytics, 100);
             break;
         case 'dashboard':
@@ -3763,6 +3751,7 @@ function showTab(tabId, event = null) {
             setTimeout(renderSchedule, 100);
             break;
         case 'print':
+            console.log(`🔄 Rendering print schedule for tab: ${tabId}`);
             setTimeout(() => {
                 renderPrintSchedule();
                 document.getElementById('printDate').textContent = new Date().toLocaleDateString();
@@ -4059,6 +4048,13 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     console.log('🏫 Institute Lab Management System Loaded!');
     console.log('🔧 Debug: Type debugSystemStatus() in console to check system status');
+    
+    // Initialize tabs properly - ensure dashboard is active by default
+    setTimeout(() => {
+        console.log('🔄 Initializing tab system...');
+        showTab('dashboard');
+        console.log('✅ Dashboard tab activated');
+    }, 500);
 });
 
 
@@ -5889,6 +5885,12 @@ window.showPrintPreview = showPrintPreview;
 window.exportToPDF = exportToPDF;
 window.exportToExcel = exportToExcel;
 window.retryChartLoad = retryChartLoad;
+
+// Make tab render functions globally available (FIXED)
+window.renderAnalytics = renderAnalytics;
+window.renderPrintSchedule = renderPrintSchedule;
+window.renderDashboard = renderDashboard;
+window.renderSchedule = renderSchedule;
 
 // System validation function for debugging
 window.validateSystem = function() {
