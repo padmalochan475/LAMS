@@ -1281,10 +1281,11 @@ body {
   cursor: pointer;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
   
-  /* Add dropdown arrow styling */
+  /* Completely remove default browser dropdown styling */
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
+  background-color: var(--color-surface);
   background-image: var(--select-caret-light);
   background-repeat: no-repeat;
   background-position: right var(--space-12) center;
@@ -1315,6 +1316,42 @@ body {
 
 [data-color-scheme="light"] .analytics-filters select {
   background-image: var(--select-caret-light);
+}
+
+/* Additional browser-specific overrides to remove default arrows */
+.analytics-filters select::-ms-expand {
+  display: none; /* Remove IE/Edge default arrow */
+}
+
+/* Override form-control styling when inside analytics-filters */
+.analytics-filters select.form-control {
+  background-image: var(--select-caret-light) !important;
+  background-repeat: no-repeat !important;
+  background-position: right var(--space-12) center !important;
+  background-size: 16px !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+}
+
+.analytics-filters select option {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+
+/* Theme-specific analytics dropdown styling */
+@media (prefers-color-scheme: dark) {
+  .analytics-filters select.form-control {
+    background-image: var(--select-caret-dark) !important;
+  }
+}
+
+[data-color-scheme="dark"] .analytics-filters select.form-control {
+  background-image: var(--select-caret-dark) !important;
+}
+
+[data-color-scheme="light"] .analytics-filters select.form-control {
+  background-image: var(--select-caret-light) !important;
 }
 
 .analytics-filters label {
