@@ -27,6 +27,7 @@
   /* RGB versions for opacity control */
   --color-brown-600-rgb: 94, 82, 64;
   --color-teal-500-rgb: 33, 128, 141;
+  --color-primary-rgb: 33, 128, 141; /* Alias for primary color */
   --color-slate-900-rgb: 19, 52, 59;
   --color-slate-500-rgb: 98, 108, 113;
   --color-red-500-rgb: 192, 21, 47;
@@ -49,6 +50,7 @@
   --color-surface: var(--color-cream-100);
   --color-text: var(--color-slate-900);
   --color-text-secondary: var(--color-slate-500);
+  --color-text-tertiary: var(--color-gray-400); /* Added missing tertiary text color */
   --color-primary: var(--color-teal-500);
   --color-primary-hover: var(--color-teal-600);
   --color-primary-active: var(--color-teal-700);
@@ -89,6 +91,7 @@
   --font-size-sm: 12px;
   --font-size-base: 14px;
   --font-size-md: 14px;
+  --font-size-14: 14px; /* Alias for consistency */
   --font-size-lg: 16px;
   --font-size-xl: 18px;
   --font-size-2xl: 20px;
@@ -122,6 +125,13 @@
   --radius-md: 10px;
   --radius-lg: 12px;
   --radius-full: 9999px;
+
+  /* Additional border-radius aliases for consistency */
+  --border-radius-6: 6px;
+  --border-radius-8: 8px;
+  --border-radius-10: 10px;
+  --border-radius-12: 12px;
+  --border-radius-full: 9999px;
 
   /* Shadows */
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.02);
@@ -858,8 +868,14 @@ body {
 }
 
 .glass-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  transform: translateY(-3px);
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.2);
+  border-color: rgba(var(--color-primary-rgb), 0.3);
+}
+
+.glass-card:active {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
 /* Header */
@@ -979,6 +995,80 @@ body {
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* Enhanced animations for better UX */
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes chartFadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Apply enhanced animations */
+.glass-card {
+  animation: slideInUp 0.4s ease-out;
+}
+
+.analytics-grid .glass-card {
+  animation: chartFadeIn 0.5s ease-out;
+}
+
+.analytics-grid .glass-card:nth-child(even) {
+  animation-delay: 0.1s;
+}
+
+.analytics-grid .glass-card:nth-child(3n) {
+  animation-delay: 0.2s;
+}
+
+/* Button loading animations */
+.btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left 0.5s;
+}
+
+.btn:hover::before {
+  left: 100%;
+}
+
+/* Smooth scroll for tab content */
+.tab-content {
+  scroll-behavior: smooth;
+}
+
+/* Loading spinner animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-spinner {
+  animation: spin 1s linear infinite;
 }
 
 /* Dashboard */
@@ -1251,12 +1341,32 @@ body {
 /* Analytics */
 .analytics-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
   gap: var(--space-24);
+  margin-bottom: var(--space-32);
+  width: 100%;
+}
+
+/* Ensure analytics cards have proper spacing and sizing */
+.analytics-grid .glass-card {
+  min-height: 400px;
+  padding: var(--space-20);
+  display: flex;
+  flex-direction: column;
+}
+
+.analytics-grid .glass-card h3 {
+  margin-bottom: var(--space-16);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
 }
 
 .chart-container {
   padding: var(--space-16);
+  flex: 1;
+  position: relative;
+  min-height: 300px;
 }
 
 /* Enhanced Chart State Management */
@@ -1292,11 +1402,18 @@ body {
   cursor: pointer;
   font-size: var(--font-size-14);
   transition: all 0.2s ease;
+  transform: translateY(0);
 }
 
 .chart-retry-button:hover {
   background: var(--color-primary-hover);
   transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(var(--color-primary-rgb), 0.3);
+}
+
+.chart-retry-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(var(--color-primary-rgb), 0.2);
 }
 
 /* Chart Loading States */
