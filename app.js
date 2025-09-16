@@ -787,12 +787,24 @@ class DataManager {
         
         this.data[type].push(trimmedValue);
         
+        // Show immediate feedback
+        showMessage('📥 Adding to Google Drive...', 'info');
+        
         // Immediately update UI and sync
         this.refreshAllComponents();
-        this.save();
-        this.triggerImmediateSync();
         
-        showMessage('✅ Item added and synced to all users!', 'success');
+        // Trigger save and sync with detailed feedback
+        this.save().then((success) => {
+            if (success) {
+                showMessage('✅ Item added and synced to Google Drive!', 'success');
+                this.triggerImmediateSync();
+            } else {
+                showMessage('❌ Failed to sync to Google Drive', 'error');
+            }
+        }).catch(() => {
+            showMessage('❌ Sync failed - please try again', 'error');
+        });
+        
         return true;
     }
 
@@ -812,10 +824,22 @@ class DataManager {
 
         this.data[facultyType].push(facultyData);
         
-        // Immediately update UI and sync
+        // Show immediate feedback
+        showMessage('📥 Adding faculty to Google Drive...', 'info');
+        
+        // Immediately update UI and sync with detailed feedback
         this.refreshAllComponents();
-        this.save();
-        this.triggerImmediateSync();
+        
+        this.save().then((success) => {
+            if (success) {
+                showMessage('✅ Faculty added and synced to Google Drive!', 'success');
+                this.triggerImmediateSync();
+            } else {
+                showMessage('❌ Failed to sync faculty to Google Drive', 'error');
+            }
+        }).catch(() => {
+            showMessage('❌ Faculty sync failed - please try again', 'error');
+        });
         
         showMessage('✅ Faculty added and synced to all users!', 'success');
         return true;
@@ -2060,6 +2084,13 @@ window.updatePrintFilters = updatePrintFilters;
 function renderAnalytics() {
     console.log('🚀 Starting Dynamic Analytics System...');
     
+    // CRITICAL: Only render analytics if analytics tab is active
+    const analyticsTab = document.getElementById('analytics-tab');
+    if (!analyticsTab || !analyticsTab.classList.contains('active')) {
+        console.log('⏸️ Analytics tab not active - skipping render');
+        return;
+    }
+    
     try {
         // Clear any existing error states
         hideAnalyticsError();
@@ -2988,7 +3019,10 @@ function toggleSafeModeRuntime() {
     if (window.CONFIG?.FEATURES) window.CONFIG.FEATURES.ANALYTICS_SAFE_MODE = enabled;
     try { if (window.authManager && window.authManager.isSignedIn) localStorage.setItem('analyticsSafeMode', String(enabled)); } catch {}
     // If Analytics tab is visible, re-render it to reflect the change
-    try { renderAnalytics(); } catch {}
+    const analyticsTab = document.getElementById('analytics-tab');
+    if (analyticsTab && analyticsTab.classList.contains('active')) {
+        try { renderAnalytics(); } catch {}
+    }
 }
 
 function renderFacultyWorkloadChart() {
@@ -4495,76 +4529,7 @@ async function deleteAssignment(index) {
     }, 500);
 }
 
-// Simple tab management for production
-function showTab(tabId, event = null) {
-    console.log(`🔄 showTab called with: ${tabId}`);
-    
-    // Remove active states
-    document.querySelectorAll('.nav-tab').forEach(tab => {
-        tab.classList.remove('active');
-    });
-    
-    document.querySelectorAll('.tab-content').forEach(content => {
-        content.classList.remove('active');
-    });
-    
-    // Add active states
-    const selectedTab = event ? event.target.closest('.nav-tab') : document.querySelector(`[onclick="showTab('${tabId}')"]`);
-    const selectedContent = document.getElementById(`${tabId}-tab`);
-    
-    console.log(`📍 Selected tab element:`, selectedTab);
-    console.log(`📍 Selected content element:`, selectedContent);
-    
-    if (selectedTab) {
-        selectedTab.classList.add('active');
-        console.log(`✅ Added active class to tab: ${tabId}`);
-    }
-    if (selectedContent) {
-        selectedContent.classList.add('active');
-        console.log(`✅ Added active class to content: ${tabId}-tab`);
-    }
-    
-    // Special handling for different tabs
-    switch (tabId) {
-        case 'analytics':
-            console.log(`🔄 Rendering analytics for tab: ${tabId}`);
-            // Check if there was a pending analytics render
-            if (window.pendingAnalyticsRender) {
-                console.log('📊 Processing pending analytics render...');
-            }
-            setTimeout(renderAnalytics, 100);
-            break;
-        case 'dashboard':
-            setTimeout(renderDashboard, 100);
-            break;
-        case 'schedule':
-            setTimeout(renderSchedule, 100);
-            break;
-        case 'print':
-            console.log(`🔄 Rendering print schedule for tab: ${tabId}`);
-            setTimeout(() => {
-                renderPrintSchedule();
-                document.getElementById('printDate').textContent = new Date().toLocaleDateString();
-                const nameEl = document.querySelector('.institute-name');
-                if (nameEl && window.CONFIG?.INSTITUTE_NAME) {
-                    nameEl.textContent = window.CONFIG.INSTITUTE_NAME;
-                }
-                // Initialize advanced print system when print tab is accessed
-                try {
-                    initializeAdvancedPrintSystem();
-                } catch (error) {
-                    console.error('❌ Error initializing print system on tab switch:', error);
-                }
-            }, 100);
-            break;
-        case 'logs':
-            setTimeout(refreshSyncLogs, 100);
-            break;
-        case 'activity':
-            setTimeout(refreshActivityFeed, 100);
-            break;
-    }
-}
+// REMOVED DUPLICATE FUNCTION - Using enhanced version above
 
 // Theme Management
 function toggleTheme() {
