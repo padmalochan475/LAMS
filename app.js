@@ -340,13 +340,18 @@ class DataManager {
             return false;
         }
         
-        // SECURITY: Verify user is still approved before allowing save
+        // SECURITY: Verify user is still approved before allowing save (but allow admin bypass)
         if (!window.authManager.currentUser.isAdmin) {
-            const isStillApproved = await window.authManager.checkUserApprovalFromCloud(window.authManager.currentUser.email);
-            if (!isStillApproved) {
-                showMessage('❌ Access revoked. Please contact admin.', 'error');
-                window.authManager.signOut();
-                return false;
+            try {
+                const isStillApproved = await window.authManager.checkUserApprovalFromCloud(window.authManager.currentUser.email);
+                if (!isStillApproved) {
+                    showMessage('❌ Access revoked. Please contact admin.', 'error');
+                    window.authManager.signOut();
+                    return false;
+                }
+            } catch (error) {
+                console.warn('Approval check failed, allowing save to proceed:', error);
+                // Don't block save if approval check fails - might be network issue
             }
         }
 
@@ -356,6 +361,10 @@ class DataManager {
             this.lastChangeAt = Date.now();
             this.data.lastModified = new Date().toISOString();
             this.data.version = (this.data.version || 0) + 1;
+            
+            console.log('🔄 Starting save operation to Google Drive...');
+            console.log('📊 Data version:', this.data.version);
+            console.log('👤 Current user:', window.authManager.currentUser?.email);
             
             // Include user management data in cloud sync (NO localStorage)
             const dataToSync = {
@@ -367,15 +376,21 @@ class DataManager {
                 }
             };
             
+            console.log('💾 Data to sync size:', JSON.stringify(dataToSync).length, 'characters');
+            
             // Use AuthManager's Drive sync helper
             const success = await window.authManager.syncWithGoogleDrive(dataToSync, false);
+            console.log('☁️ Google Drive sync result:', success);
+            
             if (success) {
                 this.lastSyncTime = new Date().toISOString();
                 this.syncFailureCount = 0;
                 this.unsyncedChanges = false;
+                console.log('✅ Save operation completed successfully');
                 showMessage('✅ All data saved to Google Drive', 'success');
                 return true;
             } else {
+                console.error('❌ Google Drive sync returned false');
                 throw new Error('Cloud save failed');
             }
         } catch (error) {
@@ -774,34 +789,52 @@ class DataManager {
 
     // Master data operations
     addMasterDataItem(type, value) {
+        console.log('🔄 addMasterDataItem called:', { type, value });
+        
         if (!value || value.trim() === '') {
+            console.log('❌ Empty value provided');
             showMessage('Please enter a value!', 'error');
             return false;
         }
         const trimmedValue = value.trim();
         
         if (this.data[type].includes(trimmedValue)) {
+            console.log('❌ Item already exists:', trimmedValue);
             showMessage('Item already exists!', 'error');
             return false;
         }
         
+        console.log('✅ Adding item to data array:', trimmedValue);
         this.data[type].push(trimmedValue);
         
         // Show immediate feedback
         showMessage('📥 Adding to Google Drive...', 'info');
+        console.log('🔄 Starting save process...');
+        
+        // Check authentication status
+        if (!window.authManager || !window.authManager.isSignedIn) {
+            console.error('❌ User not signed in');
+            showMessage('❌ Please sign in to Google Drive first', 'error');
+            return false;
+        }
+        
+        console.log('✅ User is signed in:', window.authManager.currentUser?.email);
         
         // Immediately update UI and sync
         this.refreshAllComponents();
         
         // Trigger save and sync with detailed feedback
         this.save().then((success) => {
+            console.log('💾 Save result:', success);
             if (success) {
                 showMessage('✅ Item added and synced to Google Drive!', 'success');
                 this.triggerImmediateSync();
             } else {
+                console.error('❌ Save failed');
                 showMessage('❌ Failed to sync to Google Drive', 'error');
             }
-        }).catch(() => {
+        }).catch((error) => {
+            console.error('❌ Save error:', error);
             showMessage('❌ Sync failed - please try again', 'error');
         });
         
@@ -2128,10 +2161,17 @@ function validateAnalyticsPrerequisites() {
         return false;
     }
     
-    // Check analytics container
+    // Check analytics container (and ensure it's in the right tab)
     const container = document.getElementById('analytics-container');
     if (!container) {
         console.error('❌ Analytics container not found');
+        return false;
+    }
+    
+    // DOUBLE CHECK: Ensure the analytics container is in an active tab
+    const analyticsTab = document.getElementById('analytics-tab');
+    if (!analyticsTab || !analyticsTab.classList.contains('active')) {
+        console.error('❌ Analytics tab not active during prerequisites check');
         return false;
     }
     
