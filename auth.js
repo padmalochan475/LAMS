@@ -9,12 +9,10 @@ class AuthManager {
             console.log('CONFIG available:', typeof CONFIG !== 'undefined');
             if (typeof CONFIG !== 'undefined') {
                 console.log('CLIENT_ID:', CONFIG.GOOGLE_CLIENT_ID ? 'Present' : 'Missing');
-                console.log('API_KEY:', CONFIG.GOOGLE_API_KEY ? 'Present' : 'Missing');
             }
         }
         
         this.CLIENT_ID = CONFIG?.GOOGLE_CLIENT_ID || '';
-        this.API_KEY = CONFIG?.GOOGLE_API_KEY || '';
         
         // Enhanced cross-device auth management
         this.persistentTokenKey = 'lams_persistent_auth';
@@ -110,7 +108,6 @@ class AuthManager {
             gapi.load('client:auth2', async () => {
                 try {
                     await gapi.client.init({
-                        apiKey: this.API_KEY,
                         clientId: this.CLIENT_ID,
                         discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
                         scope: CONFIG.OAUTH_SCOPE

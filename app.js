@@ -4,12 +4,7 @@
 class NotificationManager {
     show(text, type = 'info') {
         // Delegate to the global showMessage so styling stays consistent
-        try {
-            showMessage(text, type);
-        } catch (e) {
-            // Fallback
-            try { alert(text); } catch {}
-        }
+        showMessage(text, type);
     }
 }
 
@@ -954,13 +949,13 @@ class DataManager {
         const hasLabFaculty = assignment.labFaculty && assignment.labFaculty.trim() !== '';
         
         if (!hasTheoryFaculty && !hasLabFaculty) {
-            alert('Error: At least one faculty (Theory or Lab) must be assigned to the class.');
+            showMessage('Error: At least one faculty (Theory or Lab) must be assigned to the class.', 'error');
             return false;
         }
         
         if (missingFields.length > 0) {
             const errorMsg = `Missing required fields: ${missingFields.join(', ')}`;
-            alert(errorMsg);
+            showMessage(errorMsg, 'error');
             return false;
         }
 
@@ -1001,14 +996,9 @@ class DataManager {
         // Add assignment to data
         this.data.assignments.push(assignment);
         
-        // Immediately update UI before saving/syncing
-        this.assignments = this.data.assignments; // Update local reference
-        this.refreshAllComponents(); // Refresh UI immediately
-        
+        this.assignments = this.data.assignments;
         this.save();
-        this.triggerImmediateSync(); // Sync immediately after adding assignment
         
-        showMessage('✅ Assignment created successfully!', 'success');
         return true;
     }
 
@@ -1170,7 +1160,7 @@ let notificationManager;
 function showMessage(text, type = 'info') {
     // Fallback for missing message system
     if (!document.querySelector('.container')) {
-        alert(text);
+        console.warn('Could not show message, container not found:', text);
         return;
     }
     const existing = document.querySelector('.message');
@@ -2115,555 +2105,40 @@ window.updatePrintFilters = updatePrintFilters;
 
 // Dynamic analytics system (using existing ANALYTICS_CONFIG)
 function renderAnalytics() {
-    console.log('🚀 Starting Dynamic Analytics System...');
-    
+    console.log('🚀 Rendering All Analytics Charts...');
+
     // CRITICAL: Only render analytics if analytics tab is active
     const analyticsTab = document.getElementById('analytics-tab');
     if (!analyticsTab || !analyticsTab.classList.contains('active')) {
         console.log('⏸️ Analytics tab not active - skipping render');
         return;
     }
-    
-    try {
-        // Clear any existing error states
-        hideAnalyticsError();
-        
-        // Validate prerequisites
-        if (!validateAnalyticsPrerequisites()) {
-            showAnalyticsError('Prerequisites not met', 'System requirements for analytics are not satisfied');
-            return;
-        }
 
-        // Get current view mode (default to row for better data visibility)
-        const viewMode = document.getElementById('analyticsViewMode')?.value || 'row';
-        
-        // Generate analytics dynamically
-        generateDynamicAnalytics(viewMode);
-        
-    } catch (error) {
-        console.error('❌ Analytics rendering failed:', error);
-        showAnalyticsError('Rendering Failed', error.message);
-    }
-}
+    // This function will call all the individual chart rendering functions.
+    // It replaces the dynamic system with direct calls, matching the HTML structure.
+    
+    safeExecute(() => renderFacultyWorkloadChart(), null, 'Faculty Workload Chart');
+    safeExecute(() => renderSubjectDistributionChart(), null, 'Subject Distribution Chart');
+    safeExecute(() => renderRoomUtilizationChart(), null, 'Room Utilization Chart');
+    safeExecute(() => renderDepartmentOverviewChart(), null, 'Department Overview Chart');
+    safeExecute(() => renderTimeSlotChart(), null, 'Time Slot Chart');
+    safeExecute(() => renderHeatmapChart(), null, 'Heatmap Chart');
+    
+    // New charts
+    safeExecute(() => renderFacultyPerformanceChart(), null, 'Faculty Performance Chart');
+    safeExecute(() => renderRoomUtilizationAnalysisChart(), null, 'Room Utilization Heatmap');
+    safeExecute(() => renderComplexityChart(), null, 'Complexity Chart');
+    safeExecute(() => renderOptimizationChart(), null, 'Optimization Chart');
 
-function validateAnalyticsPrerequisites() {
-    console.log('🔍 Validating analytics prerequisites...');
+    // New tables/dashboards
+    safeExecute(() => updateOptimizationDashboard(), null, 'Optimization Dashboard');
+    safeExecute(() => renderFacultyWorkloadTable(), null, 'Faculty Workload Table');
     
-    // Check data manager
-    if (!window.dataManager || !window.dataManager.data) {
-        console.error('❌ Data manager not available');
-        return false;
-    }
-    
-    // Check Chart.js availability
-    if (typeof Chart === 'undefined') {
-        console.error('❌ Chart.js not loaded');
-        return false;
-    }
-    
-    // Check analytics container (and ensure it's in the right tab)
-    const container = document.getElementById('analytics-container');
-    if (!container) {
-        console.error('❌ Analytics container not found');
-        return false;
-    }
-    
-    // DOUBLE CHECK: Ensure the analytics container is in an active tab
-    const analyticsTab = document.getElementById('analytics-tab');
-    if (!analyticsTab || !analyticsTab.classList.contains('active')) {
-        console.error('❌ Analytics tab not active during prerequisites check');
-        return false;
-    }
-    
-    console.log('✅ All prerequisites validated');
-    return true;
-}
-
-function generateDynamicAnalytics(viewMode = 'row') {
-    console.log(`📊 Generating analytics in ${viewMode} mode...`);
-    
-    const container = document.getElementById('analytics-container');
-    if (!container) return;
-    
-    // Set layout class
-    container.className = viewMode === 'row' ? 'analytics-row-layout' : 'analytics-grid-layout';
-    
-    // Clear existing content
-    container.innerHTML = '';
-    
-    // Generate analytics cards
-    ANALYTICS_CONFIG.charts.forEach((chartConfig, index) => {
-        try {
-            const cardElement = createAnalyticsCard(chartConfig, viewMode);
-            container.appendChild(cardElement);
-            
-            // Render chart with delay for better UX
-            setTimeout(() => {
-                renderAnalyticsChart(chartConfig);
-            }, index * 200);
-            
-        } catch (error) {
-            console.error(`❌ Failed to create card for ${chartConfig.id}:`, error);
-        }
-    });
-    
-    console.log('✅ Analytics cards generated successfully');
-}
-
-function createAnalyticsCard(chartConfig, viewMode) {
-    const card = document.createElement('div');
-    card.className = 'analytics-card';
-    card.id = `card-${chartConfig.id}`;
-    
-    if (viewMode === 'row') {
-        card.innerHTML = `
-            <div class="analytics-card-info">
-                <h3>${chartConfig.title}</h3>
-                <p class="analytics-description">${chartConfig.description}</p>
-                <div class="analytics-card-stats" id="stats-${chartConfig.id}">
-                    <!-- Stats will be populated dynamically -->
-                </div>
-                <div class="analytics-actions">
-                    <button class="btn btn--sm" onclick="refreshChart('${chartConfig.id}')">🔄 Refresh</button>
-                    <button class="btn btn--sm btn--secondary" onclick="exportChart('${chartConfig.id}')">📊 Export</button>
-                </div>
-            </div>
-            <div class="analytics-card-visual">
-                <div class="chart-container">
-                    <canvas id="${chartConfig.id}Chart"></canvas>
-                    <div class="chart-loading" id="loading-${chartConfig.id}">
-                        <div class="loading-spinner"></div>
-                        <p>Loading chart...</p>
-                    </div>
-                </div>
-            </div>
-        `;
-    } else {
-        card.innerHTML = `
-            <div class="analytics-card-header">
-                <h3>${chartConfig.title}</h3>
-                <p class="analytics-description">${chartConfig.description}</p>
-            </div>
-            <div class="chart-container">
-                <canvas id="${chartConfig.id}Chart"></canvas>
-                <div class="chart-loading" id="loading-${chartConfig.id}">
-                    <div class="loading-spinner"></div>
-                    <p>Loading chart...</p>
-                </div>
-            </div>
-            <div class="analytics-card-stats" id="stats-${chartConfig.id}">
-                <!-- Stats will be populated dynamically -->
-            </div>
-        `;
-    }
-    
-    return card;
-}
-
-function renderAnalyticsChart(chartConfig) {
-    const canvasId = `${chartConfig.id}Chart`;
-    const loadingId = `loading-${chartConfig.id}`;
-    const statsId = `stats-${chartConfig.id}`;
-    
-    try {
-        // Show loading state
-        const loadingElement = document.getElementById(loadingId);
-        if (loadingElement) loadingElement.style.display = 'flex';
-        
-        // Get data for this chart
-        const chartData = getChartData(chartConfig.id);
-        
-        if (!chartData || chartData.datasets[0].data.length === 0) {
-            showEmptyChartState(canvasId, loadingId, chartConfig.title);
-            return;
-        }
-        
-        // Create chart with timeout
-        const chartPromise = createChartWithTimeout(canvasId, chartConfig.type, chartData);
-        
-        chartPromise.then((chart) => {
-            // Hide loading state
-            if (loadingElement) loadingElement.style.display = 'none';
-            
-            // Update stats
-            updateChartStats(statsId, chartData, chartConfig);
-            
-            console.log(`✅ Chart ${chartConfig.id} rendered successfully`);
-            
-        }).catch((error) => {
-            console.error(`❌ Chart ${chartConfig.id} failed:`, error);
-            showChartError(canvasId, loadingId, chartConfig.title, error.message);
-        });
-        
-    } catch (error) {
-        console.error(`❌ Error rendering chart ${chartConfig.id}:`, error);
-        showChartError(canvasId, loadingId, chartConfig.title, error.message);
-    }
-}
-
-function getChartData(chartId) {
-    const data = window.dataManager.data;
-    
-    switch (chartId) {
-        case 'facultyWorkload':
-            return generateFacultyWorkloadData(data);
-        case 'subjectDistribution':
-            return generateSubjectDistributionData(data);
-        case 'roomUtilization':
-            return generateRoomUtilizationData(data);
-        case 'departmentOverview':
-            return generateDepartmentOverviewData(data);
-        case 'timeSlotAnalysis':
-            return generateTimeSlotAnalysisData(data);
-        case 'weeklyHeatmap':
-            return generateWeeklyHeatmapData(data);
-        default:
-            return null;
-    }
-}
-
-function generateFacultyWorkloadData(data) {
-    const facultyWorkload = {};
-    
-    // Count assignments per faculty
-    (data.assignments || []).forEach(assignment => {
-        const faculty = assignment.theoryFaculty || assignment.labFaculty || assignment.faculty;
-        if (faculty) {
-            facultyWorkload[faculty] = (facultyWorkload[faculty] || 0) + 1;
-        }
-    });
-    
-    const labels = Object.keys(facultyWorkload).slice(0, 10); // Top 10
-    const values = labels.map(label => facultyWorkload[label]);
-    
-    return {
-        labels,
-        datasets: [{
-            data: values,
-            backgroundColor: [
-                '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
-                '#FF9F40', '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0'
-            ]
-        }]
-    };
-}
-
-function generateSubjectDistributionData(data) {
-    const subjectCount = {};
-    
-    (data.assignments || []).forEach(assignment => {
-        const subject = assignment.subject;
-        if (subject) {
-            subjectCount[subject] = (subjectCount[subject] || 0) + 1;
-        }
-    });
-    
-    const labels = Object.keys(subjectCount);
-    const values = labels.map(label => subjectCount[label]);
-    
-    return {
-        labels,
-        datasets: [{
-            label: 'Number of Assignments',
-            data: values,
-            backgroundColor: '#36A2EB'
-        }]
-    };
-}
-
-function generateRoomUtilizationData(data) {
-    const roomUsage = {};
-    
-    (data.assignments || []).forEach(assignment => {
-        const room = assignment.room;
-        if (room) {
-            roomUsage[room] = (roomUsage[room] || 0) + 1;
-        }
-    });
-    
-    const labels = Object.keys(roomUsage);
-    const values = labels.map(label => roomUsage[label]);
-    
-    return {
-        labels,
-        datasets: [{
-            label: 'Room Usage Count',
-            data: values,
-            backgroundColor: '#4BC0C0'
-        }]
-    };
-}
-
-function generateDepartmentOverviewData(data) {
-    const deptCount = {};
-    
-    (data.assignments || []).forEach(assignment => {
-        const dept = assignment.department;
-        if (dept) {
-            deptCount[dept] = (deptCount[dept] || 0) + 1;
-        }
-    });
-    
-    const labels = Object.keys(deptCount);
-    const values = labels.map(label => deptCount[label]);
-    
-    return {
-        labels,
-        datasets: [{
-            data: values,
-            backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF']
-        }]
-    };
-}
-
-function generateTimeSlotAnalysisData(data) {
-    const timeSlotUsage = {};
-    
-    (data.assignments || []).forEach(assignment => {
-        const timeSlot = assignment.timeSlot;
-        if (timeSlot) {
-            timeSlotUsage[timeSlot] = (timeSlotUsage[timeSlot] || 0) + 1;
-        }
-    });
-    
-    const labels = Object.keys(timeSlotUsage).sort();
-    const values = labels.map(label => timeSlotUsage[label]);
-    
-    return {
-        labels,
-        datasets: [{
-            label: 'Usage Count',
-            data: values,
-            borderColor: '#36A2EB',
-            backgroundColor: 'rgba(54, 162, 235, 0.1)',
-            fill: true
-        }]
-    };
-}
-
-function generateWeeklyHeatmapData(data) {
-    // For now, return basic data - can be enhanced for actual heatmap
-    const dayUsage = {};
-    
-    (data.assignments || []).forEach(assignment => {
-        const day = assignment.day;
-        if (day) {
-            dayUsage[day] = (dayUsage[day] || 0) + 1;
-        }
-    });
-    
-    const labels = Object.keys(dayUsage);
-    const values = labels.map(label => dayUsage[label]);
-    
-    return {
-        labels,
-        datasets: [{
-            label: 'Daily Usage',
-            data: values,
-            backgroundColor: '#FFCE56'
-        }]
-    };
-}
-
-function createChartWithTimeout(canvasId, chartType, chartData) {
-    return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-            reject(new Error('Chart creation timeout'));
-        }, ANALYTICS_CONFIG.chartTimeout);
-        
-        try {
-            const canvas = document.getElementById(canvasId);
-            if (!canvas) {
-                clearTimeout(timeout);
-                reject(new Error('Canvas not found'));
-                return;
-            }
-            
-            const ctx = canvas.getContext('2d');
-            const chart = new Chart(ctx, {
-                type: chartType,
-                data: chartData,
-                options: getChartOptions(chartType)
-            });
-            
-            clearTimeout(timeout);
-            resolve(chart);
-            
-        } catch (error) {
-            clearTimeout(timeout);
-            reject(error);
-        }
-    });
-}
-
-function getChartOptions(chartType) {
-    const baseOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                position: 'bottom'
-            }
-        }
-    };
-    
-    if (chartType === 'line') {
-        return {
-            ...baseOptions,
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            }
-        };
-    }
-    
-    if (chartType === 'bar') {
-        return {
-            ...baseOptions,
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            }
-        };
-    }
-    
-    return baseOptions;
-}
-
-function updateChartStats(statsId, chartData, chartConfig) {
-    const statsContainer = document.getElementById(statsId);
-    if (!statsContainer) return;
-    
-    const data = chartData.datasets[0].data;
-    const labels = chartData.labels;
-    
-    const total = data.reduce((sum, val) => sum + val, 0);
-    const average = total / data.length;
-    const max = Math.max(...data);
-    const maxIndex = data.indexOf(max);
-    
-    statsContainer.innerHTML = `
-        <div class="analytics-stat">
-            <span class="analytics-stat-label">Total:</span>
-            <span class="analytics-stat-value">${total}</span>
-        </div>
-        <div class="analytics-stat">
-            <span class="analytics-stat-label">Average:</span>
-            <span class="analytics-stat-value">${average.toFixed(1)}</span>
-        </div>
-        <div class="analytics-stat">
-            <span class="analytics-stat-label">Highest:</span>
-            <span class="analytics-stat-value">${labels[maxIndex] || 'N/A'} (${max})</span>
-        </div>
-    `;
-}
-
-function showEmptyChartState(canvasId, loadingId, title) {
-    const loadingElement = document.getElementById(loadingId);
-    if (loadingElement) {
-        loadingElement.innerHTML = `
-            <div class="empty-chart-state">
-                <div class="empty-icon">📊</div>
-                <h4>No Data Available</h4>
-                <p>Add some assignments to see ${title.toLowerCase()}</p>
-            </div>
-        `;
-    }
-}
-
-function showChartError(canvasId, loadingId, title, errorMessage) {
-    const loadingElement = document.getElementById(loadingId);
-    if (loadingElement) {
-        loadingElement.innerHTML = `
-            <div class="chart-error-state">
-                <div class="error-icon">⚠️</div>
-                <h4>Chart Error</h4>
-                <p>Failed to render ${title}</p>
-                <small>${errorMessage}</small>
-                <button class="btn btn--sm" onclick="retryChart('${canvasId}')">🔄 Retry</button>
-            </div>
-        `;
-    }
-}
-
-function showAnalyticsError(title, message) {
-    const errorContainer = document.getElementById('analytics-error');
-    if (errorContainer) {
-        errorContainer.style.display = 'block';
-        errorContainer.querySelector('h3').textContent = `⚠️ ${title}`;
-        errorContainer.querySelector('p').textContent = message;
-    }
-}
-
-function hideAnalyticsError() {
-    const errorContainer = document.getElementById('analytics-error');
-    if (errorContainer) {
-        errorContainer.style.display = 'none';
-    }
-}
-
-// Analytics control functions
-function switchAnalyticsView() {
-    const viewMode = document.getElementById('analyticsViewMode')?.value || 'row';
-    generateDynamicAnalytics(viewMode);
-}
-
-function refreshAllAnalytics() {
-    renderAnalytics();
-    showMessage('📊 Analytics refreshed successfully', 'success');
-}
-
-function forceAnalyticsReload() {
-    // Force reload Chart.js if needed
-    if (typeof Chart === 'undefined') {
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js';
-        script.onload = () => {
-            renderAnalytics();
-        };
-        document.head.appendChild(script);
-    } else {
-        renderAnalytics();
-    }
-}
-
-function showTextAnalytics() {
-    // Fallback to text-based analytics
-    renderTextBasedAnalytics();
-}
-
-function refreshChart(chartId) {
-    const chartConfig = ANALYTICS_CONFIG.charts.find(c => c.id === chartId);
-    if (chartConfig) {
-        renderAnalyticsChart(chartConfig);
-    }
-}
-
-function exportChart(chartId) {
-    const canvas = document.getElementById(`${chartId}Chart`);
-    if (canvas) {
-        const link = document.createElement('a');
-        link.download = `${chartId}-chart.png`;
-        link.href = canvas.toDataURL();
-        link.click();
-    }
-}
-
-function exportAnalytics() {
-    showMessage('📁 Analytics export feature coming soon!', 'info');
+    console.log('✅ All analytics charts have been rendered.');
 }
 
 // Make sure renderAnalytics is available globally
 window.renderAnalytics = renderAnalytics;
-window.switchAnalyticsView = switchAnalyticsView;
-window.refreshAllAnalytics = refreshAllAnalytics;
-window.forceAnalyticsReload = forceAnalyticsReload;
-window.showTextAnalytics = showTextAnalytics;
-window.refreshChart = refreshChart;
-window.exportChart = exportChart;
-window.exportAnalytics = exportAnalytics;
 
 // Fallback text-based analytics when Chart.js is unavailable
 function renderTextBasedAnalytics() {
@@ -3656,6 +3131,538 @@ function updateDepartmentAnalysis() {
     renderDepartmentResourceChart();
 }
 
+// ============= NEW ADVANCED ANALYTICS FUNCTIONS =============
+
+function updateTimeSlotAnalysis() {
+    renderTimeSlotAnalysisChart();
+}
+
+function renderTimeSlotAnalysisChart() {
+    if (!window.dataManager) return;
+
+    const canvas = document.getElementById('timeSlotChart');
+    const ctx = canvas?.getContext('2d');
+    if (!ctx) return;
+
+    // Destroy existing chart
+    if (window.timeSlotChart) {
+        window.timeSlotChart.destroy();
+    }
+
+    const timeSlotData = {};
+    const timeSlotCounts = {};
+
+    // Count assignments per time slot
+    window.dataManager.data.assignments.forEach(assignment => {
+        const timeSlot = assignment.time;
+        timeSlotData[timeSlot] = (timeSlotData[timeSlot] || 0) + 1;
+
+        // Categorize time slots
+        const hour = parseInt(timeSlot.split(':')[0]);
+        let category = 'Other';
+        if (hour >= 9 && hour < 12) category = 'Morning';
+        else if (hour >= 12 && hour < 16) category = 'Afternoon';
+        else if (hour >= 16 && hour < 18) category = 'Evening';
+
+        timeSlotCounts[category] = (timeSlotCounts[category] || 0) + 1;
+    });
+
+    window.timeSlotChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(timeSlotData),
+            datasets: [{
+                label: 'Classes Scheduled',
+                data: Object.values(timeSlotData),
+                backgroundColor: 'rgba(33, 128, 141, 0.7)',
+                borderColor: 'rgba(33, 128, 141, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                title: { display: true, text: 'Time Slot Utilization' }
+            },
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+
+    // Update stats
+    const peakTime = Object.keys(timeSlotData).reduce((a, b) => timeSlotData[a] > timeSlotData[b] ? a : b, '');
+    const totalSlots = window.dataManager.data.timeSlots.length;
+    const usedSlots = Object.keys(timeSlotData).length;
+    const efficiency = totalSlots > 0 ? Math.round((usedSlots / totalSlots) * 100) : 0;
+
+    document.getElementById('peakTimeSlot').textContent = peakTime || '-';
+    document.getElementById('timeEfficiency').textContent = `${efficiency}%`;
+    document.getElementById('availableSlots').textContent = totalSlots - usedSlots;
+}
+
+function updateLabTheoryAnalysis() {
+    renderLabTheoryChart();
+}
+
+function renderLabTheoryChart() {
+    if (!window.dataManager) return;
+
+    const canvas = document.getElementById('labTheoryChart');
+    const ctx = canvas?.getContext('2d');
+    if (!ctx) return;
+
+    if (window.labTheoryChart) {
+        window.labTheoryChart.destroy();
+    }
+
+    const showByDepartment = document.getElementById('showByDepartment')?.checked;
+    const showPercentage = document.getElementById('showPercentage')?.checked;
+
+    let labCount = 0, theoryCount = 0;
+    const deptData = {};
+
+    window.dataManager.data.assignments.forEach(assignment => {
+        if (assignment.type === 'Lab') labCount++;
+        else theoryCount++;
+
+        if (showByDepartment) {
+            const dept = assignment.department || 'Other';
+            if (!deptData[dept]) deptData[dept] = { lab: 0, theory: 0 };
+            if (assignment.type === 'Lab') deptData[dept].lab++;
+            else deptData[dept].theory++;
+        }
+    });
+
+    let chartData, labels;
+    if (showByDepartment) {
+        labels = Object.keys(deptData);
+        chartData = {
+            datasets: [{
+                label: 'Lab Classes',
+                data: labels.map(dept => showPercentage ?
+                    Math.round((deptData[dept].lab / (deptData[dept].lab + deptData[dept].theory)) * 100) :
+                    deptData[dept].lab),
+                backgroundColor: 'rgba(239, 68, 68, 0.7)'
+            }, {
+                label: 'Theory Classes',
+                data: labels.map(dept => showPercentage ?
+                    Math.round((deptData[dept].theory / (deptData[dept].lab + deptData[dept].theory)) * 100) :
+                    deptData[dept].theory),
+                backgroundColor: 'rgba(33, 128, 141, 0.7)'
+            }]
+        };
+    } else {
+        labels = ['Lab', 'Theory'];
+        chartData = {
+            datasets: [{
+                data: showPercentage ?
+                    [Math.round((labCount / (labCount + theoryCount)) * 100),
+                     Math.round((theoryCount / (labCount + theoryCount)) * 100)] :
+                    [labCount, theoryCount],
+                backgroundColor: ['rgba(239, 68, 68, 0.7)', 'rgba(33, 128, 141, 0.7)']
+            }]
+        };
+    }
+
+    window.labTheoryChart = new Chart(ctx, {
+        type: showByDepartment ? 'bar' : 'doughnut',
+        data: { labels, ...chartData },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                title: { display: true, text: `Lab vs Theory ${showPercentage ? 'Percentage' : 'Distribution'}` }
+            }
+        }
+    });
+
+    // Update stats
+    document.getElementById('totalLabClasses').textContent = labCount;
+    document.getElementById('totalTheoryClasses').textContent = theoryCount;
+    document.getElementById('labTheoryRatio').textContent = `${labCount}:${theoryCount}`;
+}
+
+function updateFacultyPerformance() {
+    renderFacultyPerformanceChart();
+
+    // Update threshold display
+    const threshold = document.getElementById('performanceThreshold')?.value || 75;
+    document.getElementById('thresholdDisplay').textContent = `${threshold}%`;
+}
+
+function renderFacultyPerformanceChart() {
+    if (!window.dataManager) return;
+
+    const canvas = document.getElementById('facultyPerformanceChart');
+    const ctx = canvas?.getContext('2d');
+    if (!ctx) return;
+
+    if (window.facultyPerformanceChart) {
+        window.facultyPerformanceChart.destroy();
+    }
+
+    const metric = document.getElementById('performanceMetric')?.value || 'workload';
+    const threshold = parseInt(document.getElementById('performanceThreshold')?.value || 75);
+
+    const facultyScores = {};
+
+    // Calculate faculty performance scores based on selected metric
+    window.dataManager.data.assignments.forEach(assignment => {
+        [assignment.theoryFaculty, assignment.labFaculty].forEach(faculty => {
+            if (!faculty) return;
+
+            if (!facultyScores[faculty]) {
+                facultyScores[faculty] = { workload: 0, subjects: new Set(), efficiency: 0 };
+            }
+
+            facultyScores[faculty].workload++;
+            facultyScores[faculty].subjects.add(assignment.subject);
+        });
+    });
+
+    // Calculate final scores
+    const scores = Object.keys(facultyScores).map(faculty => {
+        const data = facultyScores[faculty];
+        let score = 0;
+
+        switch (metric) {
+            case 'workload':
+                // Normalize workload score (optimal around 6-8 classes)
+                const optimalLoad = 7;
+                score = Math.max(0, 100 - Math.abs(data.workload - optimalLoad) * 10);
+                break;
+            case 'diversity':
+                // Subject diversity score
+                score = Math.min(100, data.subjects.size * 20);
+                break;
+            case 'efficiency':
+                // Teaching efficiency (subjects per workload)
+                score = data.workload > 0 ? Math.min(100, (data.subjects.size / data.workload) * 100) : 0;
+                break;
+        }
+
+        return { faculty, score: Math.round(score) };
+    }).sort((a, b) => b.score - a.score);
+
+    const colors = scores.map(s => s.score >= threshold ? 'rgba(34, 197, 94, 0.7)' : 'rgba(239, 68, 68, 0.7)');
+
+    window.facultyPerformanceChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: scores.map(s => s.faculty.substring(0, 10) + '...'),
+            datasets: [{
+                label: 'Performance Score',
+                data: scores.map(s => s.score),
+                backgroundColor: colors,
+                borderColor: colors.map(c => c.replace('0.7', '1')),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                title: { display: true, text: `Faculty Performance - ${metric.charAt(0).toUpperCase() + metric.slice(1)}` }
+            },
+            scales: {
+                y: { beginAtZero: true, max: 100 }
+            }
+        }
+    });
+
+    // Update stats
+    const avgScore = scores.length > 0 ? Math.round(scores.reduce((sum, s) => sum + s.score, 0) / scores.length) : 0;
+    const aboveThreshold = scores.filter(s => s.score >= threshold).length;
+
+    document.getElementById('topPerformer').textContent = scores[0]?.faculty || '-';
+    document.getElementById('avgPerformanceScore').textContent = `${avgScore}%`;
+    document.getElementById('aboveThreshold').textContent = aboveThreshold;
+}
+
+function updateRoomUtilization() {
+    renderRoomUtilizationAnalysisChart();
+}
+
+function renderRoomUtilizationAnalysisChart() {
+    if (!window.dataManager) return;
+
+    const canvas = document.getElementById('roomUtilizationChart');
+    const ctx = canvas?.getContext('2d');
+    if (!ctx) return;
+
+    if (window.roomUtilizationChart) {
+        window.roomUtilizationChart.destroy();
+    }
+
+    const roomData = {};
+    const roomTypes = {};
+
+    // Count room usage
+    window.dataManager.data.assignments.forEach(assignment => {
+        const room = assignment.room;
+        if (!room) return;
+
+        roomData[room] = (roomData[room] || 0) + 1;
+
+        // Classify room type
+        const type = assignment.type === 'Lab' ? 'lab' : 'theory';
+        roomTypes[room] = type;
+    });
+
+    const roomFilter = document.getElementById('roomTypeFilter')?.value;
+    const filteredRooms = Object.keys(roomData).filter(room =>
+        !roomFilter || roomTypes[room] === roomFilter
+    );
+
+    const chartData = filteredRooms.map(room => ({
+        x: room,
+        y: roomData[room],
+        type: roomTypes[room]
+    }));
+
+    window.roomUtilizationChart = new Chart(ctx, {
+        type: 'scatter',
+        data: {
+            datasets: [{
+                label: 'Room Utilization',
+                data: chartData,
+                backgroundColor: chartData.map(d =>
+                    d.type === 'lab' ? 'rgba(239, 68, 68, 0.7)' : 'rgba(33, 128, 141, 0.7)'
+                ),
+                borderColor: chartData.map(d =>
+                    d.type === 'lab' ? 'rgba(239, 68, 68, 1)' : 'rgba(33, 128, 141, 1)'
+                ),
+                pointRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                title: { display: true, text: 'Room Utilization Pattern' }
+            },
+            scales: {
+                x: { type: 'category' },
+                y: { beginAtZero: true, title: { display: true, text: 'Classes Scheduled' } }
+            }
+        }
+    });
+
+    // Update stats
+    const utilizationValues = Object.values(roomData);
+    const mostUsed = Object.keys(roomData).reduce((a, b) => roomData[a] > roomData[b] ? a : b, '');
+    const avgUtilization = utilizationValues.length > 0 ?
+        Math.round(utilizationValues.reduce((sum, val) => sum + val, 0) / utilizationValues.length) : 0;
+    const underutilized = utilizationValues.filter(val => val < 3).length;
+
+    document.getElementById('mostUsedRoom').textContent = mostUsed || '-';
+    document.getElementById('avgRoomUtilization').textContent = `${avgUtilization}%`;
+    document.getElementById('underutilizedRooms').textContent = underutilized;
+}
+
+function updateComplexityAnalysis() {
+    renderComplexityChart();
+}
+
+function renderComplexityChart() {
+    if (!window.dataManager) return;
+
+    const canvas = document.getElementById('complexityChart');
+    const ctx = canvas?.getContext('2d');
+    if (!ctx) return;
+
+    if (window.complexityChart) {
+        window.complexityChart.destroy();
+    }
+
+    const view = document.getElementById('complexityView')?.value || 'faculty';
+    const complexityScores = [];
+
+    window.dataManager.data.assignments.forEach(assignment => {
+        let score = 0;
+        let label = '';
+
+        switch (view) {
+            case 'faculty':
+                score = (assignment.theoryFaculty ? 1 : 0) + (assignment.labFaculty ? 1 : 0);
+                score += assignment.subject.length > 20 ? 1 : 0; // Long subject names
+                label = `${assignment.subject} (${assignment.department})`;
+                break;
+            case 'timing':
+                score = assignment.time.includes('17:') || assignment.time.includes('18:') ? 2 : 1;
+                score += assignment.day === 'Saturday' ? 1 : 0;
+                label = `${assignment.day} ${assignment.time}`;
+                break;
+            case 'resources':
+                score = assignment.type === 'Lab' ? 2 : 1;
+                score += assignment.room ? 1 : 0;
+                label = `${assignment.room || 'No Room'} (${assignment.type})`;
+                break;
+        }
+
+        complexityScores.push({ label, score, assignment });
+    });
+
+    complexityScores.sort((a, b) => b.score - a.score);
+    const topComplex = complexityScores.slice(0, 10);
+
+    window.complexityChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: topComplex.map(c => c.label.substring(0, 15) + '...'),
+            datasets: [{
+                label: 'Complexity Score',
+                data: topComplex.map(c => c.score),
+                backgroundColor: topComplex.map(c =>
+                    c.score >= 3 ? 'rgba(239, 68, 68, 0.7)' :
+                    c.score >= 2 ? 'rgba(245, 158, 11, 0.7)' :
+                    'rgba(34, 197, 94, 0.7)'
+                )
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                title: { display: true, text: `Assignment Complexity - ${view.charAt(0).toUpperCase() + view.slice(1)}` }
+            },
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+
+    // Update stats
+    const avgComplexity = complexityScores.length > 0 ?
+        Math.round(complexityScores.reduce((sum, c) => sum + c.score, 0) / complexityScores.length * 10) / 10 : 0;
+    const highComplexity = complexityScores.filter(c => c.score >= 3).length;
+    const mostComplex = complexityScores[0]?.label || '-';
+
+    document.getElementById('mostComplexAssignment').textContent = mostComplex;
+    document.getElementById('avgComplexity').textContent = avgComplexity;
+    document.getElementById('highComplexityCount').textContent = highComplexity;
+}
+
+function updateOptimizationDashboard() {
+    renderOptimizationChart();
+    updateOptimizationStats();
+    generateOptimizationSuggestions();
+}
+
+function renderOptimizationChart() {
+    if (!window.dataManager) return;
+
+    const canvas = document.getElementById('optimizationChart');
+    const ctx = canvas?.getContext('2d');
+    if (!ctx) return;
+
+    if (window.optimizationChart) {
+        window.optimizationChart.destroy();
+    }
+
+    // Calculate optimization metrics
+    const metrics = {
+        'Time Conflicts': 0,
+        'Room Conflicts': 0,
+        'Faculty Overload': 0,
+        'Unused Slots': 0,
+        'Resource Waste': 0
+    };
+
+    // Simple conflict detection
+    const timeRoomMap = {};
+    const facultyTimeMap = {};
+
+    window.dataManager.data.assignments.forEach(assignment => {
+        const key = `${assignment.day}-${assignment.time}`;
+
+        // Room conflicts
+        if (assignment.room) {
+            const roomKey = `${key}-${assignment.room}`;
+            if (timeRoomMap[roomKey]) metrics['Room Conflicts']++;
+            timeRoomMap[roomKey] = true;
+        }
+
+        // Faculty conflicts
+        [assignment.theoryFaculty, assignment.labFaculty].forEach(faculty => {
+            if (faculty) {
+                const facultyKey = `${key}-${faculty}`;
+                if (facultyTimeMap[facultyKey]) metrics['Time Conflicts']++;
+                facultyTimeMap[facultyKey] = true;
+            }
+        });
+    });
+
+    // Calculate other metrics
+    metrics['Unused Slots'] = Math.max(0, window.dataManager.data.timeSlots.length * 6 - window.dataManager.data.assignments.length);
+
+    window.optimizationChart = new Chart(ctx, {
+        type: 'radar',
+        data: {
+            labels: Object.keys(metrics),
+            datasets: [{
+                label: 'Issues Count',
+                data: Object.values(metrics),
+                backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                borderColor: 'rgba(239, 68, 68, 1)',
+                pointBackgroundColor: 'rgba(239, 68, 68, 1)',
+                pointBorderColor: '#fff',
+                pointHoverBackgroundColor: '#fff',
+                pointHoverBorderColor: 'rgba(239, 68, 68, 1)'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: { display: true, text: 'Optimization Analysis' }
+            },
+            scales: {
+                r: { beginAtZero: true }
+            }
+        }
+    });
+}
+
+function updateOptimizationStats() {
+    const totalAssignments = window.dataManager?.data.assignments.length || 0;
+    const conflicts = 5; // Simplified - would need more complex calculation
+    const optimization = Math.max(0, Math.min(100, 100 - (conflicts * 10)));
+
+    document.getElementById('totalAssignments').textContent = totalAssignments;
+    document.getElementById('resourceConflicts').textContent = conflicts;
+    document.getElementById('optimizationScore').textContent = `${optimization}%`;
+}
+
+function generateOptimizationSuggestions() {
+    const suggestions = [
+        { text: 'Consider redistributing Friday afternoon classes to improve faculty work-life balance', priority: 'medium' },
+        { text: 'Lab room L1 is underutilized - schedule more practical sessions', priority: 'low' },
+        { text: 'Faculty workload variance is high - balance assignments more evenly', priority: 'high' },
+        { text: 'Morning slots (9-11 AM) have optimal attendance - prioritize important subjects', priority: 'medium' }
+    ];
+
+    const container = document.getElementById('optimizationSuggestions');
+    if (!container) return;
+
+    container.innerHTML = suggestions.map(s =>
+        `<div class="suggestion-item ${s.priority}-priority">${s.text}</div>`
+    ).join('');
+}
+
+function generateOptimizationReport() {
+    showMessage('Optimization Report Generated. See console for details.', 'info');
+    console.log('Optimization Report:\n\n• Total Assignments: ' + (window.dataManager?.data.assignments.length || 0) +
+          '\n• Detected Issues: 5\n• Optimization Score: 85%\n• Top Suggestion: Balance faculty workload\n\nDetailed report would be generated here.');
+}
+
 function renderFacultyWorkloadTable() {
     if (!window.dataManager) return;
     
@@ -4332,11 +4339,6 @@ function generateOptimizationSuggestions() {
     ).join('');
 }
 
-function generateOptimizationReport() {
-    alert('Optimization Report:\n\n• Total Assignments: ' + (window.dataManager?.data.assignments.length || 0) + 
-          '\n• Detected Issues: 5\n• Optimization Score: 85%\n• Top Suggestion: Balance faculty workload\n\nDetailed report would be generated here.');
-}
-
 function renderPrintSchedule() {
     if (!window.dataManager) return;
     
@@ -4713,7 +4715,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             if (!window.dataManager) {
                 console.error('❌ DataManager not available');
-                alert('System error - DataManager not found. Please refresh the page.');
+                showMessage('System error - DataManager not found. Please refresh the page.', 'error');
                 return;
             }
 
@@ -4722,7 +4724,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 if (window.dataManager && window.dataManager.addAssignment(assignment)) {
                     console.log('✅ Assignment created successfully, clearing form...');
                     e.target.reset();
-                    alert('Assignment created successfully!');
+                    showMessage('Assignment created successfully!', 'success');
                     // Refresh UI
                     setTimeout(() => {
                         if (typeof renderAssignmentsList === 'function') renderAssignmentsList();
@@ -4733,11 +4735,11 @@ document.addEventListener('DOMContentLoaded', async function() {
                     }, 100);
                 } else {
                     console.log('❌ Assignment creation failed');
-                    alert('Assignment creation failed. Check console for details.');
+                    showMessage('Assignment creation failed. Check console for details.', 'error');
                 }
             } catch (error) {
                 console.error('❌ Error creating assignment:', error);
-                alert('Error: ' + error.message);
+                showMessage('Error: ' + error.message, 'error');
             }
         });
     }
@@ -5576,7 +5578,7 @@ function testConfiguration() {
     if (!window.CONFIG) return { status: 'error', message: 'Configuration not found' };
     
     try {
-        const requiredKeys = ['GOOGLE_CLIENT_ID', 'GOOGLE_API_KEY', 'INSTITUTE_NAME'];
+        const requiredKeys = ['GOOGLE_CLIENT_ID', 'INSTITUTE_NAME'];
         const missingKeys = requiredKeys.filter(key => !CONFIG[key]);
         
         if (missingKeys.length > 0) {
@@ -5771,6 +5773,34 @@ window.debugSystemStatus = debugSystemStatus;
 window.runSystemHealthCheck = runSystemHealthCheck;
 window.runQuickDiagnostic = runQuickDiagnostic;
 window.exportSystemReport = exportSystemReport;
+
+// "What's New" Modal Logic
+function showWhatsNewModal() {
+    const modal = document.getElementById('whatsNewModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        setTimeout(() => modal.classList.add('show'), 10);
+    }
+}
+
+function closeWhatsNewModal() {
+    const modal = document.getElementById('whatsNewModal');
+    if (modal) {
+        modal.classList.remove('show');
+        setTimeout(() => {
+            modal.style.display = 'none';
+            localStorage.setItem('lams_version_seen', '2.0'); // Set a version flag
+        }, 300);
+    }
+}
+
+// Check if the "What's New" modal should be shown
+document.addEventListener('DOMContentLoaded', () => {
+    const versionSeen = localStorage.getItem('lams_version_seen');
+    if (versionSeen !== '2.0') {
+        showWhatsNewModal();
+    }
+});
 
 // Make DataManager class available globally for testing
 window.DataManager = DataManager;

@@ -4,7 +4,6 @@
 const CONFIG = {
     // Google OAuth Configuration (Client ID is meant to be public)
     GOOGLE_CLIENT_ID: '485361990614-74vhnb9vqjulp17gno3janj8blugshpr.apps.googleusercontent.com',
-    GOOGLE_API_KEY: 'AIzaSyBxrTxVOKb9nIJJGy52GjSqhfbYixoqDVE',
     
     // Institute Information
     INSTITUTE_NAME: 'Trident Academy of Technology',
