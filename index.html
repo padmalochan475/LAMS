@@ -57,7 +57,7 @@
                 <span class="nav-icon">⚙️</span>
                 Master Data
             </button>
-            <button class="nav-tab" onclick="showTab('analytics')">
+            <button class="nav-tab admin-only" onclick="showTab('analytics')" style="display: none;">
                 <span class="nav-icon">📈</span>
                 Analytics
             </button>
@@ -427,7 +427,7 @@
         </div>
 
         <!-- Analytics Tab -->
-        <div class="tab-content" id="analytics-tab">
+        <div class="tab-content admin-only" id="analytics-tab" style="display: none;">
             <!-- Analytics Controls -->
             <div class="analytics-header">
                 <h2>📊 Laboratory Analytics Dashboard</h2>

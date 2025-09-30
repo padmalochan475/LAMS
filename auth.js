@@ -608,74 +608,21 @@ class AuthManager {
         }
     }
 
-    // 100% Cloud-based pending user addition using public file access
+    // 100% Cloud-based pending user addition using the multi-channel notification system
     async addToPendingUsersCloud(user) {
         try {
             console.log('☁️ Adding user to pending list in cloud:', user.email);
             
-            // Use a public Google Drive file for pending users that anyone can write to
-            const success = await this.savePendingUserToPublicFile(user);
-            if (success) {
-                console.log('✅ User added to pending list in cloud');
-                showMessage('✅ Request sent to admin successfully', 'success');
+            // Use the multi-channel notification system to inform the admin
+            const result = await this.multiChannelPendingUserNotification(user);
+            if (result.success) {
+                console.log('✅ User request sent to admin via multi-channel notification');
             } else {
-                throw new Error('Failed to save pending user to cloud');
+                throw new Error('Failed to send pending user request to admin');
             }
         } catch (error) {
             console.error('❌ Failed to add user to cloud pending list:', error);
-            showMessage('❌ Failed to process request. Please try again.', 'error');
-        }
-    }
-    
-    // Save pending user to a public Google Drive file
-    async savePendingUserToPublicFile(user) {
-        try {
-            // Create a simple API request to save pending user
-            // This uses a public endpoint that doesn't require authentication
-            const pendingData = {
-                email: user.email,
-                name: user.name,
-                picture: user.picture,
-                requestTime: new Date().toISOString(),
-                deviceId: this.deviceId
-            };
-            
-            // For now, use a simple approach: create a unique file for each request
-            const fileName = `pending-user-${Date.now()}-${user.email.replace('@', '-at-')}.json`;
-            
-            // This would need to be implemented with a public API endpoint
-            // For security, we'll fall back to the admin-sync approach
-            console.log('📝 Would save pending user file:', fileName, pendingData);
-            
-            // Temporary: Store in a way that admin can access across devices
-            return await this.notifyAdminOfPendingUser(pendingData);
-        } catch (error) {
-            console.error('Failed to save pending user to public file:', error);
-            return false;
-        }
-    }
-    
-    // Notify admin through a cross-device mechanism
-    async notifyAdminOfPendingUser(userData) {
-        try {
-            // Use a shared notification system that admin can access
-            const notification = {
-                type: 'PENDING_USER_REQUEST',
-                data: userData,
-                timestamp: new Date().toISOString(),
-                id: `pending_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-            };
-            
-            // Store in a way that persists across devices for admin
-            const notifications = JSON.parse(localStorage.getItem('lams_admin_notifications') || '[]');
-            notifications.push(notification);
-            localStorage.setItem('lams_admin_notifications', JSON.stringify(notifications));
-            
-            console.log('📢 Admin notification created:', notification.id);
-            return true;
-        } catch (error) {
-            console.error('Failed to notify admin:', error);
-            return false;
+            showMessage('❌ Failed to process your access request. Please try again later.', 'error');
         }
     }
 
@@ -1069,7 +1016,7 @@ class AuthManager {
     async processAdminNotifications() {
         try {
             if (!this.currentUser?.isAdmin) {
-                return; // Only admin can process notifications
+                return; // Only for admin
             }
             
             const notifications = JSON.parse(localStorage.getItem('lams_admin_notifications') || '[]');
@@ -1083,22 +1030,11 @@ class AuthManager {
                 const cloudPendingUsers = window.dataManager.pendingUsers || [];
                 let newPendingCount = 0;
                 
-                // Process pending user notifications
                 notifications.forEach(notification => {
-                    if (notification.type === 'PENDING_USER_REQUEST') {
-                        const userData = notification.data;
-                        // Convert notification to pending user format
-                        const pendingUser = {
-                            email: userData.email,
-                            name: userData.name,
-                            picture: userData.picture,
-                            loginTime: userData.requestTime,
-                            deviceId: userData.deviceId
-                        };
-                        
-                        // Add to cloud data if not already present
-                        if (!cloudPendingUsers.some(u => u.email === pendingUser.email)) {
-                            cloudPendingUsers.push(pendingUser);
+                    // The notification itself is the user object
+                    if (notification.messageType === 'pending-user-notification') {
+                        if (!cloudPendingUsers.some(u => u.email === notification.email)) {
+                            cloudPendingUsers.push(notification);
                             newPendingCount++;
                         }
                     }
@@ -1107,17 +1043,12 @@ class AuthManager {
                 if (newPendingCount > 0) {
                     window.dataManager.pendingUsers = cloudPendingUsers;
                     
-                    // Save to cloud
                     const success = await window.dataManager.save();
                     if (success) {
-                        // Clear processed notifications
                         localStorage.removeItem('lams_admin_notifications');
                         console.log('✅ Processed', newPendingCount, 'new pending users and synced to cloud');
                         this.updatePendingUsersCountFromCloud(cloudPendingUsers.length);
-                        
-                        if (newPendingCount > 0) {
-                            showMessage(`🔔 ${newPendingCount} new user request${newPendingCount > 1 ? 's' : ''} processed`, 'info');
-                        }
+                        showMessage(`🔔 ${newPendingCount} new user request(s) processed`, 'info');
                     }
                 }
             }
