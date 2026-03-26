@@ -13,6 +13,38 @@ class NotificationManager {
     }
 }
 
+/**
+ * Utility for sanitizing user input and preventing XSS
+ */
+const InputSanitizer = {
+    /**
+     * Escapes HTML special characters in a string
+     * @param {string} str - The string to escape
+     * @returns {string} - The escaped string
+     */
+    escapeHTML: function(str) {
+        if (typeof str !== 'string') return str;
+        return str.replace(/[&<>"']/g, function(m) {
+            return {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            }[m];
+        });
+    },
+
+    /**
+     * Sanitizes a string for use in an HTML attribute
+     * @param {string} str - The string to sanitize
+     * @returns {string} - The sanitized string
+     */
+    sanitizeForAttribute: function(str) {
+        return this.escapeHTML(str);
+    }
+};
+
 class DataManager {
     constructor() {
         // Initialize with basic data structure
@@ -1480,15 +1512,21 @@ function renderDashboard() {
             if (recent.length === 0) {
                 recentList.innerHTML = '<p class="empty-state">No assignments created yet. Add master data first, then create assignments.</p>';
             } else {
-                recentList.innerHTML = recent.map(assignment => `
-                    <div class="assignment-item">
-                        <h4>${window.dataManager.getAssignmentDisplay(assignment)}</h4>
-                        <div class="assignment-details">
-                            <span class="assignment-time">${assignment.day} | ${assignment.timeSlot}</span>
-                            <span class="assignment-badge">${assignment.department}</span>
+                recentList.innerHTML = recent.map(assignment => {
+                    const display = InputSanitizer.escapeHTML(window.dataManager.getAssignmentDisplay(assignment));
+                    const day = InputSanitizer.escapeHTML(assignment.day);
+                    const timeSlot = InputSanitizer.escapeHTML(assignment.timeSlot);
+                    const dept = InputSanitizer.escapeHTML(assignment.department);
+                    return `
+                        <div class="assignment-item">
+                            <h4>${display}</h4>
+                            <div class="assignment-details">
+                                <span class="assignment-time">${day} | ${timeSlot}</span>
+                                <span class="assignment-badge">${dept}</span>
+                            </div>
                         </div>
-                    </div>
-                `).join('');
+                    `;
+                }).join('');
             }
         }
     } catch (error) {
@@ -1526,20 +1564,31 @@ function renderAssignmentsList() {
             const message = query ? 
                 'No assignments match your search.' : 
                 'No assignments created yet. Click "Add Assignment" to create your first lab assignment.';
-            list.innerHTML = `<p class="empty-state">${message}</p>`;
+
+            // SECURITY: Use textContent instead of innerHTML to prevent XSS
+            list.innerHTML = '';
+            const p = document.createElement('p');
+            p.className = 'empty-state';
+            p.textContent = message;
+            list.appendChild(p);
+
             console.log('📋 No assignments to display');
             return;
         }
 
         list.innerHTML = assignments.map((assignment, index) => {
             const originalIndex = window.dataManager.data.assignments.indexOf(assignment);
+            const display = InputSanitizer.escapeHTML(window.dataManager.getAssignmentDisplay(assignment));
+            const day = InputSanitizer.escapeHTML(assignment.day);
+            const timeSlot = InputSanitizer.escapeHTML(assignment.timeSlot);
+
             return `
                 <div class="assignment-item">
                     <div class="flex justify-between items-center">
                         <div>
-                            <h4>${window.dataManager.getAssignmentDisplay(assignment)}</h4>
+                            <h4>${display}</h4>
                             <div class="assignment-details">
-                                ${assignment.day} | ${assignment.timeSlot}
+                                ${day} | ${timeSlot}
                             </div>
                         </div>
                         <button class="delete-btn" onclick="deleteAssignment(${originalIndex})">Delete</button>
@@ -1675,12 +1724,15 @@ function renderMasterDataLists() {
             return;
         }
 
-        container.innerHTML = items.map(item => `
-            <div class="master-data-item">
-                <span>${item}</span>
-                <button class="delete-btn" onclick="deleteMasterDataItem('${config.type}', '${item}')">Delete</button>
-            </div>
-        `).join('');
+        container.innerHTML = items.map(item => {
+            const escapedItem = InputSanitizer.escapeHTML(item);
+            return `
+                <div class="master-data-item">
+                    <span>${escapedItem}</span>
+                    <button class="delete-btn" onclick="deleteMasterDataItem('${config.type}', '${escapedItem}')">Delete</button>
+                </div>
+            `;
+        }).join('');
     });
 
     renderFacultyList('theory');
@@ -1709,12 +1761,15 @@ function renderFacultyList(type) {
             `${displayData.short} - ${displayData.full} (${displayData.dept})` : 
             displayData.short;
         
+        const escapedDisplayText = InputSanitizer.escapeHTML(displayText);
+        const escapedShort = InputSanitizer.escapeHTML(displayData.short);
+
         return `
             <div class="master-data-item faculty-item">
                 <div>
-                    <div class="faculty-display">${displayText}</div>
+                    <div class="faculty-display">${escapedDisplayText}</div>
                 </div>
-                <button class="delete-btn" onclick="deleteFaculty('${type}', '${displayData.short}')">Delete</button>
+                <button class="delete-btn" onclick="deleteFaculty('${type}', '${escapedShort}')">Delete</button>
             </div>
         `;
     }).join('');
