@@ -1577,25 +1577,31 @@ let authManager;
 // Simplified global callback
 function handleCredentialResponse(response) {
     console.log('Global callback:', response);
-    if (window.authManager) {
+    if (typeof window !== 'undefined' && window.authManager) {
         window.authManager.signIn(response.credential);
     }
 }
-window.handleCredentialResponse = handleCredentialResponse;
+if (typeof window !== 'undefined') {
+    window.handleCredentialResponse = handleCredentialResponse;
+}
 
 // Sign out function
 function signOut() {
     console.log('Sign out clicked');
-    if (window.authManager) {
+    if (typeof window !== 'undefined' && window.authManager) {
         window.authManager.signOut();
     } else {
         console.error('AuthManager not available');
-        location.reload();
+        if (typeof location !== 'undefined') {
+            location.reload();
+        }
     }
 }
 
 // Make functions globally available
-window.signOut = signOut;
+if (typeof window !== 'undefined') {
+    window.signOut = signOut;
+}
 
 // 100% Cloud-based User Management Functions
 async function approveUser(email) {
@@ -1707,39 +1713,47 @@ async function removeApprovedUser(email) {
 }
 
 // Initialize when ready
-document.addEventListener('DOMContentLoaded', () => {
-    if (typeof CONFIG === 'undefined') {
-        console.error('CONFIG not loaded');
-        return;
-    }
-    
-    window.authManager = new AuthManager();
-    
-    // Check if user was waiting for approval
-    const pendingEmail = localStorage.getItem('lams_pending_approval');
-    if (pendingEmail) {
-        console.log('🔄 Resuming approval polling for:', pendingEmail);
-        showMessage('⏳ Checking if your access has been approved...', 'info');
-        window.authManager.startApprovalPolling(pendingEmail);
-    }
-    
-    // Check existing session first (async)
-    window.authManager.checkExistingSession();
-    
-    // Wait for Google library
-    const initGoogle = () => {
-        if (window.google?.accounts) {
-            window.authManager.initializeSignInButton();
-        } else {
-            setTimeout(initGoogle, 500);
+if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', () => {
+        if (typeof CONFIG === 'undefined') {
+            console.error('CONFIG not loaded');
+            return;
         }
-    };
-    initGoogle();
-});
+
+        window.authManager = new AuthManager();
+
+        // Check if user was waiting for approval
+        const pendingEmail = localStorage.getItem('lams_pending_approval');
+        if (pendingEmail) {
+            console.log('🔄 Resuming approval polling for:', pendingEmail);
+            showMessage('⏳ Checking if your access has been approved...', 'info');
+            window.authManager.startApprovalPolling(pendingEmail);
+        }
+
+        // Check existing session first (async)
+        window.authManager.checkExistingSession();
+
+        // Wait for Google library
+        const initGoogle = () => {
+            if (window.google?.accounts) {
+                window.authManager.initializeSignInButton();
+            } else {
+                setTimeout(initGoogle, 500);
+            }
+        };
+        initGoogle();
+    });
+}
 
 
 
 // Export only essential functions
-window.approveUser = approveUser;
-window.rejectUser = rejectUser;
-window.removeApprovedUser = removeApprovedUser;
+if (typeof window !== 'undefined') {
+    window.approveUser = approveUser;
+    window.rejectUser = rejectUser;
+    window.removeApprovedUser = removeApprovedUser;
+}
+
+if (typeof module !== 'undefined') {
+    module.exports = AuthManager;
+}
